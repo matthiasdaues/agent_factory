@@ -861,25 +861,28 @@ Feature: CRAP Gate Setup
       Then no function gets pass_fail accepted
       And crap-score does not exit 2 for the missing file
 
-    Scenario: A repository without a branch dev has no exceptions
+    Scenario Outline: A repository without a branch dev has no exceptions
       Given the repository has no branch dev
       And docs/findings/exceptions.md on story/ST-0350 accepts tree_severity with the accepted score 9
-      When crap-score runs with --base feature/login
-      Then tree_severity fails the gate
-      And the output says that crap-score read no exceptions register, because no branch dev exists
-      # DEC-13, DEC-25
+      When crap-score runs with <call>
+      Then <outcome>
+
+      Examples:
+        | call                 | outcome                                                                                                                     |
+        | --base feature/login | crap-score exits 2, names the branch dev, and writes no report                                                              |
+        | --all                | tree_severity fails the gate, and the output says that crap-score read no exceptions register, because no branch dev exists |
+      # DEC-13, DEC-25, DEC-81
 
     Scenario Outline: crap-score reads the exceptions register only from refs/heads/dev
       Given <case>
-      When crap-score runs with --base feature/login
+      When crap-score runs with --all
       Then crap-score reads no exceptions register
       And the output says that crap-score read no exceptions register
 
       Examples:
-        | case                                                                     |
-        | the repository has the ref refs/remotes/origin/dev and no refs/heads/dev |
-        | crap-score runs outside a git repository                                 |
-      # DEC-55
+        | case                                     |
+        | crap-score runs outside a git repository |
+      # DEC-55. With --base, the ref refs/remotes/origin/dev without refs/heads/dev exits 2 (DEC-81), as "Broken gate settings on the integration branch cannot measure" states.
 
     Scenario: Only the first table under the CRAP score section counts
       Given the section "## CRAP score" on dev holds two tables
@@ -994,17 +997,18 @@ Feature: CRAP Gate Setup
     Scenario Outline: Without gate settings on the integration branch the settings come from the folder
       Given <case>
       And docs/testing.yaml in the folder of crap-score has the threshold 8 and the measure backend with the exclude pattern "**/db/alembic/versions/**"
-      When crap-score runs with --base feature/login
+      When crap-score runs with <call>
       Then crap-score judges with the threshold 8 and the exclude pattern "**/db/alembic/versions/**"
       And the output names the threshold and the exclude patterns as read from the folder
       And the output names <reason> as the cause
 
       Examples:
-        | case                                                    | reason                            |
-        | docs/factory-settings.yaml on feature/login names no integration_branch and the repository has no branch dev | the missing branch dev |
-        | dev has no docs/testing.yaml                            | the missing docs/testing.yaml     |
-        | docs/testing.yaml on dev has no entry gates.crap-score  | the missing entry gates.crap-score |
-      # DEC-13, DEC-69, DEC-74, DEC-76: the fallback for a missing branch applies only to the default dev
+        | case                                                                                                      | call                                        | reason                             |
+        | docs/factory-settings.yaml in the folder names no integration_branch and the repository has no branch dev | --all                                       | the missing branch dev             |
+        | the repository has no branch dev                                                                          | --base feature/login --settings-from-folder | the option --settings-from-folder  |
+        | dev has no docs/testing.yaml                                                                              | --base feature/login                        | the missing docs/testing.yaml      |
+        | docs/testing.yaml on dev has no entry gates.crap-score                                                    | --base feature/login                        | the missing entry gates.crap-score |
+      # DEC-13, DEC-69, DEC-74, DEC-76, DEC-81: with --base, the fallback covers a missing file or entry on dev, never a missing branch
 
     Scenario Outline: Broken gate settings on the integration branch cannot measure
       Given <case>
@@ -1024,7 +1028,9 @@ Feature: CRAP Gate Setup
         | docs/factory-settings.yaml on feature/login has integration_branch: story/ST-0350~1 | the key integration_branch and the value story/ST-0350~1 |
         | docs/factory-settings.yaml on feature/login has integration_branch: v1.10.0, which names a tag and no local branch | the key integration_branch and the value v1.10.0 |
         | docs/factory-settings.yaml on feature/login has integration_branch: origin/main, which names a remote ref and no local branch | the key integration_branch and the value origin/main |
-      # DEC-74, DEC-76, DEC-77
+        | docs/factory-settings.yaml on feature/login names no integration_branch and the repository has no branch dev | the branch dev as the default integration branch |
+        | the repository has the ref refs/remotes/origin/dev and no refs/heads/dev | the branch dev as the default integration branch |
+      # DEC-74, DEC-76, DEC-77, DEC-81
 
     Scenario Outline: The key integration_branch names the branch that the gate reads
       Given docs/factory-settings.yaml <place> <setting>
