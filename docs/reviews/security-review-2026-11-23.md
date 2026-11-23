@@ -4,7 +4,7 @@ title: Security review of feature/crap-gate-trusted-source
 date: 2026-11-23
 status: defects
 reviewer: qa-agent
-findings_filed: 2
+findings_filed: 4
 story:
 run: feature/crap-gate-trusted-source
 branch: feature/crap-gate-trusted-source
@@ -16,12 +16,14 @@ branch_head: a3c7b47edf8bed9692a7cf4e61d6221b92b387e4
 
 ## Result
 
-The review files one blocking finding and one register file. Both were reproduced in scratch repositories.
+The review files three blocking findings and one register file. All four were reproduced in scratch repositories.
 
 - [SEC-0009](../findings/SEC-0009.md), `major`, blocking: `git replace` on the `docs/testing.yaml` blob of `dev`, or on its `docs` tree, makes `crap-score` read a forged threshold or a forged register row. `dev` does not move. Running every git call of `crap-score` with `--no-replace-objects` closes the route.
 - [SEC-0010](../findings/register/security/SEC-0010.json), `minor`: the git guard passes `git update-ref` on `dev` and on the feature branch. A deleted `dev` gives the folder fallback of DEC-69, and a feature branch moved to `HEAD` gives an empty diff. In both cases the story passes.
+- [SEC-0011](../findings/SEC-0011.md), `major`, blocking: a story that sets `gates.crap-score.enabled: false`, or removes the entry, merges without a CRAP verdict, because `premerge-check` reads the gate list from the story head. It answers question 1.
+- [SEC-0012](../findings/SEC-0012.md), `major`, blocking: without a local `dev`, `crap-score --base` takes the threshold of the story head. It answers question 2.
 
-Next, the implementation agent adds SEC-0009 as a unit of work with `dispatch add SEC-0009`. The stakeholder answers the two questions below. SEC-0010 does not block the merge into `dev`.
+Next, the implementation agent adds SEC-0009, SEC-0011 and SEC-0012 as units of work with `dispatch add <finding-id>`. SEC-0010 does not block the merge into `dev`.
 
 ## Scope
 
@@ -59,5 +61,7 @@ The review did not file again what the three code-review passes closed: the redi
 
 The questions stay in this report, as the brief of the run says.
 
-1. **Does `enabled` stay at the story head?** Case: `ST-0350` names `docs/testing.yaml` in `touches`, because it adds a measure. It also sets `gates.crap-score.enabled: false`, or removes the entry. `premerge-check` reads the gate list from the story head, so it runs no `crap-score` and prints only the not-set-up notice of DEC-33. The review read this in `premerge-check` and in § `crap-score` Reads of the interface contracts, and did not run it. Option A, `enabled` stays at the head: `ST-0350` merges without a CRAP verdict, and only the code review can see the change. Option B, `premerge-check` reads `enabled` and the presence of the entry from the integration branch: `ST-0350` is judged, and a person switches the gate off on `dev`. The review recommends B, because DEC-67 exists so that a story cannot loosen its own gate, and switching it off loosens it most. The answer changes DEC-75, the contract § `crap-score` Reads, and the gate list of `premerge-check`.
+1. **Does `enabled` stay at the story head?** Case: `ST-0350` names `docs/testing.yaml` in `touches`, because it adds a measure. It also sets `gates.crap-score.enabled: false`, or removes the entry. `premerge-check` reads the gate list from the story head, so it runs no `crap-score` and prints only the not-set-up notice of DEC-33. The review first read this in `premerge-check` and in § `crap-score` Reads of the interface contracts. After the decision, `probe-enabled.py` ran it for SEC-0011. Option A, `enabled` stays at the head: `ST-0350` merges without a CRAP verdict, and only the code review can see the change. Option B, `premerge-check` reads `enabled` and the presence of the entry from the integration branch: `ST-0350` is judged, and a person switches the gate off on `dev`. The review recommends B, because DEC-67 exists so that a story cannot loosen its own gate, and switching it off loosens it most. The answer changes DEC-75, the contract § `crap-score` Reads, and the gate list of `premerge-check`.
 2. **May a call with `--base` fall back to the folder when the default `dev` is missing?** Case: a clone holds `refs/remotes/origin/dev` and no local `dev`, or a story agent ran `git update-ref -d refs/heads/dev`. Today `crap-score --base feature/login` takes the threshold 10 of the story head and exits 0, and the row "only origin/dev" of CG-14-IT-06 asserts that. Option A, keep the fallback: setup and a new repository keep working, and the merge judges a story by its own values. Option B, keep the fallback only for `--all` and `--settings-from-folder`, and exit 2 with `--base`: the merge stops and names the missing `dev`, and the first setup still works, because it runs `--all`. The review recommends B, because the merge path always has a `dev`, since every feature branch is cut from it. The answer changes the first row of the Scenario Outline "Without gate settings on the integration branch the settings come from the folder", DEC-13 and DEC-69.
+
+On 2026-11-23 the stakeholder chose option B for both questions. `premerge-check` reads `enabled` and whether `gates.crap-score` exists from the integration branch, which [SEC-0011](../findings/SEC-0011.md) files. With `--base`, `crap-score` exits 2 when the default `dev` is missing, and the folder fallback stays only for `--all` and `--settings-from-folder`, which [SEC-0012](../findings/SEC-0012.md) files. Both questions are closed.
