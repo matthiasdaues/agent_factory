@@ -9,7 +9,7 @@ story:
 run: feature/crap-gate-trusted-source
 branch: feature/crap-gate-trusted-source
 branch_base: 334f5a2e8e3a812954ca244442a432525606eefa
-branch_head: c0ae79bdcc8fa6ce21bbd02e41450a812f8777ac
+branch_head: b24253262df2322a27b87c2cb83982e352fc3e2f
 ---
 
 # Fagan inspection of feature/crap-gate-trusted-source
@@ -96,3 +96,7 @@ In the cases that the bug hunt ran, the new code holds to DEC-80 to DEC-82. BUG-
 | The options `-c core.useReplaceRefs=false --no-replace-objects` exist twice, in `git_argv` of `crap-score` and in `_hardened_git_text` of `premerge-check`, and no test compares them. The review of SEC-0009 already had to change the first copy once. `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: true`. | `packages/factory/scripts/premerge-check:891-902` | suggestion | structure | minor    | [FAGAN-0035](../findings/register/code/FAGAN-0035.json) |
 
 `premerge-check` reads the fixed `dev`, while DEC-80 says "the integration branch". The code review of SEC-0011 already raised that question, and BR-066 now names `refs/heads/dev`. So the inspection does not file it again.
+
+## Repeat pass at b2425326
+
+The diff `c0ae79bd..b2425326` holds the fix of BUG-0137 in `premerge-check`, its tests, and its confirmed drift rows in DEC-83, the interface contracts and the validation rules. The inspection files no new finding, so its status stays `pass`. The bug hunt found that the fix makes the feature merge crash on a `gates` section that is no mapping. The bug-hunt report owns that finding, [BUG-0138](../findings/BUG-0138.md). FAGAN-0035 stays open in the register.

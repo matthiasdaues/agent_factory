@@ -9,7 +9,7 @@ story:
 run: feature/crap-gate-trusted-source
 branch: feature/crap-gate-trusted-source
 branch_base: 334f5a2e8e3a812954ca244442a432525606eefa
-branch_head: c0ae79bdcc8fa6ce21bbd02e41450a812f8777ac
+branch_head: b24253262df2322a27b87c2cb83982e352fc3e2f
 ---
 
 # Security review of feature/crap-gate-trusted-source
@@ -77,3 +77,7 @@ The repeat pass covers `git diff a3c7b47e..c0ae79bd` and ran the attacks of this
 | [SEC-0012](../findings/SEC-0012.md) | `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/qa/repeat-crap.sh`: `origin/dev` is present, and the story worktree runs `git update-ref -d refs/heads/dev`. Then `crap-score --base feature/login` exits 2 and names the branch `dev`. `--all` keeps the fallback. `premerge-check` reports `crap-score` as a gate that cannot measure (DEC-82).                                                                                                                                                                                                                                                          | `resolved`, set by the unit's review |
 
 The new code of `premerge-check` opens no new route for a story. It reads `dev` through `show-ref --verify`, so a tag or a remote ref named `dev` does not stand in for the branch. Its `git show` runs with the same options as `crap-score`. A story still writes `dev` only through `git update-ref`, which SEC-0010 holds. [BUG-0137](../findings/BUG-0137.md) covers a broken `docs/testing.yaml` on `dev`, which crashes `premerge-check` or silently drops the gate. Only a person can write that file, so BUG-0137 is a runtime finding, not a security one. DEC-80 and DEC-81 close the two questions of this review.
+
+## Repeat pass at b2425326
+
+The diff `c0ae79bd..b2425326` holds the fix of BUG-0137 and its drift rows. The fix changes how `premerge-check` treats a broken `docs/testing.yaml`, and it adds no new reader of a trusted value. A broken file on `dev` now stops the merge with exit 3, and a story can no longer drop the gate through a broken head file, because the head file is refused with exit 1. The review files no new finding, so its status stays `pass`.
