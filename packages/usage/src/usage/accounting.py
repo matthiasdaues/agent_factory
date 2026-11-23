@@ -33,7 +33,9 @@ CONSERVATION_RULES: dict[str, str] = {
 def select_latest_snapshots(conn: duckdb.DuckDBPyConnection) -> None:
     """Create ``latest_run_snapshots`` view on *conn*.
 
-    For each logical run ``(cli, session_id, record_id)``, keep the single
+    A logical run is one chain of a session: ``(cli, session_id, chain)``.
+    A record written before BUG-0139 has no ``chain`` and stands for its own
+    run through ``record_id``. For each logical run, keep the single
     record with the greatest ``_source_file`` (unsigned UTF-8 byte order),
     breaking ties by greatest ``_line_number``.
     """
@@ -41,7 +43,7 @@ def select_latest_snapshots(conn: duckdb.DuckDBPyConnection) -> None:
         CREATE OR REPLACE VIEW latest_run_snapshots AS
         SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER (
-                PARTITION BY cli, session_id, record_id
+                PARTITION BY cli, session_id, COALESCE(chain, record_id)
                 ORDER BY _source_file DESC, _line_number DESC
             ) AS _snapshot_rank
             FROM preflight_valid

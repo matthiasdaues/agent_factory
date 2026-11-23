@@ -74,10 +74,11 @@ class TestUsageStoragePaths:
         assert path.parent == sp.usage_dir
         assert path.suffix == ".jsonl"
 
-    def test_transcript_path_under_transcripts_dir(self, tmp_path):
+    def test_chain_path_under_transcripts_dir(self, tmp_path):
         sp = uc.UsageStoragePaths(tmp_path)
-        path = sp.transcript_path("sess-1", "rec-1")
+        path = sp.chain_path("sess-1", "../escape")
         assert sp.transcripts_dir in path.parents
+        assert path.parent == sp.transcript_directory("sess-1")
 
     def test_ensure_layout_creates_directories(self, tmp_path):
         sp = uc.UsageStoragePaths(tmp_path)

@@ -336,3 +336,81 @@ class TestUnknownCli:
         select_latest_snapshots(conn)
         unknown = check_unknown_clis(conn)
         assert unknown == set()
+
+
+class TestLatestSnapshotPerChain:
+    """BUG-0139: the latest snapshot is chosen per chain of a session."""
+
+    @staticmethod
+    def _line(record_id: str, chain: str | None, total: int) -> str:
+        import json
+
+        record = {
+            "record_id": record_id,
+            "project_id": "proj-test",
+            "project_name": "test",
+            "normalized_input": total,
+            "normalized_output": 0,
+            "normalized_total": total,
+            "cli": "claude-code",
+            "session_id": "sess-1",
+            "parent_session_id": None,
+            "depth": 0,
+            "recorded_at": "2026-11-23T10:00:00Z",
+            "agent": None,
+            "model": "m",
+            "provider": "p",
+            "reported_input": None,
+            "reported_output": None,
+            "reported_cache_read": None,
+            "reported_cache_write": None,
+            "usage_granularity": None,
+            "usage_capability": "unavailable",
+            "cache_miss_turns": None,
+            "cache_miss_input_tokens": None,
+            "late_early_input_ratio": None,
+            "exit_status": None,
+            "branch": "main",
+            "commit_id": "x",
+            "transcript_ref": {"path": "/t.jsonl", "span": None},
+        }
+        if chain is not None:
+            record["chain"] = chain
+        return json.dumps(record)
+
+    def test_cumulative_snapshots_of_one_chain_count_once(self, tmp_path: Path) -> None:
+        lines = [
+            self._line("sess-1-0001", "main", 10),
+            self._line("sess-1-0002", "agent-a", 7),
+            self._line("sess-1-0003", "main", 25),
+            self._line("sess-1-0004", "main", 40),
+        ]
+        f = tmp_path / "2026-11-23T10-00-00_claude-code_sess-1.jsonl"
+        f.write_text("\n".join(lines) + "\n")
+
+        conn = _preflight_conn([f])
+        select_latest_snapshots(conn)
+        rows = conn.execute(
+            "SELECT chain, normalized_total FROM latest_run_snapshots ORDER BY chain"
+        ).fetchall()
+
+        assert rows == [("agent-a", 7), ("main", 40)]
+
+    def test_records_without_chain_keep_one_run_per_record_id(
+        self, tmp_path: Path
+    ) -> None:
+        f = tmp_path / "old.jsonl"
+        f.write_text(
+            self._line("sess-1-0001", None, 10)
+            + "\n"
+            + self._line("sess-1-0002", None, 20)
+            + "\n"
+        )
+
+        conn = _preflight_conn([f])
+        select_latest_snapshots(conn)
+        rows = conn.execute(
+            "SELECT record_id, chain FROM latest_run_snapshots ORDER BY record_id"
+        ).fetchall()
+
+        assert rows == [("sess-1-0001", None), ("sess-1-0002", None)]

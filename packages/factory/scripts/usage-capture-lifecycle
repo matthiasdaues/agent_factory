@@ -117,6 +117,10 @@ def capture_args(args, staged, marker, status_path, generation) -> list[str]:
         str(staged),
         "--session",
         args.session,
+        # The staged copy has a random name, so the chain comes from the
+        # CLI's own transcript file: the main transcript or one subagent's.
+        "--chain",
+        Path(args.transcript).stem,
         "--pending-marker",
         str(marker),
         "--usage-generation",

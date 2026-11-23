@@ -135,3 +135,31 @@ def test_pi_bootstrap_accepts_the_launcher_pi_usage_passes():
     expected = _join_segments(extension, "usage-capture-runtime")
     assert _join_segments(bootstrap, "usage-capture-runtime") == expected
     assert expected[0] == ".agent-factory"
+
+
+def test_lifecycle_names_the_chain_after_the_cli_transcript(tmp_path):
+    """BUG-0139: the staged copy has a random name, so the chain comes from the original."""
+    import argparse
+
+    lifecycle = load_script("usage-capture-lifecycle")
+    args = argparse.Namespace(
+        cli="claude-code",
+        transcript="/home/u/.claude/projects/p/fe14aa7b/subagents/agent-a1b2.jsonl",
+        session="fe14aa7b",
+        parent_session=None,
+        agent="Explore",
+        model=None,
+        exit_status=None,
+        depth=None,
+        branch=None,
+        commit_id=None,
+    )
+
+    argv = lifecycle.capture_args(
+        args, tmp_path / "capture-x.jsonl", tmp_path / "m.pending.json", tmp_path / "s", "g"
+    )
+
+    assert argv[argv.index("--chain") + 1] == "agent-a1b2"
+    capture = load_script("usage-capture")
+    parsed = capture._build_arg_parser().parse_args(argv)
+    assert parsed.chain == "agent-a1b2"
