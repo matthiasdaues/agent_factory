@@ -75,12 +75,16 @@ def _env(tmp_path: Path) -> dict[str, str]:
 
 
 def _build_repo(
-    tmp_path: Path, testing_yaml: str, field: str = "", dev_testing: str | None = None
+    tmp_path: Path,
+    testing_yaml: str | bytes,
+    field: str = "",
+    dev_testing: str | None = None,
 ) -> tuple[Path, dict[str, str], Path]:
     """A story branch whose docs/testing.yaml is *testing_yaml*, with recording stubs.
 
     *field* is the story's front-matter line `quality-gates`, or empty.
     *dev_testing* is the docs/testing.yaml that dev holds, or None for no file.
+    *testing_yaml* is bytes when the file must hold bytes that are not text.
     """
     env = _env(tmp_path)
     repo = tmp_path / "repo"
@@ -106,7 +110,11 @@ def _build_repo(
         f"---\nid: {STORY_ID}\ntitle: Log in\n{field}---\n\n# Log in\n"
     )
     (repo / "docs").mkdir(exist_ok=True)
-    (repo / "docs" / "testing.yaml").write_text(testing_yaml)
+    story_testing = repo / "docs" / "testing.yaml"
+    if isinstance(testing_yaml, bytes):
+        story_testing.write_bytes(testing_yaml)
+    else:
+        story_testing.write_text(testing_yaml)
     write_review_report(repo, STORY_ID)
     _git(repo, env, "add", "-A")
     _git(repo, env, "commit", "-q", "-m", "story")
@@ -786,6 +794,9 @@ HEAD_BROKEN = [
     pytest.param("- crap-score\n", id="list"),
     pytest.param("gates:\n  - crap-score\n", id="gates-list"),
     pytest.param("gates: true\n", id="gates-scalar"),
+    pytest.param(b'gates:\n  crap-score: "\xff"\n', id="not-utf8"),
+    pytest.param("gates:\n  crap-score: 5\n", id="crap-score-not-a-mapping"),
+    pytest.param('gates:\n  crap_score: "on"\n', id="crap_score-not-a-mapping"),
 ]
 
 
@@ -802,9 +813,12 @@ def test_bug_0137_broken_dev_settings_cannot_measure_without_traceback(tmp_path,
     assert "crap-score" not in _called(log)
 
 
+@pytest.mark.parametrize("dev_testing", [None, CRAP_ONLY], ids=["no-dev", "dev"])
 @pytest.mark.parametrize("head_testing", HEAD_BROKEN)
-def test_bug_0137_broken_story_settings_refuse_and_name_the_file(tmp_path, head_testing):
-    repo, env, log = _build_repo(tmp_path, head_testing)
+def test_bug_0137_broken_story_settings_refuse_and_name_the_file(
+    tmp_path, head_testing, dev_testing
+):
+    repo, env, log = _build_repo(tmp_path, head_testing, dev_testing=dev_testing)
     proc = _run(repo, env)
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "Traceback" not in proc.stdout + proc.stderr

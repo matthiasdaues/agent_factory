@@ -836,13 +836,25 @@ def _crap_score_is_broken(data: dict) -> bool:
     return bool(present) and not isinstance(gates[present[0]], dict)
 
 
+def _read_testing_text(path: Path) -> str:
+    """Return the text of a docs/testing.yaml file as UTF-8 (BUG-0137).
+
+    Raise BrokenTestingYaml when the file is not UTF-8. An OSError from the read
+    still propagates, so the caller decides what a missing file means.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise BrokenTestingYaml("is not valid UTF-8") from exc
+
+
 def _read_testing_yaml(top: Path) -> dict:
     """Return docs/testing.yaml as a mapping, or an empty mapping without one."""
     path = top / TESTING_YAML
     if not path.is_file():
         return {}
     try:
-        text = path.read_text()
+        text = _read_testing_text(path)
     except OSError:
         return {}
     return _parse_testing_yaml(text)
@@ -961,19 +973,24 @@ def story_testing_yaml_refusal(top: Path, story_id: str) -> str | None:
     from the broken file.
     """
     path = top / TESTING_YAML
-    try:
-        text = path.read_text() if path.is_file() else None
-    except OSError:
+    if not path.is_file():
         return None
-    if text is None:
-        return None
-    try:
-        _parse_testing_yaml(text)
-    except BrokenTestingYaml as exc:
+
+    def refusal(problem: str) -> str:
         return (
-            f"BLOCK testing-yaml: {TESTING_YAML} of {story_id} {exc}; the story must repair "
+            f"BLOCK testing-yaml: {TESTING_YAML} of {story_id} {problem}; the story must repair "
             "its own file, and the semantic gates did not run"
         )
+
+    try:
+        data = _parse_testing_yaml(_read_testing_text(path))
+    except OSError:
+        return None
+    except BrokenTestingYaml as exc:
+        return refusal(str(exc))
+    if _crap_score_is_broken(data):
+        key = "crap-score" if "crap-score" in data["gates"] else "crap_score"
+        return refusal(f"has a gates.{key} that is no mapping")
     return None
 
 
