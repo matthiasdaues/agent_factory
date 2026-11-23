@@ -766,3 +766,46 @@ def test_sec_0011_no_dev_without_a_head_entry_runs_no_crap_score(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "crap-score" not in _called(log)
     assert CANNOT_MEASURE not in proc.stdout
+
+
+# BUG-0137: a docs/testing.yaml that is not valid YAML, empty, a list, or has a
+# gates.crap-score that is no mapping. On dev it cannot measure (BR-136, DEC-83);
+# at the story head it refuses with exit 1 and names the file (DEC-83).
+CRAP_SCALAR = 'test_command: "true"\ngates:\n  crap-score: true\n'
+DEV_BROKEN = [
+    pytest.param("gates: [unclosed\n", id="unparseable"),
+    pytest.param("", id="empty"),
+    pytest.param("- crap-score\n", id="list"),
+    pytest.param(CRAP_SCALAR, id="crap-score-not-a-mapping"),
+]
+HEAD_BROKEN = [
+    pytest.param("gates: [unclosed\n", id="unparseable"),
+    pytest.param("", id="empty"),
+    pytest.param("- crap-score\n", id="list"),
+]
+
+
+@pytest.mark.parametrize("dev_testing", DEV_BROKEN)
+def test_bug_0137_broken_dev_settings_cannot_measure_without_traceback(tmp_path, dev_testing):
+    repo, env, log = _build_repo(tmp_path, CRAP_ONLY, dev_testing=dev_testing)
+    proc = _run(repo, env)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert "Traceback" not in proc.stdout + proc.stderr
+    assert CANNOT_MEASURE in proc.stdout
+    message = proc.stdout.split(CANNOT_MEASURE, 1)[1].splitlines()[1]
+    assert "docs/testing.yaml" in message
+    assert "dev" in message
+    assert "crap-score" not in _called(log)
+
+
+@pytest.mark.parametrize("head_testing", HEAD_BROKEN)
+def test_bug_0137_broken_story_settings_refuse_and_name_the_file(tmp_path, head_testing):
+    repo, env, log = _build_repo(tmp_path, head_testing)
+    proc = _run(repo, env)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "Traceback" not in proc.stdout + proc.stderr
+    assert any(
+        line.startswith("BLOCK") and "docs/testing.yaml" in line
+        for line in proc.stdout.splitlines()
+    ), proc.stdout
+    assert _called(log) == []
