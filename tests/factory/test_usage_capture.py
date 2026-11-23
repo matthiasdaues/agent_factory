@@ -206,3 +206,54 @@ class TestTruncatedMultibyteCharacter:
         )
         result = uc.ClaudeCodeNormalizer().parse(transcript)
         assert result.input_text == "ok"
+
+
+# ---------------------------------------------------------------------------
+# A foreign transcript writes no Claude Code record (BUG-0143)
+# ---------------------------------------------------------------------------
+
+
+class TestForeignTranscript:
+    _COPILOT_LINES = [
+        {"type": "session.start", "data": {"sessionId": "s1"}},
+        {"type": "user.message", "data": {"content": "hi"}},
+        {"type": "assistant.message", "data": {"content": "hello"}},
+    ]
+    _CLAUDE_LINES = [
+        {"type": "user", "message": {"role": "user", "content": "hi"}},
+        {"type": "assistant", "message": {"role": "assistant", "content": "hello"}},
+    ]
+
+    def _run(self, tmp_path, monkeypatch, lines):
+        import json
+
+        identity = tmp_path / ".agent-factory" / "config" / "project.json"
+        identity.parent.mkdir(parents=True)
+        identity.write_text(
+            json.dumps(
+                {"project_id": "687cf46a-25f6-4e98-9c62-278612aafd9f", "project_name": "t"}
+            )
+        )
+        transcript = _write_jsonl(tmp_path / "t.jsonl", lines)
+        monkeypatch.setattr(uc, "count_tokens", lambda text: len(text))
+        args = uc._build_arg_parser().parse_args(
+            ["--cli", "claude-code", "--transcript", str(transcript), "--session", "s1"]
+        )
+        ok = uc._capture(args, tmp_path)
+        return ok, list((tmp_path / ".agent-factory" / "usage").glob("*.jsonl"))
+
+    def test_BUG_0143_copilot_transcript_writes_no_claude_code_record(
+        self, tmp_path, monkeypatch
+    ):
+        ok, record_files = self._run(tmp_path, monkeypatch, self._COPILOT_LINES)
+
+        assert ok is False
+        assert record_files == []
+
+    def test_BUG_0143_claude_code_transcript_still_writes_a_record(
+        self, tmp_path, monkeypatch
+    ):
+        ok, record_files = self._run(tmp_path, monkeypatch, self._CLAUDE_LINES)
+
+        assert ok is True
+        assert len(record_files) == 1

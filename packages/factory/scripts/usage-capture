@@ -1027,6 +1027,9 @@ class NormalizedTranscript:
     usage_granularity: Optional[str] = None
     model: Optional[str] = None
     eligible_turns: list[ProviderUsageTurn] = field(default_factory=list)
+    # False when the file holds no line of the normalizer's own CLI, such as
+    # a Copilot transcript handed to the Claude Code hook (BUG-0143).
+    recognized: bool = True
 
     @property
     def text(self) -> str:
@@ -1137,6 +1140,7 @@ class ClaudeCodeNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
         messages: dict[tuple[str, object], tuple[bool, object]] = {}
+        recognized = False
 
         raw = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
         for line_number, line in enumerate(raw.splitlines()):
@@ -1152,6 +1156,8 @@ class ClaudeCodeNormalizer:
                 continue
 
             message = obj.get("message")
+            if obj.get("type") in ("user", "assistant") and isinstance(message, dict):
+                recognized = True
             if not isinstance(message, dict):
                 message = obj  # tolerate a top-level shape (e.g. system lines)
             role = message.get("role") or obj.get("type")
@@ -1213,6 +1219,7 @@ class ClaudeCodeNormalizer:
             ordered_segments=ordered,
             model=model,
             eligible_turns=eligible_turns,
+            recognized=recognized,
         )
         if saw_usage:
             result.reported_input = reported["reported_input"]
@@ -1854,6 +1861,14 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
     """
     normalizer = get_normalizer(args.cli)  # raises ValueError for unknown cli
     transcript = normalizer.parse(args.transcript)
+    if not transcript.recognized:
+        # Another CLI ran this CLI's hook, e.g. Copilot running the Claude
+        # Code Stop hook. Its own hook captures the session (BUG-0143).
+        print(
+            f"usage-capture: the transcript is no {args.cli} transcript; skipping capture",
+            file=sys.stderr,
+        )
+        return False
     signals = derive_session_usage_signals(
         transcript.eligible_turns,
         cli=args.cli,
