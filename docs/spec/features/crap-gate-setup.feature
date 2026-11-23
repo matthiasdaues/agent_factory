@@ -333,6 +333,28 @@ Feature: CRAP Gate Setup
       And each row has the fields file, function, start_line, end_line, complexity, and coverage_pct
       And file is a path relative to the repository root
 
+    Scenario: With --base, crap-score hands the changed paths to the measuring command
+      Given story/ST-0350 changes packages/factory/scripts/finding-lint and packages/factory/scripts/dispatch
+      When crap-score runs the measure python with --base feature/login
+      Then GATE_SCOPE is changed
+      And GATE_CHANGED_FILES holds the lines packages/factory/scripts/finding-lint and packages/factory/scripts/dispatch
+      And each line is a path relative to the repository root
+      # DEC-84
+
+    Scenario: With --all, crap-score hands an empty list to the measuring command
+      When crap-score runs the measure python with --all
+      Then GATE_SCOPE is all
+      And GATE_CHANGED_FILES is empty
+      # DEC-84
+
+    Scenario: With changed, a file that the diff leaves alone and no test reaches does not stop the measure
+      Given story/ST-0350 changes packages/factory/scripts/finding-lint
+      And coverage cannot reach packages/server/backend/src/plugins/load.py, which the diff does not change
+      When crap-score runs the measure backend with --base feature/login
+      Then scripts/crap-measure-backend exits zero
+      And the rows hold no row of packages/server/backend/src/plugins/load.py
+      # DEC-84. The duty of BR-130 covers only the changed files that the measure keeps.
+
     Scenario: The measuring command reports the qualified name of a method
       Given packages/server/backend/src/orders/parser.py holds the class Parser with the method parse
       When crap-score runs the measure backend
@@ -386,9 +408,9 @@ Feature: CRAP Gate Setup
       And no row reports a function as 0 % covered because of that case
 
       Examples:
-        | case                                                              | cause                         |
-        | the test database is at a revision that the code does not know    | the revision of the database  |
-        | coverage cannot reach packages/server/backend/src/plugins/load.py | the file that coverage misses |
+        | case                                                                                            | cause                         |
+        | the test database is at a revision that the code does not know                                  | the revision of the database  |
+        | coverage cannot reach packages/server/backend/src/plugins/load.py, and the run judges that file | the file that coverage misses |
 
     Scenario: A measuring command reports a file it cannot parse as a row with parse_error
       Given story/ST-0350 leaves packages/factory/scripts/finding-lint with a syntax error
@@ -405,6 +427,21 @@ Feature: CRAP Gate Setup
       When setup-crap-score writes the measuring command for Python
       Then the command holds the radon and coverage.py code of the template
       And the header of the command names the duty to exit non-zero for a case it cannot measure
+
+    Scenario: With changed, the Python measuring command runs the tests that the changed paths select
+      Given GATE_SCOPE is changed and GATE_CHANGED_FILES holds two paths
+      And this repository fills SELECT_COMMAND of scripts/crap-measure-python with tests/select_tests.py --run
+      When crap-score runs the measure python with --base feature/login
+      Then the command runs tests/select_tests.py --run with the two changed paths appended
+      And it traces only the changed files that the measure keeps
+      # DEC-85
+
+    Scenario: A run of the Python measuring command leaves no pytest temp folders behind
+      When crap-score runs the measure python
+      Then the command runs pytest with --basetemp inside its own temporary work folder
+      And pytest runs with its cache provider turned off
+      And no pytest temp folder remains after the run
+      # DEC-85
 
     Scenario: The project's commands refer to nothing under .agent-factory/
       When setup-crap-score completes
@@ -495,6 +532,15 @@ Feature: CRAP Gate Setup
       Given tree_severity scores 9 and no commit of story/ST-0350 changes it
       When crap-score runs with --all
       Then tree_severity fails the gate
+
+    Scenario: A measuring command that runs fewer tests can make a story fail but never pass
+      Given GATE_SCOPE is changed
+      And the measuring command of python runs only the tests that the changed paths affect
+      And one test that covers tree_severity lies outside that set
+      And story/ST-0350 changes tree_severity, which scores 4 with all tests and 9 with the fewer tests
+      When crap-score runs with --base feature/login
+      Then tree_severity fails the gate
+      # DEC-84. Fewer tests only lower the coverage, so the gate fails a story wrongly at worst and never passes it wrongly.
 
     Scenario Outline: --base takes any git revision
       Given story/ST-0350 changes one line inside tree_severity, which scores 9
@@ -1506,6 +1552,31 @@ Feature: CRAP Gate Setup
       Then every function of the 21 scripts that start with uv run shows measured coverage
       And no exclude pattern matches one of those scripts
       # DEC-04
+
+    Scenario Outline: The measure python excludes a script that no test runs, by name with a reason
+      Given packages/factory/scripts/<script> starts with #!/usr/bin/env python3 and no test runs it
+      When the Factory maintainer reads the exclusions of the measure python in docs/testing.yaml
+      Then the measure python excludes packages/factory/scripts/<script> by its name
+      And the exclusion has the reason that no test reaches the script yet
+      And the script does not start with uv run
+
+      Examples:
+        | generate-codex-agents |
+        | generate-copilot-agents |
+        | openrouter-discover |
+        | policy-validate |
+        | resolve-model |
+        | session-reconcile |
+        | usage-capture-lifecycle |
+        | usage-query |
+      # DEC-86, DEC-04
+
+    Scenario: The scripts that tests run and that start with python3 switch to uv run
+      Given trigger and validate start with #!/usr/bin/env python3 and tests run them
+      When the Factory maintainer reads the first line of trigger and validate
+      Then each starts with the uv run --script form
+      And the measure python excludes neither
+      # DEC-86
 
     Scenario: The time limit covers the measured run time
       When the Factory maintainer reads the entry gates.crap-score in docs/testing.yaml of this repository

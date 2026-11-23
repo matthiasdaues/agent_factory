@@ -650,7 +650,7 @@ agents:
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
     tokens: 1501
-    total_tokens: 17976
+    total_tokens: 18309
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -855,7 +855,7 @@ skills:
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
     path: skills/crap-score/SKILL.md
-    tokens: 2638
+    tokens: 2797
   - name: dependency-check
     category: implementation
     description: Enforce dependency-rules.dsl dependency rules by scanning source imports and writing a JSON gate report.
@@ -915,7 +915,7 @@ skills:
     category: quality
     description: Set up the CRAP gate in a project once — try tools on real files, propose measures, exclusions, a threshold and a time limit, check them with gate-setup-proof, and enable the gate only after the User confirms each value.
     path: skills/setup-crap-score/SKILL.md
-    tokens: 3013
+    tokens: 3187
   - name: comic-relief
     category: utility
     description: Context-aware one-liner or two-sentence aside when levity is warranted. Target is process, tooling, or situation — never the user.
