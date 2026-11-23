@@ -2,14 +2,14 @@
 type: code-review
 title: Code review of BUG-0137, a broken docs/testing.yaml stops the merge without a traceback
 date: 2026-11-23
-status: defects
+status: pass
 reviewer: code-review-agent
 findings_filed: 0
 story: BUG-0137
 run:
 branch: story/BUG-0137
 branch_base: 99064e9a87bbf9223fe548831d7f383bc07dc462
-branch_head: 6af49ba1b15159e25a5ecaf5f6d07cfc9848d1b5
+branch_head: 18851e11c710298aa801e405585d615262d2e8bf
 ---
 
 # Code review of BUG-0137, a broken docs/testing.yaml stops the merge without a traceback
@@ -119,3 +119,54 @@ uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.
 ```
 
 The first command passed 303 tests on `6af49ba1`. The second prints the rows of [The probe](#the-probe). `utf_check.py` next to the probe calls `gate_entries` and `story_testing_yaml_refusal` on a folder whose file is not valid UTF-8. It also takes `premerge-check-old`, the copy at `99064e9a`.
+
+## Repeat pass, 2026-11-23
+
+The repeat pass finds no open blocking finding, so BUG-0137 now passes the code review. The status of [BUG-0137](../findings/BUG-0137.md) is now `resolved`, and the review files no new finding. The frontmatter now names `18851e11` as `branch_head` and `pass` as `status`.
+
+Next, the developer agent commits this report and the changed status of BUG-0137 on `story/BUG-0137`. Then the implementation agent runs the gate-check step.
+
+### Scope of the repeat pass
+
+The pass covers only `6af49ba1..18851e11`:
+
+- `8839ab0c`: the first pass of this report and the annotation of BUG-0137.
+- `18851e11`: the fix.
+  - The new function `_read_testing_text` reads the file as UTF-8 and turns a `UnicodeDecodeError` into `BrokenTestingYaml` with "is not valid UTF-8". An `OSError` still goes to the caller. `_read_testing_yaml` and `story_testing_yaml_refusal` both read through it.
+  - `story_testing_yaml_refusal` now also refuses a head whose `gates.crap-score`, or the old key `gates.crap_score`, is no mapping, and the refusal names the key.
+  - `HEAD_BROKEN` gains three shapes: bytes that are not UTF-8, `crap-score: 5`, and `crap_score: "on"`. The test of the head now runs each shape with and without `dev`.
+  - The drift rows name the two new refusals.
+
+### The probe again
+
+The review ran `probe.py` again on `18851e11`. The two gaps of the first pass are closed:
+
+| Case                                      | First pass           | Repeat pass                                                                 |
+| ----------------------------------------- | -------------------- | --------------------------------------------------------------------------- |
+| Head not valid UTF-8                      | traceback, exit `1`  | exit `1`, `BLOCK testing-yaml: … is not valid UTF-8`, no traceback          |
+| Head `gates.crap-score: 5`, no `dev`      | exit `0`, no gate    | exit `1`, `BLOCK testing-yaml: … has a gates.crap-score that is no mapping` |
+| Head `gates.crap_score: "on"`, no `dev`   | exit `0`, no gate    | exit `1`, the refusal names `gates.crap_score`                              |
+| Head `gates.crap-score: 5`, `dev` enabled | exit `1`, "no entry" | exit `1`, the refusal names the broken entry                                |
+
+Every other row of the probe gives the result of the first pass. That covers the YAML cases at the head, the broken files of `dev` with exit `3`, the feature merge, and the case where both files are broken. No row ends in a traceback.
+
+The review also called `story_testing_yaml_refusal` directly on four more heads, with `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/bug0137/edge.py`:
+
+| Head                                                      | Result                                                                                                |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `crap-score:` with no value                               | Refused as "no mapping". DEC-83 lets `gates:` with no value count as no gates, but not `crap-score:`. |
+| `crap-score` a mapping, the old key `crap_score` a string | Not refused, because the key with hyphens wins (BR-055).                                              |
+| `crap-score` a string, the old key `crap_score` a mapping | Refused, for the same reason.                                                                         |
+| A file that starts with a byte order mark                 | Not refused, and the file reads as valid.                                                             |
+
+The seven related test files passed 314 tests on `18851e11`, eleven more than in the first pass. Those are the new `HEAD_BROKEN` rows, each run with and without `dev`.
+
+### Out of scope
+
+By the orchestrator's decision, two setup faults on `dev` are collected in T-0430 and not in BUG-0137: bytes that are not UTF-8 inside a value of the file of `dev`, and a non-boolean `enabled` on `dev`. A story cannot cause either fault. The probe row "dev invalid UTF-8" still gives exit `0`, as in the first pass, for that reason. The note of the first pass on a non-boolean `enabled` belongs to T-0430 too.
+
+### Findings of the repeat pass
+
+| ID                                  | Severity | Status     | Blocks |
+| ----------------------------------- | -------- | ---------- | ------ |
+| [BUG-0137](../findings/BUG-0137.md) | major    | `resolved` | no     |
