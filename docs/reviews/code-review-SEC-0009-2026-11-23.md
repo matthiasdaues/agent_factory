@@ -2,14 +2,14 @@
 type: code-review
 title: Code review of SEC-0009, crap-score ignores replace refs
 date: 2026-11-23
-status: defects
+status: pass
 reviewer: code-review-agent
 findings_filed: 0
 story: SEC-0009
 run:
 branch: story/SEC-0009
 branch_base: 4e3917dfe4b86d51ac2cecbc8fd5c5fe98272f55
-branch_head: eee1ed2061cdde575f214bd66b33e6cc41ce83d0
+branch_head: a023c2c66977d0124ddab3d406eb94b89c51c0d9
 ---
 
 # Code review of SEC-0009, crap-score ignores replace refs
@@ -110,3 +110,53 @@ uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.
 ```
 
 The run passed 271 tests on `eee1ed20`. The probe is the script named in [The probes](#the-probes). The copy of `crap-score` at `4e3917df` and the patched copy lie next to it, as `crap-score-old` and `crap-score-patched`.
+
+## Repeat pass, 2026-11-23
+
+The repeat pass finds no open blocking finding, so SEC-0009 now passes the code review. The status of [SEC-0009](../findings/SEC-0009.md) is now `resolved`, and the review files no new finding. The frontmatter now names `a023c2c6` as `branch_head` and `pass` as `status`.
+
+Next, the developer agent commits this report and the changed status of SEC-0009 on `story/SEC-0009`. Then the implementation agent runs the gate-check step.
+
+### Scope of the repeat pass
+
+The pass covers only `eee1ed20..a023c2c6`:
+
+- `c226795a`: the first pass of this report and the annotation of SEC-0009.
+- `a023c2c6`: the fix.
+  - `git_argv` now returns `["git", "-c", "core.useReplaceRefs=false", "--no-replace-objects", *args]`, and its docstring names the reason.
+  - The new test `test_cg_14_a_repository_setting_use_replace_refs_does_not_raise_the_threshold` sets `core.useReplaceRefs true` before it writes the replace ref, and it asserts exit `1` with the threshold 8.
+  - The drift row of `docs/spec/work/spec-feedback-SEC-0009.md` now names the config setting, as the note of the first pass asked.
+
+### The probes again
+
+The probe `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/sec0009/probe.sh` now has five more cases. Each case turns replace refs back on from one more config scope that git reads. The column "Option only" uses `crap-score` at `eee1ed20`, which runs git with `--no-replace-objects` alone. The column "Fix" uses `crap-score` at `a023c2c6`. The true verdict is `FAIL` and exit `1`.
+
+| Case          | Where `core.useReplaceRefs=true` or the forgery comes from                                                      | Option only      | Fix                        |
+| ------------- | --------------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------- |
+| `blob`        | no config; a replace ref on the `docs/testing.yaml` blob of `dev`                                               | `FAIL`, exit `1` | `FAIL`, exit `1`           |
+| `tree`        | no config; a replace ref on the `docs` tree of `dev`, run in a detached linked worktree                         | `FAIL`, exit `1` | `FAIL`, exit `1`           |
+| `blob-config` | the repository config `.git/config`                                                                             | `PASS`, exit `0` | `FAIL`, exit `1`           |
+| `wt-config`   | `extensions.worktreeConfig true` and `git config --worktree` in a detached linked worktree, where the gate runs | `PASS`, exit `0` | `FAIL`, exit `1`           |
+| `include`     | `include.path` in `.git/config`, pointing to a file in the git directory that sets the key                      | `PASS`, exit `0` | `FAIL`, exit `1`           |
+| `global`      | `GIT_CONFIG_GLOBAL` pointing to a file that sets the key                                                        | `PASS`, exit `0` | `FAIL`, exit `1`           |
+| `env-count`   | `GIT_CONFIG_COUNT=1` with `GIT_CONFIG_KEY_0` and `GIT_CONFIG_VALUE_0` in the environment                        | `PASS`, exit `0` | `FAIL`, exit `1`           |
+| `env-params`  | `GIT_CONFIG_PARAMETERS` in the environment                                                                      | `PASS`, exit `0` | `FAIL`, exit `1`           |
+| `blob-base`   | `GIT_REPLACE_REF_BASE` pointing to another ref folder                                                           | not run          | `FAIL`, exit `1`           |
+| `alt-env`     | an empty `GIT_NO_REPLACE_OBJECTS`                                                                               | not run          | `FAIL`, exit `1`           |
+| `graft`       | a `.git/info/grafts` file                                                                                       | not run          | exit `2`, merge base fails |
+
+Every scope that reopened the route under the option alone is closed by the `-c` setting. That covers the repository config, the worktree config, an include, the global config, and the two environment forms. So the command-line setting wins over every scope that the review tried. A story agent can write the first three scopes from the shared git directory. The global config and the environment of `premerge-check` come from the person who runs `dispatch`, not from the story. The review ran only git 2.34.1 and did not check other versions.
+
+### Other checks of the new diff
+
+- Every git call still goes through `git_argv`. The commit adds no new process start.
+- The message of the helper `git` still prints the arguments without the prefix, so a failure such as "git merge-base … failed" reads as before.
+- The new test runs in the `repo` fixture, under `tmp_path`, so its `git config` reaches no other repository.
+
+### Findings of the repeat pass
+
+| ID                                  | Severity | Status     | Blocks |
+| ----------------------------------- | -------- | ---------- | ------ |
+| [SEC-0009](../findings/SEC-0009.md) | major    | `resolved` | no     |
+
+The verification command of [Verification](#verification) passed 272 tests on `a023c2c6`. That is one more than in the first pass, which is the new test. The copy of `crap-score` at `eee1ed20` lies next to the probe as `crap-score-option-only`.
