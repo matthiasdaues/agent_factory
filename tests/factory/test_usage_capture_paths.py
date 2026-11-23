@@ -85,6 +85,40 @@ def test_capture_hook_calls_installed_runtime(tmp_path, hook, payload, env_proje
     assert "--lifecycle register" in log.read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize("copilot_home", [None, "custom-copilot"])
+def test_claude_hook_stands_down_for_a_copilot_transcript(tmp_path, copilot_home):
+    """BUG-0143: Copilot CLI also runs the hooks of .claude/settings.json."""
+    if shutil.which("jq") is None:
+        pytest.skip("jq is required by the capture hooks")
+    project, log = _installed_project(tmp_path)
+    home = tmp_path / "home"
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "COPILOT_"))}
+    env["HOME"] = str(home)
+    env["CLAUDE_PROJECT_DIR"] = str(project)
+    state = home / ".copilot"
+    if copilot_home:
+        state = tmp_path / copilot_home
+        env["COPILOT_HOME"] = str(state)
+    payload = {
+        "hook_event_name": "Stop",
+        "session_id": "s1",
+        "transcript_path": str(state / "session-state" / "s1" / "events.jsonl"),
+    }
+
+    result = subprocess.run(
+        ["bash", str(HOOKS_DIR / "capture-usage.sh")],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=project,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert not log.exists(), "the Claude Code hook captured a Copilot transcript"
+
+
 def test_runtime_launcher_finds_installed_runtime(tmp_path):
     """BUG-0034: the launcher resolves the project root three levels up."""
     project = tmp_path / "project"
@@ -163,3 +197,19 @@ def test_lifecycle_names_the_chain_after_the_cli_transcript(tmp_path):
     capture = load_script("usage-capture")
     parsed = capture._build_arg_parser().parse_args(argv)
     assert parsed.chain == "agent-a1b2"
+
+
+@pytest.mark.parametrize(
+    ("transcript", "expected"),
+    [
+        ("/h/.claude/projects/p/fe14aa7b.jsonl", "fe14aa7b"),
+        ("/h/.claude/projects/p/fe14aa7b/subagents/agent-a1b2.jsonl", "agent-a1b2"),
+        ("/h/.copilot/session-state/fe14aa7b/events.jsonl", "fe14aa7b"),
+        ("/h/.codex/sessions/2026/11/23/rollout-2026-11-23T10-00-00-fe14aa7b.jsonl", "fe14aa7b"),
+    ],
+)
+def test_main_transcript_chain_is_named_after_the_session(transcript, expected):
+    """The migration names a main chain after the session; captures must match."""
+    lifecycle = load_script("usage-capture-lifecycle")
+
+    assert lifecycle.chain_name(Path(transcript), "fe14aa7b") == expected

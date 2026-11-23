@@ -109,6 +109,19 @@ def snapshot(source: Path, destination: Path) -> None:
         os.close(source_fd)
 
 
+def chain_name(transcript: Path, session: str) -> str:
+    """Name the chain of a transcript within its session.
+
+    The main transcript is named after the session: Claude Code writes
+    ``<session>.jsonl``, Copilot ``<session>/events.jsonl``, and Codex
+    ``rollout-<time>-<session>.jsonl``. Any other transcript, such as a
+    Claude Code subagent's ``agent-<id>.jsonl``, keeps its file stem.
+    """
+    if session and (session in transcript.stem or session == transcript.parent.name):
+        return session
+    return transcript.stem
+
+
 def capture_args(args, staged, marker, status_path, generation) -> list[str]:
     result = [
         "--cli",
@@ -120,7 +133,7 @@ def capture_args(args, staged, marker, status_path, generation) -> list[str]:
         # The staged copy has a random name, so the chain comes from the
         # CLI's own transcript file: the main transcript or one subagent's.
         "--chain",
-        Path(args.transcript).stem,
+        chain_name(Path(args.transcript), args.session),
         "--pending-marker",
         str(marker),
         "--usage-generation",

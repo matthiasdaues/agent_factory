@@ -33,6 +33,14 @@ if [ -z "$TRANSCRIPT_PATH" ] || [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
+# GitHub Copilot CLI also runs the hooks of .claude/settings.json and sends
+# the same payload fields. Its transcript lives in its own home folder, and
+# its own hook under .github/hooks/ captures the session (BUG-0143).
+COPILOT_STATE="${COPILOT_HOME:-$HOME/.copilot}"
+case "$TRANSCRIPT_PATH" in
+  "$COPILOT_STATE"/*) exit 0 ;;
+esac
+
 # Resolve the usage-capture script location.
 # Prefer $CLAUDE_PROJECT_DIR (set by Claude Code); fallback to derive from
 # the script's own location via git toplevel.
