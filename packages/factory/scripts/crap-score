@@ -64,9 +64,10 @@ Trusted gate source
   A measure that the branch does not name takes its patterns from the
   folder, and the output names it as not yet trusted (DEC-69). A measure
   that the branch names and the folder lacks exits 2 (DEC-70). Without the
-  ref of the default dev, without docs/testing.yaml on the branch, or
-  without gates.crap-score there, the values come from the folder, and the
-  output names the cause (DEC-13, DEC-69). --settings-from-folder takes the
+  ref of the default dev, with --base, exits 2 and names the branch dev
+  (DEC-81). With --all, without that ref, or without docs/testing.yaml on
+  the branch, or without gates.crap-score there, the values come from the
+  folder, and the output names the cause (DEC-13, DEC-69, DEC-81). --settings-from-folder takes the
   threshold and the patterns from the folder and reads no docs/testing.yaml
   from the branch; only gate-setup-proof passes it (DEC-71, DEC-73).
 
@@ -1125,13 +1126,15 @@ class GitRefSource(TrustedGateSource):
     exist. With --base, the tip must also not be HEAD, the commit under
     judgement: a story would then be its own trusted source. With --all, the
     checked-out integration branch is HEAD by design (DEC-76, DEC-79). Only
-    the default dev may be missing, and then the values come from the folder
-    and no register is read (DEC-13, DEC-76).
+    the default dev may be missing. With --base it must exist, because every
+    feature branch is cut from it, and a missing dev exits 2 (DEC-81). With
+    --all or --settings-from-folder, the values then come from the folder and
+    no register is read (DEC-13, DEC-76, DEC-81).
     """
 
     def __init__(
         self, root: Path, branch: str, named: bool, settings_from_folder: bool = False,
-        refuse_head_tip: bool = True,
+        refuse_head_tip: bool = True, judges_story: bool = False,
     ) -> None:
         self.root = root
         self.branch = branch
@@ -1141,6 +1144,11 @@ class GitRefSource(TrustedGateSource):
             raise GateError(
                 f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} names the branch {branch}, "
                 f"and git holds no branch {branch}"
+            )
+        if judges_story and not named and tip is None:
+            raise GateError(
+                f"git holds no branch {branch}, the default integration branch, so --base cannot read "
+                "its gate settings or its exceptions register"
             )
         if named and refuse_head_tip and tip == _resolve(root, "HEAD^{commit}"):
             raise GateError(
@@ -1187,10 +1195,15 @@ def open_source(root: Path, settings_from_folder: bool, base: str | None = None)
     --settings-from-folder, which only gate-setup-proof passes, because its
     first commit holds the uncommitted file of the working tree (DEC-73).
     The check that refuses a named branch whose tip is HEAD runs only with
-    *base*, where a story is judged (DEC-79).
+    *base*, where a story is judged (DEC-79). A missing default dev refuses
+    only with *base* and without --settings-from-folder (DEC-81).
     """
     branch, named = integration_branch(root, None if settings_from_folder else base)
-    return GitRefSource(root, branch, named, settings_from_folder, refuse_head_tip=base is not None)
+    judges_story = base is not None and not settings_from_folder
+    return GitRefSource(
+        root, branch, named, settings_from_folder,
+        refuse_head_tip=base is not None, judges_story=judges_story,
+    )
 
 
 # --- score -----------------------------------------------------------------
