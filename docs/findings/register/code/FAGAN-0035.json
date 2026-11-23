@@ -1,0 +1,20 @@
+{
+  "id": "FAGAN-0035",
+  "source": "fagan-review",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:891-902",
+  "story": null,
+  "finding": "The git options that keep a replace ref out of the trusted reads exist twice. `git_argv` of crap-score and `_hardened_git_text` of premerge-check each write `git -c core.useReplaceRefs=false --no-replace-objects` by hand. The code review of SEC-0009 already had to add `-c core.useReplaceRefs=false` to the first copy after `--no-replace-objects` alone proved not enough on git 2.34.1. A next change of the same kind must be made in both scripts, and no test compares them. Fix: premerge-check already imports dispatch_lib.py, and crap-score imports no module of the Factory. So the smallest change is one test in tests/factory/test_crap_gate_premerge.py that loads both scripts and asserts that `_hardened_git_text` runs git with the options of `git_argv`. A shared function in dispatch_lib.py would also remove the copy, but crap-score would then need that import.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Both copies hold the same two options today, and the replace-ref probe passes for crap-score and for premerge-check (no to fails_purpose). A later change to the hardening, like the one the SEC-0009 review asked for, must find and change two scripts. The code exists only on feature/crap-gate-trusted-source.",
+  "commit": "c0ae79bdcc8fa6ce21bbd02e41450a812f8777ac",
+  "status": "open"
+}

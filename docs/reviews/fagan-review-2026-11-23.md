@@ -2,14 +2,14 @@
 type: fagan-review
 title: Fagan inspection of feature/crap-gate-trusted-source
 date: 2026-11-23
-status: defects
+status: pass
 reviewer: qa-agent
-findings_filed: 0
+findings_filed: 1
 story:
 run: feature/crap-gate-trusted-source
 branch: feature/crap-gate-trusted-source
 branch_base: 334f5a2e8e3a812954ca244442a432525606eefa
-branch_head: a3c7b47edf8bed9692a7cf4e61d6221b92b387e4
+branch_head: c0ae79bdcc8fa6ce21bbd02e41450a812f8777ac
 ---
 
 # Fagan inspection of feature/crap-gate-trusted-source
@@ -72,3 +72,27 @@ The runs printed `57 passed in 17.12s` and `324 passed in 109.72s`. No Scenario 
 | `main` reads every trusted value before `measure_all` starts the first measuring command. So story code in a command cannot change the values of the same run. It can change them for a later run through a replace ref, which SEC-0009 covers.                                                                                | `packages/factory/scripts/crap-score:1300-1309`         | suggestion | timing        | note     | `report only` |
 | `_branch_tip`, `_resolve` and `_is_branch_name` call `subprocess.run` directly, next to the `git` helper, because they need the exit code. The fix of SEC-0009 must touch the helper and the calls of `_branch_tip` and `_resolve`, which read refs and objects, or move them behind one helper with a flag for the exit code. | `packages/factory/scripts/crap-score:937-948,1059-1078` | suggestion | structure     | note     | `report only` |
 | Three lines that the feature added to the module docstring run past 79 characters: lines 16, 25 and 62, such as "that git does not accept as a branch name exits 2 (DEC-77). enabled, timeout_minutes, and the". The rest of the new text wraps at 76.                                                                         | `packages/factory/scripts/crap-score:16,25,62`          | suggestion | documentation | note     | `report only` |
+
+## Repeat pass at c0ae79bd
+
+The repeat pass covers `git diff a3c7b47e..c0ae79bd`: the fixes of SEC-0009, QA-0403, SEC-0011 and SEC-0012, with DEC-80 to DEC-82. The Fagan inspection files no blocking finding at the new head, so its status is `pass`. The blocking [BUG-0137](../findings/BUG-0137.md) of the bug hunt sits in the new code of `premerge-check`, and the bug-hunt report owns it.
+
+The changed test files pass at the new head:
+
+```bash
+uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/invocation pytest -q tests/factory/test_crap_gate_trusted_source.py tests/factory/test_crap_gate_trusted_proof.py tests/factory/test_crap_gate_premerge.py tests/factory/test_premerge_check.py tests/factory/test_crap_gate_score.py tests/factory/test_crap_score.py
+```
+
+The run printed `235 passed in 77.71s`.
+
+| Prior finding                     | Check at the new head                                                                                                                                                                                                                                                                                 | Status                               |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| [QA-0403](../findings/QA-0403.md) | `test_cg_14_broken_settings_on_the_branch_cannot_measure` has the cases of a tag `v1.10.0` and of `refs/remotes/origin/main`. Both values exit 2 in `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/qa/repeat-crap.sh`. | `resolved`, set by the unit's review |
+
+In the cases that the bug hunt ran, the new code holds to DEC-80 to DEC-82. BUG-0137 is the one exception. `crap-score` builds every git call through `git_argv`. `premerge-check` reads `enabled` and the entry from `refs/heads/dev` through `show-ref --verify`, with the same options. The inspection files one register file:
+
+| Finding                                                                                                                                                                                                                                                                                                                                           | Artifact                                          | Category   | Type      | Severity | Filed as                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------- | --------- | -------- | ------------------------------------------------------- |
+| The options `-c core.useReplaceRefs=false --no-replace-objects` exist twice, in `git_argv` of `crap-score` and in `_hardened_git_text` of `premerge-check`, and no test compares them. The review of SEC-0009 already had to change the first copy once. `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: true`. | `packages/factory/scripts/premerge-check:891-902` | suggestion | structure | minor    | [FAGAN-0035](../findings/register/code/FAGAN-0035.json) |
+
+`premerge-check` reads the fixed `dev`, while DEC-80 says "the integration branch". The code review of SEC-0011 already raised that question, and BR-066 now names `refs/heads/dev`. So the inspection does not file it again.
