@@ -2,14 +2,14 @@
 type: code-review
 title: Code review of the whole feature crap-gate-trusted-source
 date: 2026-11-23
-status: defects
+status: pass
 reviewer: code-review-agent
 findings_filed: 2
 story:
 run: feature/crap-gate-trusted-source
 branch: feature/crap-gate-trusted-source
 branch_base: 334f5a2e8e3a812954ca244442a432525606eefa
-branch_head: 83ff431982f16c67e39a7db390c3594c8ce3a212
+branch_head: 3d1278886cc0ed617ff168a54bf3838f910acb7d
 ---
 
 # Code review of the whole feature crap-gate-trusted-source
@@ -84,3 +84,51 @@ uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.
 ```
 
 The first run passed 261 tests, and the second passed 325. The reproduction of IMPL-0098 is the script that the finding names. It builds its repository under the scratchpad folder and takes the path of `crap-score` as its first argument.
+
+## Repeat pass, 2026-11-23
+
+The repeat pass finds no open blocking finding, so the feature now passes the code review. [IMPL-0098](../findings/IMPL-0098.md) is `resolved`. [IMPL-0099](../findings/register/code/IMPL-0099.json), IMPL-0095 and IMPL-0097 stay `open` as register files and do not block. The pass files no new finding and records four stale texts as notes. The frontmatter now names `3d127888` as `branch_head` and `pass` as `status`.
+
+Next, the orchestrator commits this report on the feature branch, and the QA agent runs QA on the feature branch.
+
+### Scope of the repeat pass
+
+The pass covers only `83ff4319..3d127888`:
+
+- `93de054d`: the first pass of this report, the finding IMPL-0098, the register file IMPL-0099, and DEC-79 in the Appendix of `docs/proposals/crap-gate-setup.md`.
+- `5cb8843c`, `6b64446f` and the merge `d68889d1`: the fix of IMPL-0098 and its story review, `docs/reviews/code-review-IMPL-0098-2026-11-23.md`.
+- `f1b90bb1` and `3d127888`: DEC-79 in BR-128, in § crap-score, § Trusted gate source and § `docs/factory-settings.yaml` of `docs/spec/interface-contracts.md`, and the confirmed drift row of `docs/spec/work/spec-feedback-IMPL-0098.md`.
+
+### IMPL-0098: resolved
+
+`open_source` now passes `refuse_head_tip=base is not None` to `GitRefSource`, so the `HEAD` check of DEC-76 runs only with `--base` (DEC-79). The review ran the scratch checks again with the `crap-score` of `3d127888`:
+
+| Case                                                                                                      | Result                                                                                   |
+| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `setup-step6.sh key`: `--all` on `main` with `integration_branch: main`                                   | Exit `1` and the report. The first pass got exit `2`.                                    |
+| `own-branch.sh`: `--base feature/x`, whose key names `story/ST-1`, with `HEAD` at the tip of `story/ST-1` | Exit `2` with "whose tip is HEAD". The refusal of DEC-76 holds on the merge path.        |
+| `own-branch.sh --settings-from-folder`: the same call with the option that `gate-setup-proof` passes      | Exit `2` with the same message. The check runs whenever `--base` is set, as DEC-79 says. |
+
+The new test `test_cg_14_all_on_the_checked_out_integration_branch_judges_with_its_values` covers the `--all` row of CG-14-IT-08 on the checked-out `main`. This was the gap that let IMPL-0098 through. The row "own branch" of CG-14-IT-07 still asserts the refusal with `--base`.
+
+### Code, tests and specification
+
+BR-128 and the three sections of `docs/spec/interface-contracts.md` now limit the `HEAD` check to `--base`, as the code does. Four texts outside the drift row still state the check for every call. No caller acts on them, so the review records them as notes and files no finding. The fix is the same in each: add "with `--base`" to the sentence, with DEC-79.
+
+| Finding                                                                                                                                                                                        | Artifact                                                              | Category   | Type          | Severity | Basis                                                                                    | Filed as    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------- | ------------- | -------- | ---------------------------------------------------------------------------------------- | ----------- |
+| The last bullet of § Trusted gate source in `crap-score/SKILL.md` says that "a named branch whose tip is `HEAD`" makes the gate exit `2`, without "with `--base`".                             | `packages/factory/skills/crap-score/SKILL.md:61`                      | suggestion | documentation | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only |
+| Decision 4 and the fourth consequence of ADR-0041 say that a named branch whose tip is the judged `HEAD` exits `2`, for every call.                                                            | `docs/adr/0041-crap-score-reads-trusted-values-through-one-reader.md` | suggestion | inconsistent  | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only |
+| arc42 § 5.2.3 says "`crap-score` also exits `2` when the named branch does not exist or its tip is the judged `HEAD`", for every call. The same section names the `--all` run of setup step 6. | `docs/arc42/05_building_block_view.md`                                | suggestion | inconsistent  | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only |
+| The relation `crapScore -> git` of the trusted gate source says "exits 2 … when the branch it names does not exist or its tip is the judged HEAD", for every call.                             | `docs/spec/architecture.dsl:345`                                      | suggestion | inconsistent  | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only |
+
+The notes of the first pass still stand. The question of the first pass, step 6 on a second setup run, is still open.
+
+### Findings of the repeat pass
+
+| ID                                                    | Severity | Status     | Blocks |
+| ----------------------------------------------------- | -------- | ---------- | ------ |
+| [IMPL-0098](../findings/IMPL-0098.md)                 | major    | `resolved` | no     |
+| [IMPL-0099](../findings/register/code/IMPL-0099.json) | minor    | `open`     | no     |
+
+The 15 test files of [Verification](#verification) passed 587 tests on `3d127888`, one more than in the first pass, which is the new CG-14-IT-08 test. The scripts of the checks are `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/feature-review/setup-step6.sh` and `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/feature-review/own-branch.sh`.
