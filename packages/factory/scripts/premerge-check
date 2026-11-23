@@ -796,13 +796,56 @@ INSTALLED_SCRIPTS = Path(".agent-factory") / "factory" / "scripts"
 FOREIGN_ENVIRONMENT = ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT")
 
 
+class BrokenTestingYaml(Exception):
+    """docs/testing.yaml is not valid YAML, is empty, or is no mapping (BUG-0137).
+
+    The message completes the sentence "docs/testing.yaml ... <message>".
+    """
+
+
+# _load_yaml raises TypeError for a file that is no mapping (BUG-0137).
+_YAML_PARSE_ERRORS = (ValueError,) if yaml is None else (ValueError, yaml.YAMLError)
+
+
 def _parse_testing_yaml(text: str) -> dict:
-    """Return the text of docs/testing.yaml as a mapping, or an empty mapping if it is no mapping."""
+    """Return the text of docs/testing.yaml as a mapping.
+
+    Raise BrokenTestingYaml when the text is not valid YAML, is empty, is no
+    mapping, or has a `gates` section that is no mapping. A reader never gets a
+    traceback for a broken file, and a broken `gates` never reads as "no gates"
+    (BUG-0137, DEC-83).
+    """
     try:
         data = _load_yaml(text)
-    except ValueError:
-        return {}
-    return data if isinstance(data, dict) else {}
+    except TypeError as exc:
+        raise BrokenTestingYaml(f"is empty or no mapping ({exc})") from exc
+    except _YAML_PARSE_ERRORS as exc:
+        raise BrokenTestingYaml("is not valid YAML") from exc
+    gates = data.get("gates")
+    if gates is not None and not isinstance(gates, dict):
+        raise BrokenTestingYaml("has a gates section that is no mapping")
+    return data
+
+
+def _crap_score_is_broken(data: dict) -> bool:
+    """Return True when gates.crap-score, or its old underscore key, is no mapping (BUG-0137)."""
+    gates = data.get("gates")
+    if not isinstance(gates, dict):
+        return False
+    present = [key for key in ("crap-score", "crap_score") if key in gates]
+    return bool(present) and not isinstance(gates[present[0]], dict)
+
+
+def _read_testing_text(path: Path) -> str:
+    """Return the text of a docs/testing.yaml file as UTF-8 (BUG-0137).
+
+    Raise BrokenTestingYaml when the file is not UTF-8. An OSError from the read
+    still propagates, so the caller decides what a missing file means.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise BrokenTestingYaml("is not valid UTF-8") from exc
 
 
 def _read_testing_yaml(top: Path) -> dict:
@@ -811,7 +854,7 @@ def _read_testing_yaml(top: Path) -> dict:
     if not path.is_file():
         return {}
     try:
-        text = path.read_text()
+        text = _read_testing_text(path)
     except OSError:
         return {}
     return _parse_testing_yaml(text)
@@ -906,7 +949,8 @@ def trusted_crap_entry(top: Path) -> tuple[bool, dict | None]:
 
     The commit is the one `show-ref --verify` names for refs/heads/dev (DEC-78),
     so no tag, remote ref or revision expression stands in for the branch.
-    A dev without docs/testing.yaml has no entry.
+    A dev without docs/testing.yaml has no entry. Raise BrokenTestingYaml when
+    the file of dev is broken or its gates.crap-score is no mapping (BUG-0137).
     """
     tip = _hardened_git_text(top, "show-ref", "--verify", "--hash", f"refs/heads/{TRUSTED_BRANCH}")
     if tip is None:
@@ -914,18 +958,59 @@ def trusted_crap_entry(top: Path) -> tuple[bool, dict | None]:
     text = _hardened_git_text(top, "show", f"{tip.strip()}:{TESTING_YAML}")
     if text is None:
         return True, None
-    entries, _ = _entries_of(_parse_testing_yaml(text))
+    data = _parse_testing_yaml(text)
+    if _crap_score_is_broken(data):
+        raise BrokenTestingYaml("has a gates.crap-score that is no mapping")
+    entries, _ = _entries_of(data)
     return True, (entries or {}).get("crap-score")
 
 
+def story_testing_yaml_refusal(top: Path, story_id: str) -> str | None:
+    """Return the refusal line when the story's docs/testing.yaml is broken, or None (BUG-0137).
+
+    The story must repair its own file, so the refusal stops the merge with exit 1
+    and names the file. The semantic gates then do not run, and nothing is read
+    from the broken file.
+    """
+    path = top / TESTING_YAML
+    if not path.is_file():
+        return None
+
+    def refusal(problem: str) -> str:
+        return (
+            f"BLOCK testing-yaml: {TESTING_YAML} of {story_id} {problem}; the story must repair "
+            "its own file, and the semantic gates did not run"
+        )
+
+    try:
+        data = _parse_testing_yaml(_read_testing_text(path))
+    except OSError:
+        return None
+    except BrokenTestingYaml as exc:
+        return refusal(str(exc))
+    if _crap_score_is_broken(data):
+        key = "crap-score" if "crap-score" in data["gates"] else "crap_score"
+        return refusal(f"has a gates.{key} that is no mapping")
+    return None
+
+
 def crap_cannot_measure(top: Path) -> tuple[str, str] | None:
-    """Return the CRAP gate and its message when it cannot measure, or None (DEC-82, BR-136).
+    """Return the CRAP gate and its message when it cannot measure, or None (DEC-82, DEC-83).
 
     Without the branch dev, no branch decides whether the gate runs. An entry at
     the story head then cannot be measured, so the merge stops with exit 3. Without
-    an entry at the head, the gate runs nowhere, as before.
+    an entry at the head, the gate runs nowhere, as before. A broken file of dev
+    cannot measure too, whatever the head holds, because the story cannot repair dev.
     """
-    dev_exists, _ = trusted_crap_entry(top)
+    try:
+        dev_exists, _ = trusted_crap_entry(top)
+    except BrokenTestingYaml as exc:
+        return (
+            "crap-score",
+            f"{TESTING_YAML} of the branch {TRUSTED_BRANCH} {exc}, so no setting of "
+            f"{TRUSTED_BRANCH} decides whether the CRAP gate runs; repair the file on "
+            f"{TRUSTED_BRANCH}",
+        )
     entries, _ = gate_entries(top)
     if dev_exists or "crap-score" not in (entries or {}):
         return None
@@ -944,7 +1029,11 @@ def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
     story's `quality-gates` field still adds the gate (BR-066).
     """
     entries, warnings = gate_entries(top)
-    _, dev_crap_entry = trusted_crap_entry(top)
+    try:
+        _, dev_crap_entry = trusted_crap_entry(top)
+    except BrokenTestingYaml:
+        # The broken file of dev is named by crap_cannot_measure (BUG-0137).
+        dev_crap_entry = None
     deciding = dict(entries or {})
     if dev_crap_entry is None:
         deciding.pop("crap-score", None)
@@ -1573,16 +1662,21 @@ def main(argv: list[str] | None = None) -> int:
             remove_worktree(worktree)
             print(f"premerge-check: cannot add worktree {worktree}: {err}", file=sys.stderr)
             return 2
+        results: list[tuple[bool, str]] = []
         try:
-            gates, warnings = resolve_gates(worktree, story_id)
-            notices = not_set_up_notice(worktree, gates)
-            notices += dependency_skip_notice(worktree)
-            for warning in warnings + notices:
-                print(warning)
-            results, unmeasured = check_story_gates(
-                gates, story_id, worktree, primary, args.target, args.branch
-            )
-            unmeasured = unmeasured or crap_cannot_measure(worktree)
+            refusal = story_testing_yaml_refusal(worktree, story_id)
+            if refusal is not None:
+                results = [(False, refusal)]
+            else:
+                gates, warnings = resolve_gates(worktree, story_id)
+                notices = not_set_up_notice(worktree, gates)
+                notices += dependency_skip_notice(worktree)
+                for warning in warnings + notices:
+                    print(warning)
+                results, unmeasured = check_story_gates(
+                    gates, story_id, worktree, primary, args.target, args.branch
+                )
+                unmeasured = unmeasured or crap_cannot_measure(worktree)
         finally:
             remove_worktree(worktree)
         for ok, line in results:
