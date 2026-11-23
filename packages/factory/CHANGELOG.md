@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.14.1 — 2026-11-23
+
+This release makes usage capture work again after an update, and it keeps
+Copilot sessions out of the Claude Code records. Run `update-factory` to
+receive it.
+
+### Changes that need action
+
+- **Check whether capture is switched off.** Every `init-factory` or
+  `update-factory` run on 1.3.0 to 1.14.0 switched usage capture off without
+  a message. Capture is off when
+  `.agent-factory/usage/runtime/.requirements-sha256` is missing. Run
+  `update-factory` with this release, and check that the file exists
+  afterwards. The usage of the sessions in between is not recorded.
+
+### Fixes
+
+- **The usage runtime installs again.** `usage-runtime-requirements.txt`
+  pinned `urllib3==2.8.0` with the hashes of 2.7.0. Each runtime build failed
+  on the hash check after `init-factory` had removed the runtime marker, so
+  every hook stopped capturing. The file is now the export of the script
+  lock again, and a test checks that it stays so (BUG-0144).
+- **A Copilot session writes no Claude Code record.** Copilot CLI also runs
+  the hooks of `.claude/settings.json`. The Claude Code capture hook now
+  exits when the transcript lies in Copilot's home folder, and the capture
+  drops a transcript that holds no Claude Code line. Copilot's own hook
+  captures the session as before (BUG-0143).
+- **A main transcript's chain is named after the session.** Copilot's
+  transcript is always `events.jsonl`, and Codex's is
+  `rollout-<time>-<session>.jsonl`. The chain now takes the session ID when
+  it appears in the transcript's file or folder name, as the migration names
+  it.
+
 ## 1.14.0 — 2026-11-23
 
 This release stores each usage transcript once and fixes the order of usage
