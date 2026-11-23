@@ -1,0 +1,183 @@
+---
+mode: orchestrated
+feature_branch: feature/crap-gate-trusted-source
+branch_root: 334f5a2e8e3a812954ca244442a432525606eefa
+branch_head: d9ea660aeef43abc0a43487749f13262548e56fb
+stories:
+  ST-0450:
+    id: ST-0450
+    wave: 1
+    status: done
+    deps:
+      - ST-0436
+      - ST-0437
+      - ST-0438
+      - ST-0439
+      - ST-0440
+      - ST-0446
+      - ST-0447
+      - ST-0448
+    branch: story/ST-0450
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/ST-0450
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: 334f5a2e8e3a812954ca244442a432525606eefa
+    tier: strong
+    reason: null
+    verify_base: pass
+    commit_sha: 9a38404ef19745edb4c77fb6e4e0a2d2097b2e16
+    active_session: impl
+    active_tier: strong
+  IMPL-0098:
+    id: IMPL-0098
+    wave: 2
+    status: done
+    deps: []
+    branch: story/IMPL-0098
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/IMPL-0098
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: 93de054d9cddd669f4072c7b11d1ddb082412bdd
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: d68889d1067ababfa7260a17062974052dde4fb2
+    active_session: impl
+    active_tier: economy
+  SEC-0009:
+    id: SEC-0009
+    wave: 3
+    status: done
+    deps: []
+    branch: story/SEC-0009
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/SEC-0009
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: 4e3917dfe4b86d51ac2cecbc8fd5c5fe98272f55
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: 0822c2732b3b5f0c86381546cf6ddc0019fc3485
+    active_session: impl
+    active_tier: economy
+  QA-0403:
+    id: QA-0403
+    wave: 4
+    status: done
+    deps: []
+    branch: story/QA-0403
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/QA-0403
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: 918ba55027b4c5ecd2be8841dc89444bfb7b20e4
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: 4571a897ae8fd8baebbb6620b033363fcfb33416
+    active_session: impl
+    active_tier: economy
+  SEC-0011:
+    id: SEC-0011
+    wave: 5
+    status: done
+    deps: []
+    branch: story/SEC-0011
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/SEC-0011
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: 65d6e61b2b9e6c8676ca27a10af1a9089a265d5c
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: ec4a8bf37fa0d685ef75282316aa56102bf34afd
+    active_session: impl
+    active_tier: economy
+  SEC-0012:
+    id: SEC-0012
+    wave: 6
+    status: done
+    deps: []
+    branch: story/SEC-0012
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/SEC-0012
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: f84dbd0c64d309cef740ddf771239fc0016ba910
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: ab6df8c8c9348cae37c131ec5ac93ab6f834298e
+    active_session: impl
+    active_tier: economy
+  BUG-0137:
+    id: BUG-0137
+    wave: 7
+    status: done
+    deps: []
+    branch: story/BUG-0137
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/BUG-0137
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: 99064e9a87bbf9223fe548831d7f383bc07dc462
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: e13906351f9db1e3d7e6ab2ab5abf94ed041b9b7
+    active_session: impl
+    active_tier: economy
+  BUG-0138:
+    id: BUG-0138
+    wave: 8
+    status: done
+    deps: []
+    branch: story/BUG-0138
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-trusted-source/story/BUG-0138
+    feature_branch: feature/crap-gate-trusted-source
+    base_sha: 25474b6b8ccb8c9091e2d9254aa7c61ff2394288
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: c4904c313bfedb00a39a6fbbf0d1f0f00befb013
+    active_session: impl
+    active_tier: economy
+waves:
+  - number: 1
+    completed: [{"id": "ST-0450", "merge_sha": "9a38404ef19745edb4c77fb6e4e0a2d2097b2e16"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: 83ff431982f16c67e39a7db390c3594c8ce3a212
+  - number: 2
+    completed: [{"id": "IMPL-0098", "merge_sha": "d68889d1067ababfa7260a17062974052dde4fb2"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: 3d1278886cc0ed617ff168a54bf3838f910acb7d
+  - number: 3
+    completed: [{"id": "SEC-0009", "merge_sha": "0822c2732b3b5f0c86381546cf6ddc0019fc3485"}]
+    blocked: []
+    failed: []
+    next_ready: ["QA-0403", "SEC-0011", "SEC-0012"]
+    branch_head: 918ba55027b4c5ecd2be8841dc89444bfb7b20e4
+  - number: 4
+    completed: [{"id": "QA-0403", "merge_sha": "4571a897ae8fd8baebbb6620b033363fcfb33416"}]
+    blocked: []
+    failed: []
+    next_ready: ["SEC-0011", "SEC-0012"]
+    branch_head: 4571a897ae8fd8baebbb6620b033363fcfb33416
+  - number: 5
+    completed: [{"id": "SEC-0011", "merge_sha": "ec4a8bf37fa0d685ef75282316aa56102bf34afd"}]
+    blocked: []
+    failed: []
+    next_ready: ["SEC-0012"]
+    branch_head: f84dbd0c64d309cef740ddf771239fc0016ba910
+  - number: 6
+    completed: [{"id": "SEC-0012", "merge_sha": "ab6df8c8c9348cae37c131ec5ac93ab6f834298e"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: c0ae79bdcc8fa6ce21bbd02e41450a812f8777ac
+  - number: 7
+    completed: [{"id": "BUG-0137", "merge_sha": "e13906351f9db1e3d7e6ab2ab5abf94ed041b9b7"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: b24253262df2322a27b87c2cb83982e352fc3e2f
+  - number: 8
+    completed: [{"id": "BUG-0138", "merge_sha": "c4904c313bfedb00a39a6fbbf0d1f0f00befb013"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: d9ea660aeef43abc0a43487749f13262548e56fb
