@@ -553,31 +553,66 @@ def _only_origin_dev(repo: Repo) -> None:
     repo.git("branch", "-q", "-D", "dev")
 
 
-@pytest.mark.spec("CG-14-IT-06")
-@pytest.mark.parametrize(
-    ("case", "cause"),
-    [
-        (_without_dev, "no branch dev exists"),
-        (lambda repo: commit_on(repo, "dev", {"docs/testing.yaml": None}), "the branch dev holds no docs/testing.yaml"),
-        (lambda repo: commit_on(repo, "dev", {"docs/testing.yaml": 'test_command: "true"\n'}),
-         "docs/testing.yaml on the branch dev has no entry gates.crap-score"),
-        (_only_origin_dev, "no branch dev exists"),
-    ],
-    ids=["no branch dev", "no docs/testing.yaml on dev", "no entry on dev", "only origin/dev"],
-)
-def test_cg_14_without_settings_on_the_branch_the_folder_settings_judge(repo, case, cause):
-    """Scenario Outline: Without gate settings on the integration branch the settings come from the folder."""
-    case(repo)
+def _plant_and_commit_folder_settings(repo: Repo) -> None:
+    """Plant an alembic function of complexity 9 and an app function of complexity 2, then commit the story head.
+
+    The folder settings exclude the alembic file, so only the app function is judged (CG-14-IT-06).
+    """
     folder = gate_yaml(8, backend_measure("packages/server/backend/**", ("**/db/alembic/versions/**",), STUB))
     repo.plant([
         {"file": ALEMBIC, "function": "upgrade", "start_line": 1, "end_line": 3, "complexity": 9, "coverage_pct": 0},
         {"file": APP, "function": "run", "start_line": 1, "end_line": 3, "complexity": 2, "coverage_pct": 100},
     ])
     at_head(repo, {"docs/testing.yaml": folder, ALEMBIC: "a\nb\nc\n", APP: "a\nb\nc\n"})
+
+
+@pytest.mark.spec("CG-14-IT-06")
+@pytest.mark.parametrize(
+    ("case", "cause"),
+    [
+        (lambda repo: commit_on(repo, "dev", {"docs/testing.yaml": None}), "the branch dev holds no docs/testing.yaml"),
+        (lambda repo: commit_on(repo, "dev", {"docs/testing.yaml": 'test_command: "true"\n'}),
+         "docs/testing.yaml on the branch dev has no entry gates.crap-score"),
+    ],
+    ids=["no docs/testing.yaml on dev", "no entry on dev"],
+)
+def test_cg_14_without_settings_on_the_branch_the_folder_settings_judge(repo, case, cause):
+    """Scenario Outline: Without gate settings on the integration branch the settings come from the folder (DEC-69)."""
+    case(repo)
+    _plant_and_commit_folder_settings(repo)
     proc = repo.run(*GATE_CALL)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert [row["file"] for row in repo.report()] == [APP]
     assert f"crap-score: {FROM_FOLDER}, because {cause}" in proc.stdout.splitlines()
+
+
+@pytest.mark.spec("CG-14-IT-06")
+def test_cg_14_all_without_dev_judges_with_the_folder_settings(repo):
+    """Scenario Outline: Without gate settings on the integration branch the settings come from the folder (--all, DEC-81).
+
+    The setup path --all keeps the fallback to the folder when the ref dev is missing.
+    """
+    _without_dev(repo)
+    _plant_and_commit_folder_settings(repo)
+    proc = repo.run("--all", "--story-id", STORY_ID, "--report-dir", ".current-work/crap-score/")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert [row["file"] for row in repo.report()] == [APP]
+    assert f"crap-score: {FROM_FOLDER}, because no branch dev exists" in proc.stdout.splitlines()
+    assert "crap-score: read no exceptions register, because no branch dev exists" in proc.stdout.splitlines()
+
+
+@pytest.mark.spec("CG-14-IT-06")
+def test_cg_14_settings_from_folder_without_dev_judges_with_the_folder_settings(repo):
+    """Scenario Outline: Without gate settings on the integration branch the settings come from the folder (--settings-from-folder, DEC-81).
+
+    gate-setup-proof passes this option, so the proof works without a local dev.
+    """
+    _without_dev(repo)
+    _plant_and_commit_folder_settings(repo)
+    proc = repo.run(*GATE_CALL, "--settings-from-folder")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert [row["file"] for row in repo.report()] == [APP]
+    assert f"crap-score: {FROM_FOLDER}, because the call passes --settings-from-folder" in proc.stdout.splitlines()
 
 
 # --- CG-14-IT-07: broken settings take no value from the folder ------------
@@ -631,10 +666,13 @@ def _remote_ref_origin_main_and_no_branch(repo: Repo) -> None:
          ["key integration_branch", "names the branch v1.10.0", "git holds no branch v1.10.0"]),
         (_remote_ref_origin_main_and_no_branch,
          ["key integration_branch", "names the branch origin/main", "git holds no branch origin/main"]),
+        (_without_dev, ["git holds no branch dev", "the default integration branch"]),
+        (_only_origin_dev, ["git holds no branch dev", "the default integration branch"]),
     ],
     ids=["unparseable", "no threshold", "empty branch name", "number", "no branch main", "own branch",
          "parent of the own branch", "caret of the own branch", "only a tag refs/heads/main",
-         "tag v1.10.0 and no branch", "remote ref origin/main and no branch"],
+         "tag v1.10.0 and no branch", "remote ref origin/main and no branch",
+         "no branch dev deleted after the cut", "only origin/dev"],
 )
 def test_cg_14_broken_settings_on_the_branch_cannot_measure(repo, case, named):
     """Scenario Outline: Broken gate settings on the integration branch cannot measure (DEC-74, DEC-76)."""

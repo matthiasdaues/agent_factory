@@ -633,16 +633,20 @@ def test_cg_05_a_project_without_the_register_has_no_exceptions(repo):
 
 
 @pytest.mark.spec("CG-05-IT-01")
-def test_cg_05_a_repository_without_dev_has_no_exceptions(repo):
-    """Scenario: A repository without a branch dev has no exceptions (DEC-13, DEC-25)."""
+def test_cg_05_a_repository_without_dev_refuses_with_base_and_writes_no_report(repo):
+    """Scenario: A repository without a branch dev has no exceptions (DEC-13, DEC-25), narrowed by DEC-81.
+
+    With --base the missing dev is an error: the run exits 2, names the branch, and writes no report.
+    """
     _commit_register(repo, "dev")
     repo.git("merge", "-q", "--no-edit", "dev")
     repo.git("branch", "-q", "-D", "dev")
     _change_tree(repo)
     proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
-    assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert NO_DEV_LINE in proc.stdout
-    assert repo.report()[0]["pass_fail"] == "fail"
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "git holds no branch dev" in proc.stderr
+    assert NO_DEV_LINE not in proc.stdout
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
 
 
 @pytest.mark.spec("CG-05-IT-01")
@@ -712,9 +716,10 @@ def test_cg_05_only_a_remote_branch_dev_gives_no_register(repo):
     repo.git("branch", "-q", "-D", "dev")
     _change_tree(repo)
     proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
-    assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert NO_DEV_LINE in proc.stdout
-    assert repo.report()[0]["pass_fail"] == "fail"
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "git holds no branch dev" in proc.stderr
+    assert NO_DEV_LINE not in proc.stdout
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
 
 
 @pytest.mark.spec("CG-05-IT-02")
