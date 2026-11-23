@@ -1,7 +1,7 @@
 ---
 scope: global
 schema_version: 2
-status: draft
+status: superseded
 owner: matthias
 created: 2026-08-03
 updated: 2026-08-03

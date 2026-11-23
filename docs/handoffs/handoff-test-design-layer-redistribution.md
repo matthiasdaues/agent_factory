@@ -21,10 +21,10 @@ A colleague challenged the value of writing detailed test scenarios at epic leve
 
 ## Artifacts
 
-| Artifact                            | Path                                                 | Status                                                                                            |
-| ----------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Main proposal                       | `docs/proposals/test-design-layer-redistribution.md` | open, uncommitted                                                                                 |
-| Subsession phases proposal (parked) | `docs/proposals/planning-agent-subsession-phases.md` | draft, uncommitted, parked — separate cost-optimization idea explored and shelved in this session |
+| Artifact                            | Path                                                            | Status                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Main proposal                       | `docs/proposals/test-design-layer-redistribution.md`            | open, uncommitted                                                                                 |
+| Subsession phases proposal (parked) | `docs/proposals/superseded/planning-agent-subsession-phases.md` | draft, uncommitted, parked — separate cost-optimization idea explored and shelved in this session |
 
 ## What Was Done
 

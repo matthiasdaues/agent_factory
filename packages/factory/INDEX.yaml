@@ -385,7 +385,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1771
-    total_tokens: 13408
+    total_tokens: 13412
     inputs:
       required:
         - type: feature
@@ -466,7 +466,7 @@ agents:
     description: "Derive scope and behaviour from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, and area specs where the stakeholder asks for depth. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1703
-    total_tokens: 11555
+    total_tokens: 11559
     inputs:
       required:
         - any_of:
@@ -650,7 +650,7 @@ agents:
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
     tokens: 1501
-    total_tokens: 17525
+    total_tokens: 17529
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -687,7 +687,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 4490
-    total_tokens: 19535
+    total_tokens: 19539
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -1060,7 +1060,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 63857
+    total_tokens: 63861
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1070,7 +1070,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 907
-    total_tokens: 20031
+    total_tokens: 20035
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1099,7 +1099,7 @@ playbooks:
       - qa-agent
       - reconciliation-agent
     tokens: 5224
-    total_tokens: 118472
+    total_tokens: 118480
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1117,7 +1117,7 @@ playbooks:
       - reconciliation-agent
       - coaching-agent
     tokens: 3170
-    total_tokens: 117903
+    total_tokens: 117911
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1133,7 +1133,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1358
-    total_tokens: 20482
+    total_tokens: 20486
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1286,7 +1286,7 @@ rulebooks:
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
-    tokens: 2615
+    tokens: 2619
   - name: testing-yaml-prerequisite
     category: conventions
     path: rulebooks/conventions/testing-yaml-prerequisite.md

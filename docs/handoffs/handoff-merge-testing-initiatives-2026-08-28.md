@@ -24,7 +24,7 @@ Decisions: two testing proposals must be merged into a single coherent initiativ
 
 1. **Test Gate Presence over Test Execution** (`docs/proposals/implemented/test-gate-presence-over-test-execution.md`, status: accepted). Factory stops owning test execution. `.agent-factory/factory/scripts/run-tests` and `.agent-factory/factory/scripts/mutation-analysis` are deleted. Projects declare test commands in `docs/charter/testing.yaml`. Factory reads the charter for FSM gates, agent allowlists, and hook wiring. Gate contract is exit-code-only. A `detect-test-regime` skill scans for existing test entrypoints during onboarding. This proposal has completed the feature-addition playbook through spec-review: specification updated across 7 documents, 2 new files (feature file with 29 scenarios, gaps report with 4 gaps), 6 spec-review findings resolved and committed. Full specification work is on branch `test-gate-presence-over-test-execution`.
 
-2. **Sustainable Testing Regime** (`docs/proposals/sustainable-testing-regime.md`, status: open). Consolidates Factory's own ~1,000 pytest suite into a five-layer ownership model (deterministic linters, acceptance tests, contract tests, integration tests, end-to-end smoke). Targets ~300–420 cases with explicit contract ownership per layer. Seven consolidation rules, five verification steps. Scopes four domains: research (155 functions), usage-capture (128), dispatch (124), init-factory (52). Three review passes complete, all findings resolved, all 8 checks pass.
+2. **Sustainable Testing Regime** (`docs/proposals/superseded/sustainable-testing-regime.md`, status: open). Consolidates Factory's own ~1,000 pytest suite into a five-layer ownership model (deterministic linters, acceptance tests, contract tests, integration tests, end-to-end smoke). Targets ~300–420 cases with explicit contract ownership per layer. Seven consolidation rules, five verification steps. Scopes four domains: research (155 functions), usage-capture (128), dispatch (124), init-factory (52). Three review passes complete, all findings resolved, all 8 checks pass.
 
 The interaction points that motivate the merge:
 
@@ -39,7 +39,7 @@ Open items: the incoming session must decide how to merge — options include fo
 ## Artifacts
 
 - docs/proposals/implemented/test-gate-presence-over-test-execution.md
-- docs/proposals/sustainable-testing-regime.md
+- docs/proposals/superseded/sustainable-testing-regime.md
 - docs/spec/use_cases/UC-09-run-tests-via-hook.md
 - docs/spec/work/prd.md
 - docs/spec/validation-rules.md

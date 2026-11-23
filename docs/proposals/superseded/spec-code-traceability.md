@@ -1,5 +1,6 @@
 ---
 scope: global
+status: superseded
 ---
 
 # Proto-Proposal: Spec-Code Traceability

@@ -1,7 +1,7 @@
 ---
 scope: global
 schema_version: 2
-status: accepted
+status: superseded
 owner: agent-factory
 created: 2026-07-30
 updated: 2026-07-30

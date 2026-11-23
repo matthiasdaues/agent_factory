@@ -258,5 +258,5 @@ Proposal trace: [test-design-layer-redistribution.md](../../../../docs/proposals
 ## References
 
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation)
-- [sustainable-testing-regime.md](../../../../docs/proposals/sustainable-testing-regime.md)
+- [sustainable-testing-regime.md](../../../../docs/proposals/superseded/sustainable-testing-regime.md)
 - [rules.md § Testing](../rules.md#testing)
