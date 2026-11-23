@@ -145,16 +145,31 @@ EXCLUDED_DIRS = {
     "node_modules",
 }
 
-# Each Python process gives pytest a --basetemp of its own (DEC-85).
+# Each Python process gives pytest a --basetemp of its own (DEC-85). It
+# replaces the --basetemp and the cacheprovider option of its parents, so that
+# a pytest which a test starts gets exactly one of each.
 SITECUSTOMIZE = """\
 import os
 import shlex
 
 _folder = os.environ.get("CRAP_MEASURE_PYTEST_FOLDER")
 if _folder:
-    _own = shlex.quote("--basetemp=" + os.path.join(_folder, str(os.getpid())))
-    _earlier = os.environ.get("PYTEST_ADDOPTS", "")
-    os.environ["PYTEST_ADDOPTS"] = f"{_earlier} {_own} -p no:cacheprovider".strip()
+    _words = shlex.split(os.environ.get("PYTEST_ADDOPTS", ""))
+    _kept = []
+    _index = 0
+    while _index < len(_words):
+        _word = _words[_index]
+        if _word == "--basetemp":
+            _index += 2
+            continue
+        if _word == "-p" and _words[_index + 1 : _index + 2] == ["no:cacheprovider"]:
+            _index += 2
+            continue
+        if not (_word.startswith("--basetemp=") or _word == "-pno:cacheprovider"):
+            _kept.append(_word)
+        _index += 1
+    _own = "--basetemp=" + os.path.join(_folder, str(os.getpid()))
+    os.environ["PYTEST_ADDOPTS"] = shlex.join([*_kept, _own, "-p", "no:cacheprovider"])
 
 import coverage
 coverage.process_startup()
