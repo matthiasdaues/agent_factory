@@ -1,0 +1,23 @@
+{
+  "id": "SEC-0010",
+  "source": "security-review",
+  "review_class": "security",
+  "category": "suggestion",
+  "type": "A01",
+  "severity": "minor",
+  "artifact": "packages/factory/config/hooks/block-dangerous-git.sh:211-229",
+  "story": null,
+  "finding": "The git guard lets a story agent move or delete the branches that crap-score trusts, so the story judges itself (CWE-284). The review piped each call into block-dangerous-git.sh, and each exited 0: `git update-ref -d refs/heads/dev`, `git update-ref refs/heads/dev HEAD`, `git branch -d dev`, `git replace <a> <b>` and `git tag feature/login HEAD`. Only `git branch -D dev` is refused. In the layout of an orchestrated run, the primary checkout holds dev, so git itself refuses `git branch -d dev` from a story worktree, and `git update-ref -d refs/heads/dev` still deletes it. The scratch script /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/qa/probe-move-refs.sh runs both routes from a story worktree. After the deletion of dev, crap-score --base feature/login takes the threshold 10 of the story head through the fallback of the default dev (DEC-13, DEC-69) and exits 0 for a function that scores 9 against the threshold 8 of dev. After `git update-ref refs/heads/feature/login HEAD`, the diff from the base is empty, crap-score judges 0 functions and exits 0. The fallback prints a notice, and nothing reads it as a refusal. Fix: in block-dangerous-git.sh, deny `git update-ref`, `git branch -d`, `git branch -f`, `git branch -m` and `git symbolic-ref` when they name refs/heads/dev, the integration branch or a feature branch, and deny `git replace`. Add these calls to the guard's tests. A raw write into .git/refs stays open, because a check of the command text cannot see it; SEC-0009 closes the replace route inside crap-score.",
+  "basis": {
+    "effect": "gate-bypass",
+    "second_breach": false,
+    "trusted_access": true,
+    "non_default": false,
+    "user_action": false,
+    "confidence": "proven",
+    "in_use": true
+  },
+  "why_this_severity": "A deleted dev or a moved feature branch lets a story above the threshold pass crap-score at the merge, so the bar starts at High. The attack needs the agent's shell in the repository (trusted_access), which lowers it to Medium. The guard on dev never claimed to protect these refs, and the finding asks for more defense in a guard that checks only the command text, so it is a suggestion, and a security suggestion is at most minor. The guard lines are unchanged on dev, so they are in use.",
+  "commit": "a3c7b47edf8bed9692a7cf4e61d6221b92b387e4",
+  "status": "open"
+}
