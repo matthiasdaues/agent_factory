@@ -595,6 +595,21 @@ def _only_tag_main(repo: Repo) -> None:
     _settings_at_base("integration_branch: main\n")(repo)
 
 
+def _tag_v1_10_0_and_no_branch(repo: Repo) -> None:
+    """Tag the revision dev, at a threshold of 30, as v1.10.0 and name no local branch of that name (DEC-77)."""
+    commit_on(repo, "dev", {"docs/testing.yaml": gate_yaml(30)})
+    repo.git("update-ref", "refs/tags/v1.10.0", repo.git("rev-parse", "dev"))
+    _settings_at_base("integration_branch: v1.10.0\n")(repo)
+
+
+def _remote_ref_origin_main_and_no_branch(repo: Repo) -> None:
+    """Replace the branch main with the remote ref refs/remotes/origin/main at a threshold of 30 (DEC-77)."""
+    repo.git("branch", "-q", "-D", "main")
+    commit_on(repo, "dev", {"docs/testing.yaml": gate_yaml(30)})
+    repo.git("update-ref", "refs/remotes/origin/main", repo.git("rev-parse", "dev"))
+    _settings_at_base("integration_branch: origin/main\n")(repo)
+
+
 @pytest.mark.spec("CG-14-IT-07")
 @pytest.mark.parametrize(
     ("case", "named"),
@@ -612,9 +627,14 @@ def _only_tag_main(repo: Repo) -> None:
         (_settings_at_base(f'integration_branch: "{BRANCH}~1"\n'), ["key integration_branch", f"{BRANCH}~1"]),
         (_settings_at_base(f'integration_branch: "{BRANCH}^"\n'), ["key integration_branch", f"{BRANCH}^"]),
         (_only_tag_main, ["key integration_branch", "names the branch main", "git holds no branch main"]),
+        (_tag_v1_10_0_and_no_branch,
+         ["key integration_branch", "names the branch v1.10.0", "git holds no branch v1.10.0"]),
+        (_remote_ref_origin_main_and_no_branch,
+         ["key integration_branch", "names the branch origin/main", "git holds no branch origin/main"]),
     ],
     ids=["unparseable", "no threshold", "empty branch name", "number", "no branch main", "own branch",
-         "parent of the own branch", "caret of the own branch", "only a tag refs/heads/main"],
+         "parent of the own branch", "caret of the own branch", "only a tag refs/heads/main",
+         "tag v1.10.0 and no branch", "remote ref origin/main and no branch"],
 )
 def test_cg_14_broken_settings_on_the_branch_cannot_measure(repo, case, named):
     """Scenario Outline: Broken gate settings on the integration branch cannot measure (DEC-74, DEC-76)."""
