@@ -648,9 +648,11 @@ def git_argv(*args: str) -> list[str]:
 
     --no-replace-objects makes git read the true objects, so a replace ref
     under refs/replace/ cannot stand in for a blob or tree of the branch.
-    Every git call of this script goes through this function.
+    The command-line setting core.useReplaceRefs=false wins over a repository
+    setting of the same key, which the option alone does not override on
+    git 2.34.1. Every git call of this script goes through this function.
     """
-    return ["git", "--no-replace-objects", *args]
+    return ["git", "-c", "core.useReplaceRefs=false", "--no-replace-objects", *args]
 
 
 def git(root: Path, *args: str, errors: str = "strict") -> str:

@@ -872,6 +872,21 @@ def test_cg_14_a_replace_ref_on_the_settings_blob_of_dev_does_not_raise_the_thre
     assert "above the threshold 8" in proc.stderr
 
 
+@pytest.mark.spec("CG-14-IT-01")
+def test_cg_14_a_repository_setting_use_replace_refs_does_not_raise_the_threshold(repo):
+    """SEC-0009: core.useReplaceRefs=true in the shared config must not turn the replace ref back on."""
+    commit_on(repo, "dev", {"docs/testing.yaml": gate_yaml(8)})
+    change_tree(repo)
+    _git_raw(repo, "config", "core.useReplaceRefs", "true")
+    real = _git_raw(repo, "rev-parse", "dev:docs/testing.yaml")
+    forged = _git_raw(repo, "hash-object", "-w", "--stdin", data=gate_yaml(30))
+    _git_raw(repo, "replace", real, forged)
+    proc = repo.run(*GATE_CALL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert "above the threshold 8" in proc.stderr
+
+
 @pytest.mark.spec("CG-04-IT-17")
 def test_cg_04_a_replace_ref_on_the_docs_tree_of_dev_adds_no_register_row(repo):
     """SEC-0009: git replace of the docs tree of dev with a forged register row; the gate reads dev's true register."""
