@@ -1,9 +1,60 @@
 # Changelog
 
-## Unreleased
+## 1.12.0 — 2026-11-23
+
+This release rebuilds the CRAP gate. A project now sets the gate up once,
+proves that its measuring command reports true coverage, and then gets one
+verdict for the functions each story changed, on every merge. A story can no
+longer loosen its own gate. Run `update-factory` to receive it, then ask the
+test-strategy agent to set up the gate with `setup-crap-score`.
+
+### Changes that need action
+
+- **`crap-score` takes no threshold, no file list and no coverage file.** It
+  runs as `crap-score (--base <revision> | --all)` and reads everything from
+  `gates.crap-score` in `docs/testing.yaml`. A call with the old arguments
+  exits `2`. The gate has no built-in threshold, so a project without that
+  entry runs no CRAP gate until a person sets it up.
 
 ### Changes
 
+- **One gate for every language.** `crap-score` runs the measuring commands
+  that the project lists under `measures` and judges the rows they write. It
+  holds no language-specific code. For Python, the setup ships a template on
+  radon and coverage.py.
+- **Only changed code can fail.** With `--base`, the gate judges only the
+  functions whose lines the story added, changed or deleted.
+- **The setup decides every value with the User.** `setup-crap-score` tries
+  tools on real files, proposes measures, exclusions, a threshold and a time
+  limit, and enables the gate only after the User confirms each value.
+- **`gate-setup-proof` checks a measure before it is enabled.** Four checks
+  on planted code show that the measuring command repeats its result,
+  catches a function without tests, sees the folder, and reports a gap.
+- **A story is judged by the settings of the integration branch.**
+  `threshold`, `files`, `exclude` and the exceptions register come from
+  `dev`, or from the branch that `integration_branch` in
+  `docs/factory-settings.yaml` names. The measuring commands still come from
+  the story. `premerge-check` reads from `dev` whether the gate runs at all.
+- **A story cannot pick its own trusted source.** A named branch that does not
+  exist, a tag, a remote ref, a revision such as `story/ST-0350~1`, a tag
+  named like the feature branch, and replace refs, also through
+  `core.useReplaceRefs`, all fail to change the values the gate trusts.
+  Without a local `dev`, a story merge cannot measure and stops as `blocked`.
+- **A gate that cannot measure costs no attempt.** Exit `2` of `crap-score`
+  becomes exit `3` of `premerge-check`, and the story stops as `blocked`.
+  `dispatch resume-gates` sends it back to the gate check once the setup
+  works.
+- **A function above the threshold can be accepted.** The stakeholder writes
+  a row into the section `## CRAP score` of `docs/findings/exceptions.md` on
+  `dev`. Agents cannot write the register.
+- **Measures that need a service run one at a time.** A `ready` command runs
+  first, under a lock per measure, and every command stays within
+  `timeout_minutes`. `dispatch init` refuses to start a run while a `ready`
+  command of an enabled gate fails.
+- **Agents may run single test files.** The guardrail allows
+  `uv run [--directory PATH] pytest [options] tests/<file>.py[::test]`. The
+  full suite still runs at every commit and at every merge. Words inside
+  quotes and here-documents no longer count as test commands.
 - **The new script `move-docs` moves files and rewrites every reference to
   them.** Run `move-docs [--dry-run] OLD NEW [OLD NEW ...]`. It rewrites each
   Markdown link to a moved file and rebases the relative links inside a moved
@@ -14,6 +65,13 @@
 - **`migrate-spec-layout` and `move-docs` share the link rewrite.** It moved
   into the new module `_link_rewrite.py`. The behaviour of
   `migrate-spec-layout` stays the same.
+
+### Fixes
+
+- **A broken `docs/testing.yaml` stops a merge without a traceback.** A
+  broken file on `dev` makes the CRAP gate unable to measure (exit `3`). A
+  broken file at the head of the branch being merged is a refusal (exit `1`)
+  that names the file.
 
 ## 1.11.1 — 2026-11-20
 
