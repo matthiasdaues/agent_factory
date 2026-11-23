@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.13.0 — 2026-11-23
+
+This release runs fewer full test suites. A story merge runs only the tests
+of the files the story changed, and agents can no longer start the whole
+suite. The feature merge still runs the whole suite. Run `update-factory` to
+receive it, then ask the test-strategy agent to re-run `detect-test-regime`,
+or set `test_changed_command` in `docs/testing.yaml` by hand.
+
+### Changes that need action
+
+- **Agents can no longer run `test_command` or `test_staged_command`.** The
+  guardrail allows only `test_changed_command`, as declared or followed by
+  path arguments, and single test files under `tests/`. An agent that ran
+  the whole suite to check its work now runs `test_changed_command` with its
+  changed paths. A project without `test_changed_command` leaves its agents
+  with single test files only.
+
+### Changes
+
+- **A story merge runs the tests of the changed files.** With
+  `test_changed_command` in `docs/testing.yaml`, `premerge-check` runs that
+  command on a story merge and appends the paths of
+  `git diff --name-only <target>...<branch>`. Without the field, the story
+  merge runs `test_command` as before. The feature merge always runs
+  `test_command`.
+- **`detect-test-regime` proposes `test_changed_command`.** For a project
+  with one Jest or Vitest suite, the Test regime fitting step proposes
+  `jest --findRelatedTests --passWithNoTests` or
+  `vitest related --run --passWithNoTests`, wrapped the way the suite runs.
+  A project with several suites or with pytest gets no proposal and can
+  record its own selector script.
+- **The template defines what `test_changed_command` receives.** The command
+  gets the changed paths as arguments and must pass when no test is
+  affected. The old example only listed the tests and ran none.
+- **`implement-issue` runs the tests of the changes.** The skill runs single
+  files with `run_file` and the tests of the changes with
+  `test_changed_command`, instead of the whole suite.
+
 ## 1.12.0 — 2026-11-23
 
 This release rebuilds the CRAP gate. A project now sets the gate up once,
