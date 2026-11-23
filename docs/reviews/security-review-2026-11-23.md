@@ -9,7 +9,7 @@ story:
 run: feature/crap-gate-trusted-source
 branch: feature/crap-gate-trusted-source
 branch_base: 334f5a2e8e3a812954ca244442a432525606eefa
-branch_head: b24253262df2322a27b87c2cb83982e352fc3e2f
+branch_head: d9ea660aeef43abc0a43487749f13262548e56fb
 ---
 
 # Security review of feature/crap-gate-trusted-source
@@ -81,3 +81,7 @@ The new code of `premerge-check` opens no new route for a story. It reads `dev` 
 ## Repeat pass at b2425326
 
 The diff `c0ae79bd..b2425326` holds the fix of BUG-0137 and its drift rows. The fix changes how `premerge-check` treats a broken `docs/testing.yaml`, and it adds no new reader of a trusted value. A broken file on `dev` now stops the merge with exit 3, and a story can no longer drop the gate through a broken head file, because the head file is refused with exit 1. The review files no new finding, so its status stays `pass`.
+
+## Repeat pass at d9ea660a
+
+The diff `b2425326..d9ea660a` holds the fix of BUG-0138 and its drift rows, adds no reader of a trusted value, and gives no new finding.

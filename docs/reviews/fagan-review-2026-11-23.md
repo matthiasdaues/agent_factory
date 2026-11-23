@@ -9,7 +9,7 @@ story:
 run: feature/crap-gate-trusted-source
 branch: feature/crap-gate-trusted-source
 branch_base: 334f5a2e8e3a812954ca244442a432525606eefa
-branch_head: b24253262df2322a27b87c2cb83982e352fc3e2f
+branch_head: d9ea660aeef43abc0a43487749f13262548e56fb
 ---
 
 # Fagan inspection of feature/crap-gate-trusted-source
@@ -100,3 +100,7 @@ In the cases that the bug hunt ran, the new code holds to DEC-80 to DEC-82. BUG-
 ## Repeat pass at b2425326
 
 The diff `c0ae79bd..b2425326` holds the fix of BUG-0137 in `premerge-check`, its tests, and its confirmed drift rows in DEC-83, the interface contracts and the validation rules. The inspection files no new finding, so its status stays `pass`. The bug hunt found that the fix makes the feature merge crash on a `gates` section that is no mapping. The bug-hunt report owns that finding, [BUG-0138](../findings/BUG-0138.md). FAGAN-0035 stays open in the register.
+
+## Repeat pass at d9ea660a
+
+The diff `b2425326..d9ea660a` holds the fix of BUG-0138 in `check_test_suite` and its drift rows, and the inspection files no new finding.
