@@ -650,7 +650,7 @@ agents:
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
     tokens: 1501
-    total_tokens: 17529
+    total_tokens: 17976
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -930,7 +930,7 @@ skills:
     category: utility
     description: Scan project for test suites and record each one in testing.yaml (at docs/testing.yaml). Code is the source of truth; the record is derived.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 3304
+    tokens: 3751
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record settled terms and architecture decisions in docs/adr/ inline as decisions crystallise. A settled term goes into docs/spec/glossary.md when the domain-modeling agent runs the skill, and into docs/spec/work/term-candidates.md otherwise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.

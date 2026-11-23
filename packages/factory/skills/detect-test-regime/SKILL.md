@@ -30,7 +30,7 @@ inputs:
 outputs:
   - docs/testing.yaml
 category: utility
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Detect Test Regime
@@ -63,6 +63,7 @@ agent's role and invokes the skill.
 testing_strategy: docs/testing-strategy.md
 
 test_all: "make test && make frontend_test"   # composite command, all suites
+test_changed_command: "npx vitest related --run --passWithNoTests"
 
 suites:
   - name: backend
@@ -116,6 +117,10 @@ joined with `&&`. When a suite is found but cannot be fully resolved
 (command unclear, prerequisites unknown), record it with explicit nulls —
 do not omit it. The human catches gaps during charter review before
 planning starts.
+
+`test_changed_command` runs the tests of a set of changed files. Step 6
+decides whether the project gets one. The field is optional: leave it out
+when no suite supports it.
 
 `testing_strategy` is the path to the project's testing strategy document.
 This field is always populated, never null — it defaults to
@@ -248,7 +253,41 @@ Join each suite's `run_all` command with `&&` to form `test_all`. Suites
 with `run_all: null` are excluded from the composite command. If no suite
 has a resolved `run_all`, set `test_all: null`.
 
-### 6. Ask about testing strategy
+### 6. Propose test_changed_command
+
+On a story merge, `premerge-check` runs `test_changed_command` and appends
+every path the story changed, source files and other files alike. Without
+the field, the story merge runs `test_command`, the whole suite. Agents may
+run `test_changed_command` with their changed paths; the agent guard blocks
+the whole suite.
+
+Propose a value only when the framework itself selects tests from a list of
+source files, and only for a project with one suite. Two framework modes
+qualify:
+
+| Framework | Command to wrap in the suite's invocation   |
+| --------- | ------------------------------------------- |
+| Jest      | `jest --findRelatedTests --passWithNoTests` |
+| Vitest    | `vitest related --run --passWithNoTests`    |
+
+Wrap the command the way the suite's `run_all` runs the framework, for
+example with `npx` or `docker compose exec`. The paths arrive relative to
+the repository root. When the suite runs from a subfolder, tell the user
+that the paths may not resolve there, and ask before recording the value.
+
+Propose no value in these cases, and tell the user that each story merge
+then runs the whole suite:
+
+- The project has more than one suite. A composite command joined with
+  `&&` passes the paths only to its last command.
+- The framework has no such mode, as with pytest. The project can write its
+  own selector script and record it by hand. The script must pass when no
+  test is affected.
+
+Show the proposed command to the user and ask for confirmation. Step 9
+records only a confirmed command.
+
+### 7. Ask about testing strategy
 
 After suite discovery and confirmation (step 3), ask the user:
 
@@ -265,9 +304,9 @@ tells planner and developer agents *how* to test — clusters, budgets,
 markers, fixture rules, AI-generated test rules. The suites tell them
 *where* and *what*.
 
-### 7. Extract risk classes
+### 8. Extract risk classes
 
-Read the testing strategy document resolved in step 6. Find its
+Read the testing strategy document resolved in step 7. Find its
 "## Risk classes" section and extract the class names from the table's
 first column (strip backticks). Normalize underscores to hyphens
 (`cluster_a` → `cluster-a`). Record each class with its `format` and
@@ -286,7 +325,7 @@ defaults:
 reads these classes. They are separate from the `risk_level` field in story
 frontmatter.
 
-### 8. Record
+### 9. Record
 
 **Pause point:** show the proposal to the stakeholder first: a diff
 against the current `testing.yaml`, or the full file when none exists.
@@ -296,8 +335,10 @@ declines a change, the file keeps its earlier content.
 After the confirmation, write or update `testing.yaml` (at
 `docs/testing.yaml`):
 
-- `testing_strategy` — path to the testing strategy document (step 6).
+- `testing_strategy` — path to the testing strategy document (step 7).
 - `test_all` — the composite command (step 5).
+- `test_changed_command` — the confirmed command (step 6); leave the field
+  out when step 6 proposed none or the user declined it.
 - `suites` — one entry per discovered suite (step 2), with all fields
   populated or explicitly null.
 - `layers` — one entry per layer with confirmed evidence (step 4), each
@@ -305,7 +346,7 @@ After the confirmation, write or update `testing.yaml` (at
   actually observed. Omit unused layers entirely; never set a layer to
   `null` as a placeholder.
 - `risk_classes` — one entry per risk class from the strategy document
-  (step 7), with `format` and `budget` fields.
+  (step 8), with `format` and `budget` fields.
 
 If `testing.yaml` already exists, treat it as a prior scan
 result, not ground truth — update fields whose evidence has changed, and
