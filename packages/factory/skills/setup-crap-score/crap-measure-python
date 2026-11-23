@@ -46,13 +46,21 @@ Files
   number of segments, and ? matches one character other than /, as in
   crap-score.
 
+Scope
+  crap-score sets GATE_SCOPE and GATE_CHANGED_FILES (DEC-84). With
+  GATE_SCOPE=changed, the command measures and traces only the paths of
+  GATE_CHANGED_FILES, one per line, that GATE_FILES and GATE_EXCLUDE keep.
+  Without such a path it runs no test and writes an empty array. With any
+  other GATE_SCOPE, or without it, the command measures every kept file.
+
 Duty
   When the command cannot measure a case, it exits non-zero, names the
   cause, and writes no rows. Two such cases are a failed test run and a
   file with functions that coverage cannot reach, such as a script that
   no test runs. It never reports such a file as 0 % covered. A file that
   GATE_FILES or GATE_EXCLUDE leaves out is not measured, so it stops
-  nothing.
+  nothing. With GATE_SCOPE=changed, neither does a file that the diff
+  leaves alone.
 
 Coverage
   coverage_pct of a function counts only the lines of its body after the
@@ -76,6 +84,18 @@ Test command
   this command's and those of its callers, so a test command that starts
   `python` runs the project's interpreter. Such an environment is a folder
   with pyvenv.cfg under uv's cache folder.
+
+  SELECT_COMMAND below may hold a command that runs only the tests of the
+  paths appended to it. With GATE_SCOPE=changed and a filled
+  SELECT_COMMAND, the command runs SELECT_COMMAND with every path of
+  GATE_CHANGED_FILES appended; otherwise it runs TEST_COMMAND (DEC-85).
+
+  Every Python process of the test run sets PYTEST_ADDOPTS before it
+  starts: it appends --basetemp with a folder of its own process ID below
+  this command's work folder, and -p no:cacheprovider. So a pytest that
+  any test command starts leaves no pytest temp folder and no
+  .pytest_cache behind, and a pytest that a test starts cannot clear the
+  temp folder of the pytest that runs that test (DEC-85).
 """
 
 from __future__ import annotations
@@ -104,6 +124,10 @@ PROPERTY_ACCESSORS = ("getter", "setter", "deleter")
 # ["uv", "run", "pytest", "--quiet"]. setup-crap-score fills it in.
 TEST_COMMAND: list[str] = []
 
+# The command that runs only the tests of the paths appended to it, such as
+# ["python3", "tests/select_tests.py", "--run"]. Empty runs TEST_COMMAND.
+SELECT_COMMAND: list[str] = []
+
 EXCLUDED_DIRS = {
     ".current-work",
     ".git",
@@ -117,7 +141,20 @@ EXCLUDED_DIRS = {
     "node_modules",
 }
 
-SITECUSTOMIZE = "import coverage\ncoverage.process_startup()\n"
+# Each Python process gives pytest a --basetemp of its own (DEC-85).
+SITECUSTOMIZE = """\
+import os
+import shlex
+
+_folder = os.environ.get("CRAP_MEASURE_PYTEST_FOLDER")
+if _folder:
+    _own = shlex.quote("--basetemp=" + os.path.join(_folder, str(os.getpid())))
+    _earlier = os.environ.get("PYTEST_ADDOPTS", "")
+    os.environ["PYTEST_ADDOPTS"] = f"{_earlier} {_own} -p no:cacheprovider".strip()
+
+import coverage
+coverage.process_startup()
+"""
 
 
 class CannotMeasure(Exception):
@@ -207,10 +244,18 @@ def kept(relative: str, files: list[str] | None, exclude: list[str]) -> bool:
     return not any(glob_match(p, relative) for p in exclude)
 
 
-def code_files(root: Path) -> list[Path]:
+def changed_paths() -> set[str] | None:
+    """The paths of GATE_CHANGED_FILES with GATE_SCOPE=changed; None for any other scope (DEC-84)."""
+    if os.environ.get("GATE_SCOPE") != "changed":
+        return None
+    return set(patterns("GATE_CHANGED_FILES") or [])
+
+
+def code_files(root: Path, changed: set[str] | None = None) -> list[Path]:
     """Every Python file of the project below *root* that the measure keeps.
 
-    The command itself is left out: no test runs it.
+    With *changed*, only the files among those paths. The command itself is
+    left out: no test runs it.
     """
     itself = Path(__file__).resolve()
     files_patterns, exclude = patterns("GATE_FILES"), patterns("GATE_EXCLUDE") or []
@@ -218,7 +263,10 @@ def code_files(root: Path) -> list[Path]:
     for path in candidate_files(root):
         if not path.is_file() or path.resolve() == itself:
             continue
-        if not kept(path.relative_to(root).as_posix(), files_patterns, exclude):
+        relative = path.relative_to(root).as_posix()
+        if not kept(relative, files_patterns, exclude):
+            continue
+        if changed is not None and relative not in changed:
             continue
         if path.suffix == ".py" or (path.suffix == "" and is_python_script(path)):
             files.add(path)
@@ -264,8 +312,32 @@ def caller_environment() -> dict[str, str]:
     return env
 
 
-def run_tests(root: Path, work: Path) -> dict:
-    """Run TEST_COMMAND under coverage; return the coverage.json files table."""
+def test_command(changed: set[str] | None) -> list[str]:
+    """SELECT_COMMAND with the changed paths under changed when it is filled, else TEST_COMMAND (DEC-85)."""
+    if changed is not None and SELECT_COMMAND:
+        return [*SELECT_COMMAND, *sorted(changed)]
+    return TEST_COMMAND
+
+
+def coverage_config(root: Path, data_file: Path, traced: list[Path] | None) -> str:
+    """The coverage.py settings: trace every file below *root*, or only *traced*."""
+    if traced is None:
+        where = f"source = {root}\n"
+    else:
+        where = "include =\n" + "".join(f"    {path}\n" for path in traced)
+    # include_namespace_packages lets coverage report an untested file in a
+    # folder without __init__.py as 0 % covered.
+    return (
+        f"[run]\nparallel = True\nbranch = True\ndata_file = {data_file}\n{where}"
+        "[report]\ninclude_namespace_packages = True\n"
+    )
+
+
+def run_tests(root: Path, work: Path, command: list[str], traced: list[Path] | None = None) -> dict:
+    """Run *command* under coverage; return the coverage.json files table.
+
+    With *traced*, coverage traces only those files (DEC-85).
+    """
     site = work / "site"
     site.mkdir()
     (site / "sitecustomize.py").write_text(SITECUSTOMIZE, encoding="utf-8")
@@ -274,27 +346,23 @@ def run_tests(root: Path, work: Path) -> dict:
     shutil.copytree(Path(coverage.__file__).parent, site / "coverage")
     data_file = work / ".coverage"
     rcfile = work / "coveragerc"
-    # include_namespace_packages lets coverage report an untested file in a
-    # folder without __init__.py as 0 % covered.
-    rcfile.write_text(
-        f"[run]\nparallel = True\nbranch = True\n"
-        f"data_file = {data_file}\nsource = {root}\n"
-        "[report]\ninclude_namespace_packages = True\n",
-        encoding="utf-8",
-    )
+    rcfile.write_text(coverage_config(root, data_file, traced), encoding="utf-8")
+    pytest_folder = work / "pytest"
+    pytest_folder.mkdir()
 
     env = {k: v for k, v in caller_environment().items() if not k.startswith("COVERAGE_")}
     env["COVERAGE_PROCESS_START"] = str(rcfile)
+    env["CRAP_MEASURE_PYTEST_FOLDER"] = str(pytest_folder)
     env["PYTHONPATH"] = os.pathsep.join(
         [str(site), *filter(None, [os.environ.get("PYTHONPATH")])]
     )
     try:
-        result = subprocess.run(TEST_COMMAND, cwd=root, env=env, check=False)
+        result = subprocess.run(command, cwd=root, env=env, check=False)
     except OSError as exc:
-        raise CannotMeasure(f"the test command {TEST_COMMAND} cannot start: {exc}") from exc
+        raise CannotMeasure(f"the test command {command} cannot start: {exc}") from exc
     if result.returncode != 0:
         raise CannotMeasure(
-            f"the test run failed with exit {result.returncode}: {' '.join(TEST_COMMAND)}"
+            f"the test run failed with exit {result.returncode}: {' '.join(command)}"
         )
 
     cov = coverage.Coverage(data_file=str(data_file), config_file=str(rcfile))
@@ -459,11 +527,11 @@ def function_blocks(path: Path) -> list[tuple[str, object, int | None]]:
     return named
 
 
-def measure(root: Path, coverage_files: dict) -> list[dict]:
-    """One row per function of the code files below *root*."""
+def measure(root: Path, files: list[Path], coverage_files: dict) -> list[dict]:
+    """One row per function of the code *files* below *root*."""
     rows: list[dict] = []
     unreachable: list[str] = []
-    for path in code_files(root):
+    for path in files:
         relative = path.relative_to(root).as_posix()
         try:
             blocks = function_blocks(path)
@@ -512,9 +580,17 @@ def main() -> int:
         return 2
 
     root = Path.cwd().resolve()
+    changed = changed_paths()
+    files = code_files(root, changed)
+    if changed is not None and not files:
+        # No changed file that the measure keeps, so no test needs to run.
+        output.write_text("[]\n", encoding="utf-8")
+        return 0
+    traced = files if changed is not None else None
     try:
         with tempfile.TemporaryDirectory(prefix="crap-measure-python-") as work:
-            rows = measure(root, run_tests(root, Path(work)))
+            coverage_files = run_tests(root, Path(work), test_command(changed), traced)
+            rows = measure(root, files, coverage_files)
     except CannotMeasure as exc:
         print(f"crap-measure-python: cannot measure: {exc}", file=sys.stderr)
         return 1

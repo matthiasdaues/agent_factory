@@ -748,3 +748,106 @@ def test_cg_05_outside_a_git_repository_gives_no_register(tmp_path):
     assert NO_DEV_LINE in proc.stdout
     report = json.loads((folder / ".current-work" / "crap-score" / f"{STORY_ID}.json").read_text())
     assert report[0]["pass_fail"] == "fail"
+
+
+# --- CG-03-IT-06, CG-03-IT-07, CG-04-IT-18: the scope of each measuring command
+
+DISPATCH = "packages/factory/scripts/dispatch"
+SCOPE_STUB = """\
+#!/bin/sh
+printf '%s' "${GATE_SCOPE-unset}" > "$SCOPE_LOG.scope"
+printf '%s' "${GATE_CHANGED_FILES-unset}" > "$SCOPE_LOG.files"
+cp "$PLANTED_ROWS" "$GATE_OUTPUT"
+"""
+
+
+def _scope_log(repo: Repo) -> Path:
+    """Put the recording stub in place; return the stem of its two log files."""
+    repo.stub(SCOPE_STUB)
+    repo.write(DISPATCH, "# dispatch\n")
+    repo.write("docs/notes.md", "notes\n")
+    repo.commit("recording stub")
+    log = repo.tmp / "scope"
+    repo.env["SCOPE_LOG"] = str(log)
+    return log
+
+
+def _logged(log: Path) -> tuple[str, str]:
+    return log.with_suffix(".scope").read_text(), log.with_suffix(".files").read_text()
+
+
+@pytest.mark.spec("CG-03-IT-06")
+def test_cg_03_with_base_crap_score_hands_the_changed_paths_to_the_measuring_command(repo):
+    """Scenario: With --base, crap-score hands the changed paths to the measuring command."""
+    repo.git("checkout", "-q", TARGET)
+    log = _scope_log(repo)
+    repo.git("checkout", "-q", "-b", "story/ST-0351")
+    repo.write(FINDING_LINT, _finding_lint({5: "# changed"}))
+    repo.write(DISPATCH, "# dispatch, changed\n")
+    repo.commit("story change")
+    # A change of the target after the story branched is no path of the diff.
+    repo.git("checkout", "-q", TARGET)
+    repo.write("docs/notes.md", "notes, changed on the target\n")
+    repo.commit("target change")
+    repo.git("checkout", "-q", "story/ST-0351")
+
+    proc = repo.run("--base", TARGET, "--story-id", "ST-0351")
+
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _logged(log) == ("changed", f"{DISPATCH}\n{FINDING_LINT}")
+
+
+@pytest.mark.spec("CG-03-IT-07")
+def test_cg_03_with_all_crap_score_hands_an_empty_list_to_the_measuring_command(repo):
+    """Scenario: With --all, crap-score hands an empty list to the measuring command."""
+    log = _scope_log(repo)
+    repo.change(_finding_lint({15: "    x15 = 'changed'"}))
+
+    repo.run("--all", "--story-id", STORY_ID)
+
+    assert _logged(log) == ("all", "")
+
+
+@pytest.mark.spec("CG-03-IT-06")
+def test_cg_03_a_changed_path_with_a_line_break_cannot_measure(repo):
+    """DEC-84: GATE_CHANGED_FILES holds one path per line, so no changed path holds a line break."""
+    log = _scope_log(repo)
+    repo.write("packages/factory/scripts/two\nlines", "# a path with a line break\n")
+    repo.commit("path with a line break")
+
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "line break" in proc.stderr
+    assert not log.with_suffix(".scope").exists()
+
+
+# coverage_pct at which complexity 4 scores 9.00: 16 * (1 - p)^3 + 4 = 9.
+FEWER_TESTS_COVERAGE = 32.14
+FEWER_TESTS_STUB = """\
+#!/bin/sh
+if [ "$GATE_SCOPE" = changed ]; then cp "$FEWER_ROWS" "$GATE_OUTPUT"; else cp "$PLANTED_ROWS" "$GATE_OUTPUT"; fi
+"""
+
+
+@pytest.mark.spec("CG-04-IT-18")
+def test_cg_04_a_measuring_command_that_runs_fewer_tests_can_fail_a_story(repo):
+    """Scenario: A measuring command that runs fewer tests can make a story fail but never pass."""
+    repo.stub(FEWER_TESTS_STUB)
+    repo.plant([_row("tree_severity", 10, 30, complexity=4), _row("bug_bar_level", 32, 50, complexity=1)])
+    fewer = repo.tmp / "fewer.json"
+    fewer.write_text(json.dumps([
+        _row("tree_severity", 10, 30, complexity=4, coverage=FEWER_TESTS_COVERAGE),
+        _row("bug_bar_level", 32, 50, complexity=1),
+    ]))
+    repo.env["FEWER_ROWS"] = str(fewer)
+    repo.change(_finding_lint({15: "    x15 = 'changed'"}))
+
+    all_tests = repo.run("--all", "--story-id", STORY_ID)
+    fewer_tests = repo.run("--base", TARGET, "--story-id", STORY_ID)
+
+    assert all_tests.returncode == 0, all_tests.stdout + all_tests.stderr
+    assert f"PASS {FINDING_LINT} tree_severity 4.00" in all_tests.stdout
+    assert fewer_tests.returncode == 1, fewer_tests.stdout + fewer_tests.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in fewer_tests.stdout
+    assert "above the threshold 8" in fewer_tests.stderr
