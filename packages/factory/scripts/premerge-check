@@ -1517,9 +1517,17 @@ def check_test_suite(
     """Run the test suite in *worktree* with its own uv environment (OI-10).
 
     Without `test_command`, a story merge skips the suite. The feature merge
-    passes *required*, because it must show that the full suite passes.
+    passes *required*, because it must show that the full suite passes. A broken
+    docs/testing.yaml refuses with BLOCK testing-yaml and no traceback, on the
+    feature merge as on the story merge (BUG-0138, DEC-83).
     """
-    command = read_test_command(worktree)
+    try:
+        command = read_test_command(worktree)
+    except BrokenTestingYaml as exc:
+        return False, (
+            f"BLOCK testing-yaml: {TESTING_YAML} of {story_id} {exc}; the branch must "
+            "repair its own file, and the test suite did not run"
+        )
     if command is None and required:
         return False, (
             f"BLOCK test-suite: {TESTING_YAML} has no test_command, so the check "
