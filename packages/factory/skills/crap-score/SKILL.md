@@ -63,13 +63,17 @@ A story cannot decide what counts as accepted. So the gate reads `threshold`, th
 
 ## Measurement format
 
-The gate runs the measures in list order, each from the root of the folder the gate runs in. Each command gets the caller's environment without the environments of `uv run --script`, so `python` in a command starts the project's interpreter. The gate, `dispatch` and `premerge-check` each start through `uv run --script`, and uv keeps each of their environments in a folder with `pyvenv.cfg` under its cache folder: `UV_CACHE_DIR`, else `$XDG_CACHE_HOME/uv`, else `~/.cache/uv`. The gate removes every such `bin` folder from `PATH`, and `VIRTUAL_ENV` when it names such a folder. A project's own `.venv` lies outside the cache and stays. The gate sets three environment variables for each measuring command:
+The gate runs the measures in list order, each from the root of the folder the gate runs in. Each command gets the caller's environment without the environments of `uv run --script`, so `python` in a command starts the project's interpreter. The gate, `dispatch` and `premerge-check` each start through `uv run --script`, and uv keeps each of their environments in a folder with `pyvenv.cfg` under its cache folder: `UV_CACHE_DIR`, else `$XDG_CACHE_HOME/uv`, else `~/.cache/uv`. The gate removes every such `bin` folder from `PATH`, and `VIRTUAL_ENV` when it names such a folder. A project's own `.venv` lies outside the cache and stays. The gate sets five environment variables for each measuring command:
 
 - `GATE_OUTPUT` holds a file path. The command writes its rows there.
 - `GATE_FILES` holds the measure's `files` pattern.
 - `GATE_EXCLUDE` holds the measure's `exclude` patterns, one pattern per line, and is empty without `exclude`.
+- `GATE_SCOPE` is `changed` with `--base` and `all` with `--all`.
+- `GATE_CHANGED_FILES` holds the paths of the judged diff with `--base`, one repository-relative path per line, and is empty with `--all`.
 
 A command may measure only the files that match `GATE_FILES` and no `GATE_EXCLUDE` pattern, so a file the measure leaves out cannot make it exit non-zero. The gate still applies `files` and `exclude` to the rows itself (DEC-10, DEC-65). A `files` or `exclude` pattern with a line break makes the gate exit `2`.
+
+With `changed`, a command may run only the tests that the changed paths affect and measure only the changed files it keeps. Fewer tests can only lower the coverage, so the gate can fail a story wrongly but never pass it wrongly. A file that the diff leaves alone then cannot make the command exit non-zero. A changed path with a line break makes the gate exit `2`. The gate sets both variables and never reads them, so a command that ignores them keeps working (DEC-84).
 
 The command writes one JSON array to the path in `GATE_OUTPUT`, with one row per function:
 

@@ -22,6 +22,7 @@ import pytest
 from conftest import REPO_ROOT
 
 TEMPLATE = REPO_ROOT / "packages" / "factory" / "skills" / "setup-crap-score" / "crap-measure-python"
+GATE_VARIABLES = ("GATE_FILES", "GATE_EXCLUDE", "GATE_SCOPE", "GATE_CHANGED_FILES")
 SIX_FIELDS = {"file", "function", "start_line", "end_line", "complexity", "coverage_pct"}
 
 PARSER = """\
@@ -70,7 +71,9 @@ def test_parse_row():
 """
 
 
-def _write_project(root: Path, test_command: list[str] | None = None) -> Path:
+def _write_project(
+    root: Path, test_command: list[str] | None = None, select_command: list[str] | None = None
+) -> Path:
     """Write the demo project and the filled-in template; return the command."""
     (root / "src").mkdir()
     (root / "src" / "parser.py").write_text(PARSER)
@@ -87,6 +90,14 @@ def _write_project(root: Path, test_command: list[str] | None = None) -> Path:
         flags=re.MULTILINE,
     )
     assert count == 1, "the template has no empty TEST_COMMAND constant"
+    if select_command is not None:
+        text, count = re.subn(
+            r"^SELECT_COMMAND: list\[str\] = \[\]$",
+            f"SELECT_COMMAND: list[str] = {select_command!r}",
+            text,
+            flags=re.MULTILINE,
+        )
+        assert count == 1, "the template has no empty SELECT_COMMAND constant"
     command = root / "scripts" / "crap-measure-python"
     command.write_text(text)
     command.chmod(0o755)
@@ -94,7 +105,7 @@ def _write_project(root: Path, test_command: list[str] | None = None) -> Path:
 
 
 def _run(root: Path, outer: Path | None = None, **patterns: str) -> subprocess.CompletedProcess:
-    """Run the template; *patterns* sets GATE_FILES and GATE_EXCLUDE, as crap-score does.
+    """Run the template; *patterns* sets the GATE_* variables, as crap-score does.
 
     With *outer*, that script starts the template, as crap-score started by
     dispatch does.
@@ -103,7 +114,7 @@ def _run(root: Path, outer: Path | None = None, **patterns: str) -> subprocess.C
     # would inherit them and write its data into that run, so strip them here.
     env = {
         k: v for k, v in os.environ.items()
-        if not k.startswith("COVERAGE_") and k not in ("GATE_FILES", "GATE_EXCLUDE")
+        if not k.startswith("COVERAGE_") and k not in GATE_VARIABLES
     }
     env["GATE_OUTPUT"] = "rows.json"
     env.update(patterns)
@@ -735,3 +746,234 @@ def test_bug_0134_the_template_counts_a_one_line_function_as_covered_only_when_c
     }
     assert _row(rows, "src/pick.py", "pick")["complexity"] == 4
     assert _row(_rows(tmp_path), "src/solo.py", "solo")["coverage_pct"] == 0.0
+
+
+# --- CG-03-IT-04, CG-03-IT-08 to CG-03-IT-10: the scope of a run (DEC-84, DEC-85)
+
+
+def _files(root: Path) -> set[str]:
+    return {row["file"] for row in _rows(root)}
+
+
+@pytest.mark.spec("CG-03-IT-04")
+def test_cg_03_with_changed_the_template_stops_for_a_changed_file_coverage_cannot_reach(
+    tmp_path: Path,
+) -> None:
+    """Scenario Outline: A measuring command reports a case it cannot measure, row "and the run judges that file"."""
+    _write_project(tmp_path)
+    (tmp_path / "scripts" / "sync-stock").write_text(UNREACHED_SCRIPT)
+
+    result = _run(tmp_path, GATE_SCOPE="changed", GATE_CHANGED_FILES="src/parser.py\nscripts/sync-stock")
+
+    assert result.returncode == 1
+    assert "coverage cannot reach scripts/sync-stock" in result.stderr
+    assert not (tmp_path / "rows.json").exists()
+
+
+@pytest.mark.spec("CG-03-IT-08")
+def test_cg_03_with_changed_an_unchanged_file_no_test_reaches_does_not_stop_the_measure(
+    tmp_path: Path,
+) -> None:
+    """Scenario: With changed, a file that the diff leaves alone and no test reaches does not stop the measure."""
+    _write_project(tmp_path)
+    (tmp_path / "scripts" / "sync-stock").write_text(UNREACHED_SCRIPT)
+
+    result = _run(tmp_path, GATE_SCOPE="changed", GATE_CHANGED_FILES="src/parser.py\ndocs/readme.md\n")
+
+    assert result.returncode == 0, result.stderr
+    assert _files(tmp_path) == {"src/parser.py"}
+    assert _row(_rows(tmp_path), "src/parser.py", "Parser.parse")["coverage_pct"] == 100.0
+
+
+@pytest.mark.spec("CG-03-IT-08")
+def test_cg_03_with_changed_and_no_changed_kept_file_the_template_writes_no_row(tmp_path: Path) -> None:
+    """DEC-84: a diff without a file that the measure keeps gives an empty array and exit 0."""
+    _write_project(tmp_path)
+
+    result = _run(tmp_path, GATE_SCOPE="changed", GATE_CHANGED_FILES="docs/readme.md")
+
+    assert result.returncode == 0, result.stderr
+    assert _rows(tmp_path) == []
+
+
+SELECTOR = """\
+#!/bin/sh
+printf '%s\\n' "$@" > "$SELECT_LOG"
+exec {python} -m pytest -q -p no:cacheprovider tests
+"""
+
+
+TRACE_CONFTEST = """\
+import os
+
+import coverage
+
+
+def pytest_sessionfinish(session):
+    current = coverage.Coverage.current()
+    if current is not None and "TRACE_LOG" in os.environ:
+        with open(os.environ["TRACE_LOG"], "w") as log:
+            log.write("\\n".join(sorted(current.get_data().measured_files())))
+"""
+
+
+def _traced(root: Path, log: Path) -> set[str]:
+    """The files that coverage traced in the test run, relative to *root*."""
+    base = root.resolve()
+    return {str(Path(line).resolve().relative_to(base)) for line in log.read_text().splitlines()}
+
+
+@pytest.mark.spec("CG-03-IT-09")
+def test_cg_03_with_changed_the_template_runs_the_select_command_with_the_changed_paths(
+    tmp_path: Path,
+) -> None:
+    """Scenario: With changed, the Python measuring command runs the tests that the changed paths select."""
+    root = tmp_path / "project"
+    root.mkdir()
+    selector = tmp_path / "select-tests"
+    selector.write_text(SELECTOR.format(python=sys.executable))
+    selector.chmod(0o755)
+    _write_project(root, select_command=[str(selector), "--run"])
+    log = tmp_path / "select.log"
+    trace_log = tmp_path / "trace.log"
+    (root / "tests" / "conftest.py").write_text(TRACE_CONFTEST)
+
+    changed = _run(
+        root, GATE_SCOPE="changed", GATE_CHANGED_FILES="src/parser.py\ntests/test_parser.py",
+        SELECT_LOG=str(log), TRACE_LOG=str(trace_log),
+    )
+
+    assert changed.returncode == 0, changed.stderr
+    assert log.read_text().splitlines() == ["--run", "src/parser.py", "tests/test_parser.py"]
+    assert _files(root) == {"src/parser.py", "tests/test_parser.py"}
+    # The template traces only the changed files that the measure keeps. The
+    # test imports scripts/import-orders, so a template that traces every
+    # file records it, and the files of the rows cannot show that.
+    assert _traced(root, trace_log) == {"src/parser.py", "tests/test_parser.py"}
+    log.unlink()
+
+    every = _run(root, GATE_SCOPE="all", GATE_CHANGED_FILES="", SELECT_LOG=str(log))
+
+    assert every.returncode == 0, every.stderr
+    assert not log.exists(), "with all, the template runs TEST_COMMAND"
+    assert "scripts/import-orders" in _files(root)
+
+
+TMP_PATH_TEST = """\
+import os
+
+
+def test_writes_into_tmp_path(tmp_path):
+    (tmp_path / "data").write_text("x")
+    with open(os.environ["TMP_LOG"], "w") as log:
+        log.write(str(tmp_path))
+"""
+
+WRAPPER = """\
+#!/bin/sh
+exec {python} -m pytest -q tests
+"""
+
+
+@pytest.mark.spec("CG-03-IT-10")
+@pytest.mark.parametrize("wrapped", [False, True], ids=["pytest", "a script that starts pytest"])
+def test_cg_03_a_run_of_the_template_leaves_no_pytest_temp_folders_behind(
+    tmp_path: Path, wrapped: bool
+) -> None:
+    """Scenario: A run of the Python measuring command leaves no pytest temp folders behind."""
+    root = tmp_path / "project"
+    root.mkdir()
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    command = [sys.executable, "-m", "pytest", "-q", "tests"]
+    if wrapped:
+        wrapper = tmp_path / "run-tests"
+        wrapper.write_text(WRAPPER.format(python=sys.executable))
+        wrapper.chmod(0o755)
+        command = [str(wrapper)]
+    _write_project(root, test_command=command)
+    (root / "tests" / "test_tmp_path.py").write_text(TMP_PATH_TEST)
+    log = tmp_path / "tmp-path.log"
+
+    result = _run(root, TMPDIR=str(temp), TMP_LOG=str(log))
+
+    assert result.returncode == 0, result.stderr
+    used = Path(log.read_text())
+    assert "crap-measure-python-" in str(used), f"pytest put tmp_path outside the work folder: {used}"
+    assert not used.exists()
+    assert not (root / ".pytest_cache").exists()
+    assert [p.name for p in temp.iterdir() if p.name.startswith("pytest")] == []
+
+
+NESTED_PYTEST_TEST = """\
+import subprocess
+import sys
+
+
+def test_starts_another_pytest(tmp_path):
+    mark = tmp_path / "mark"
+    mark.write_text("x")
+    subprocess.run([sys.executable, "-m", "pytest", "-q", "nested"], check=True)
+    assert mark.exists(), "the inner pytest cleared the temp folder of the outer one"
+"""
+
+INNER_TEST = """\
+def test_inner(tmp_path):
+    assert tmp_path.is_dir()
+"""
+
+
+@pytest.mark.spec("CG-03-IT-10")
+def test_cg_03_a_pytest_that_a_test_starts_keeps_the_temp_folder_of_its_caller(tmp_path: Path) -> None:
+    """DEC-85: each pytest process gets its own --basetemp, so an inner pytest clears no outer tmp_path."""
+    _write_project(tmp_path, test_command=[sys.executable, "-m", "pytest", "-q", "tests"])
+    (tmp_path / "tests" / "test_nested.py").write_text(NESTED_PYTEST_TEST)
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "test_inner.py").write_text(INNER_TEST)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (tmp_path / ".pytest_cache").exists()
+
+
+ODD_NAMES_TEST = """\
+import importlib.util
+from pathlib import Path
+
+SRC = Path(__file__).resolve().parents[1] / "src"
+
+
+def _load(name):
+    spec = importlib.util.spec_from_file_location("odd", SRC / name)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_odd_names():
+    for name in ("a,b.py", "a[1].py", "a]b.py", "a*b.py"):
+        module = _load(name)
+        assert module.f(1) == 1
+        assert module.f(0) == 2
+"""
+
+ODD_NAMES = ("a,b.py", "a[1].py", "a]b.py", "a*b.py")
+
+
+@pytest.mark.spec("CG-03-IT-09")
+def test_cg_03_with_changed_the_template_traces_a_path_with_a_comma_or_a_bracket(tmp_path: Path) -> None:
+    """IMPL-0103: coverage.py splits `include` at commas and reads brackets as patterns."""
+    _write_project(tmp_path)
+    for name in ODD_NAMES:
+        (tmp_path / "src" / name).write_text("def f(a):\n    if a:\n        return 1\n    return 2\n")
+    (tmp_path / "tests" / "test_odd.py").write_text(ODD_NAMES_TEST)
+
+    result = _run(
+        tmp_path, GATE_SCOPE="changed", GATE_FILES="src/*",
+        GATE_CHANGED_FILES="\n".join(f"src/{name}" for name in ODD_NAMES),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert _files(tmp_path) == {f"src/{name}" for name in ODD_NAMES}
+    assert {row["coverage_pct"] for row in _rows(tmp_path)} == {100.0}

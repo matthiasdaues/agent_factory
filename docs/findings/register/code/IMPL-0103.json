@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0103",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "algorithm",
+  "severity": "minor",
+  "artifact": "packages/factory/skills/setup-crap-score/crap-measure-python:322-333",
+  "story": "ST-0451",
+  "finding": "Under GATE_SCOPE=changed, the template cannot measure a changed file whose absolute path holds a comma or a square bracket, although GATE_SCOPE=all measures it. coverage_config writes each path as one line of the coverage.py setting include. coverage.py splits that list at commas and reads each item as a file pattern, so src/a,b.py becomes two patterns and src/a[1].py matches src/a1.py. The file is then not traced, and the template exits 1 with \"coverage recorded no data for the test run\", which hides the cause. The same happens for every file when the project folder itself holds such a character, and for a file below a symbolic link, because coverage.py matches the resolved path. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/st0451-review/repro_template.sh, cases 1 and 2: exit 0 with 100 % under all, exit 1 under changed. Fix: in coverage_config, escape the pattern characters *, ? and [ of each path, write the resolved path, and make the template exit non-zero and name the path when a path holds a comma, so the message names the cause.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the story branch. The gate fails such a story wrongly but never passes it, and the file names of this repository hold no comma or bracket (no to fails_purpose). The developer must find out why a tested file has no coverage data.",
+  "commit": "3944eb80cec8d7da7357864d400643f5b81e916d",
+  "status": "resolved"
+}
