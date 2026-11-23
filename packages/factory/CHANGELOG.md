@@ -1,5 +1,57 @@
 # Changelog
 
+## 1.14.0 — 2026-11-23
+
+This release stores each usage transcript once and fixes the order of usage
+records. A long session no longer costs gigabytes of transcript copies.
+Run `update-factory` to receive it, then migrate the stored copies with
+`migrate-usage-transcripts`.
+
+### Changes that need action
+
+- **Migrate the stored transcript copies.** Version 1.13.0 and earlier stored
+  a full copy of the transcript at every capture. Run
+  `.agent-factory/factory/scripts/migrate-usage-transcripts` for a dry run.
+  It reads every copy, plans the chain files, checks every planned span, and
+  changes nothing. Then run it again with `--apply` while no capture is
+  pending. In one installation the transcripts shrank from 9.4 GB to 0.55 GB.
+- **Claude Code session totals rise.** The usage analysis used to collapse
+  all captures of a session into one run, so subagent usage dropped out. It
+  now counts the main transcript and each subagent transcript once. Totals
+  of Codex, Copilot, and Pi stay the same.
+
+### Changes
+
+- **Each transcript is stored once.** Each transcript of a session forms a
+  chain: the main transcript, and one chain per subagent transcript. A
+  capture appends only the new bytes to the chain file
+  `transcripts/<session-key>/<chain>.jsonl` and records the half-open byte
+  range of its turn in `transcript_ref.byte_range` and
+  `structured_byte_range`. A rewritten transcript starts a new generation
+  file, such as `<chain>.2.jsonl`. No capture changes bytes that a record
+  already points at (BUG-0142).
+- **The record names its chain.** The new field `chain` holds the stem of the
+  CLI's transcript file. The usage analysis keeps the latest snapshot per
+  `(cli, session_id, chain)`, and a record without `chain` keeps its own run.
+- **Captures of one session take a file lock.** The lock on
+  `transcripts/<session-key>/.lock` makes the record sequence exact and
+  gapless.
+- **`migrate-usage-transcripts` is new.** It moves all records of a session
+  into one record file, groups the copies into chains by content, and keeps
+  the newest copy of each chain. It links before it deletes, so a crash
+  leaves valid references.
+
+### Fixes
+
+- **The session key stays the same for the whole session.** It held the time
+  of each capture, so every capture opened a new record file and every record
+  ended in `-0001`. The key now reuses the time of the first capture
+  (BUG-0139).
+- **`usage-query` and `usage-explore` run after a reinstall.**
+  `init-factory` set every file under `.agent-factory/usage/` to `0600`,
+  including the programs of the usage analysis environment. A file with an
+  execute bit now gets `0700` (BUG-0140).
+
 ## 1.13.0 — 2026-11-23
 
 This release runs fewer full test suites. A story merge runs only the tests
