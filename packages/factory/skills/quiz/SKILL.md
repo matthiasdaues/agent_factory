@@ -7,6 +7,8 @@ disable-model-invocation: true
 
 Quiz the user about the codebase in the working directory: its code, tests and in-repo docs (ADRs, glossary, specs). The point is to find where the user's mental model and the code part ways.
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 ## Settings
 
 Read them from the free-text arguments: $ARGUMENTS
@@ -25,6 +27,8 @@ If the current client exposes prompt suggestions in `/config`, the first message
 
 - **Closed book**: lean on scenario questions; exact-value questions are guesswork here, keep them rare.
 - **Open book** (any expression equivalent to "with code" in the language of the conversation): the user may read the code before answering; lean on why-is-it-built-this-way questions.
+
+Quiz questions test the user's understanding of the codebase. They do not ask the user to make a project decision, so the decision-question format does not apply.
 
 ## Each question
 
