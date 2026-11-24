@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The gate works with the values, and the User confirmed them during the setup run (no to fails_purpose). A reader who follows DEC-87 to learn why the threshold is 30 finds no such decision.",
   "commit": "8c4bc215981e1dbe371e14758cbe19611df6c460",
-  "status": "open"
+  "status": "resolved"
 }
