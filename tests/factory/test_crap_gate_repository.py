@@ -345,6 +345,11 @@ export function skipped(xs: number[]): number[] {
   });
 }
 
+export const box: any = {};
+box.assigned = (a: number, b: number, c: number): number => a > 0 ? (b > 0 ? (c > 0 ? 1 : 2) : (c > 0 ? 3 : 4)) : (b > 0 ? (c > 0 ? 5 : 6) : 7);
+
+export const pair = { first: (n: number): number => n > 0 ? 1 : 2, second: (n: number): number => n > 0 ? 3 : 4 };
+
 export function ran(xs: number[]): number[] {
   return xs.filter((x) => {
     if (x > 1) return true;
@@ -356,12 +361,13 @@ export function ran(xs: number[]): number[] {
 UNCALLED_TS_TEST = """\
 import { test } from "node:test";
 import assert from "node:assert";
-import { used, ran, skipped } from "./pick.ts";
+import { used, ran, skipped, pair } from "./pick.ts";
 
 test("used", () => {
   assert.strictEqual(used(1), 2);
   assert.deepStrictEqual(ran([1, 2]), [2]);
   assert.deepStrictEqual(skipped([]), []);
+  assert.strictEqual(pair.second(1), 3);
 });
 """
 
@@ -378,6 +384,10 @@ def test_cg_13_a_function_that_no_test_calls_gets_zero_coverage(tmp_path: Path) 
     callbacks = [r for r in by_name.values() if r["function"].startswith("never.(anonymous)")]
     assert callbacks and all(r["coverage_pct"] == 0 for r in callbacks), by_name
     assert by_name["used"]["coverage_pct"] == 100
+    assert by_name["assigned"]["complexity"] == 7
+    assert by_name["assigned"]["coverage_pct"] == 0
+    assert by_name["first"]["coverage_pct"] == 0
+    assert by_name["second"]["coverage_pct"] == 100
     skipped = [r for r in by_name.values() if r["function"].startswith("skipped.(anonymous)")]
     assert skipped and all(r["coverage_pct"] == 0 for r in skipped), by_name
     assert by_name["ran"]["coverage_pct"] == 100
@@ -392,6 +402,22 @@ export const handlers = {
     return 0;
   },
 };
+"""
+
+CLASS_FIELD_TS = """\
+export class Box {
+  f = (a: number): number => (a > 0 ? 1 : 2);
+}
+"""
+
+CLASS_FIELD_TS_TEST = """\
+import { test } from "node:test";
+import assert from "node:assert";
+import { Box } from "./box.ts";
+
+test("f", () => {
+  assert.equal(new Box().f(1), 1);
+});
 """
 
 PROPERTY_TS_TEST = """\
@@ -413,6 +439,17 @@ def test_cg_13_a_function_expression_as_an_object_value_gets_a_row(tmp_path: Pat
     assert result.returncode == 0, result.stdout + result.stderr
     rows = _rows(tmp_path)
     assert [r["function"] for r in rows] == ["first"], rows
+    assert rows[0]["complexity"] == 2
+    assert rows[0]["coverage_pct"] == 100
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_an_arrow_function_as_a_class_field_gets_a_row(tmp_path: Path) -> None:
+    """IMPL-0110: the arrow function of a class field is measured, not a stop."""
+    result = _run_typescript(tmp_path, {"src/box.ts": CLASS_FIELD_TS, "src/box.test.ts": CLASS_FIELD_TS_TEST})
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = _rows(tmp_path)
+    assert [r["function"] for r in rows] == ["Box.f"], rows
     assert rows[0]["complexity"] == 2
     assert rows[0]["coverage_pct"] == 100
 

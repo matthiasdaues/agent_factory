@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0110",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "algorithm",
+  "severity": "minor",
+  "artifact": "scripts/crap-measure-typescript:220-225",
+  "story": "ST-0449",
+  "finding": "An arrow function as the value of a class field, such as `f = (a) => (a > 0 ? 1 : 2);`, still stops the TypeScript measure with exit 1: \"the complexity at line 2 pairs with no single function\". This is the case of IMPL-0106 for a PropertyDefinition. The ESLint rule complexity reports the function at the field key, before the range of the arrow. The fix of IMPL-0106 takes the parent as the outer node only for a Property, so the arrow of a class field still pairs with no range. The code at 8c4bc215 failed the same way, so the fix did not cause it. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/st0449-review/repro_typescript.sh <command> class-field. Fix: in the rule crap/range, also take a parent PropertyDefinition as the outer node when its value is the function. Add the case to test_cg_13_a_function_expression_as_an_object_value_gets_a_row.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The command exists only on the story branch. The current TypeScript code of this repository has no class field with a function, and the measure stops loudly instead of reporting a wrong row (no to fails_purpose). The first story that adds such a field gets a blocked run whose message does not name the cause.",
+  "commit": "c23aa019b765153b3b221fb6b16a076e9bd5b955",
+  "status": "resolved"
+}

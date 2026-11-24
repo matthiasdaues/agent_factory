@@ -35,10 +35,12 @@ Tools
   line, up to its last line, that ran; a function on one line counts that
   line. A function whose lcov function record (FN and FNDA, merged over the
   records of a file) has a count of 0 gets 0 %, because node marks a line as
-  run when any code on it ran. The record matches by start line and name.
-  When two functions of one name start on one line, lcov cannot tell them
-  apart, so they get 0 % only if all of them never ran. A function inside
-  a function that never ran gets 0 % too.
+  run when any code on it ran. A record matches by position: the start line
+  of the function and its order among the functions of that line, not its
+  name. A function with no record never ran, and neither does a function
+  inside one that never ran. When the records of a line do not fit its
+  functions one to one, lcov cannot tell them apart, so they get 0 % only if
+  every record of the line has a count of 0.
   Complexity: ESLint, through `npx --yes eslint@<ESLINT_VERSION>` from npm's
   cache, with no package.json. Node strips the types of each file first
   (module.stripTypeScriptTypes), which keeps every line and column, so
@@ -151,12 +153,23 @@ function runTests(root, work) {
       const file = path.resolve(root, line.slice(3));
       if (!table.has(file)) table.set(file, { lines: new Map(), functions: new Map() });
       current = table.get(file);
-      record = { names: new Map(), seen: new Map() };
+      record = { names: new Map(), seen: new Map(), onLine: new Map() };
     } else if (line.startsWith("FN:") && current) {
+      // lcov names the functions in source order, and node names an
+      // assignment target whole (box.pick), so only the position counts:
+      // the start line and the order on that line. The synthetic records
+      // of initializers, such as <static_initializer>, are no functions.
       const comma = line.indexOf(",");
       const name = line.slice(comma + 1);
+      if (/^<.*>$/.test(name)) continue;
+      const at = Number(line.slice(3, comma));
+      const slots = current.functions.get(at) || [];
+      current.functions.set(at, slots);
+      const position = record.onLine.get(at) || 0;
+      record.onLine.set(at, position + 1);
+      if (slots[position] === undefined) slots[position] = 0;
       if (!record.names.has(name)) record.names.set(name, []);
-      record.names.get(name).push(Number(line.slice(3, comma)));
+      record.names.get(name).push({ at, position });
     } else if (line.startsWith("FNDA:") && current) {
       // FNDA names no line. The records come in the order of the FN
       // records, so the n-th FNDA of a name belongs to its n-th FN.
@@ -164,11 +177,8 @@ function runTests(root, work) {
       const name = line.slice(comma + 1);
       const index = record.seen.get(name) || 0;
       record.seen.set(name, index + 1);
-      const at = (record.names.get(name) || [])[index];
-      if (at !== undefined) {
-        const key = `${at}\0${name}`;
-        current.functions.set(key, (current.functions.get(key) || 0) + Number(line.slice(5, comma)));
-      }
+      const entry = (record.names.get(name) || [])[index];
+      if (entry) current.functions.get(entry.at)[entry.position] += Number(line.slice(5, comma));
     } else if (line.startsWith("DA:") && current) {
       const [no, count] = line.slice(3).split(",");
       current.lines.set(Number(no), (current.lines.get(Number(no)) || 0) + Number(count));
@@ -220,8 +230,8 @@ const range = {
     function visit(node) {
       const parent = node.parent;
       const outer = parent && (parent.type === "MethodDefinition" ||
-        (parent.type === "Property" && (parent.method || parent.kind !== "init" ||
-          (parent.value === node && node.type === "FunctionExpression")))) ? parent : node;
+        (parent.type === "PropertyDefinition" && parent.value === node) ||
+        (parent.type === "Property" && (parent.method || parent.kind !== "init" || parent.value === node))) ? parent : node;
       const names = [];
       for (let up = outer.parent; up; up = up.parent) {
         const name = scopeName(up);
@@ -230,7 +240,7 @@ const range = {
       names.push(ownName(node) || "(anonymous)");
       context.report({
         node,
-        message: JSON.stringify({ name: names.join("."), own: ownName(node) || "", getter: !!(parent && parent.kind === "get"), setter: !!(parent && parent.kind === "set"), start: outer.range[0], end: outer.range[1],
+        message: JSON.stringify({ name: names.join("."), start: outer.range[0], end: outer.range[1],
           startLine: outer.loc.start.line, startColumn: outer.loc.start.column + 1, endLine: outer.loc.end.line }),
       });
     }
@@ -331,24 +341,45 @@ function pairFunctions(file, code, messages) {
   });
 }
 
-// True when lcov holds function records for this function, and every one of
-// them has a count of 0. Node marks a line as run when any code on it ran,
-// so a function that shares its line with running code needs its function
-// record. The record matches by start line and name: the own name of the
-// function, or anonymous_<n> for a function without one. When two functions
-// of one name start on one line, lcov cannot tell them apart, so the
-// function counts as uncalled only if all of them are.
-function neverCalled(functions, fn) {
-  let wanted = fn.own;
-  if (fn.getter) wanted = `get ${fn.own}`;
-  if (fn.setter) wanted = `set ${fn.own}`;
-  const matches = [];
-  for (const [key, count] of functions) {
-    const [line, name] = key.split("\0");
-    if (Number(line) !== fn.startLine) continue;
-    if (wanted === "" ? /^anonymous_\d+$/.test(name) : name === wanted) matches.push(count);
+// The functions that never ran, found by position. lcov gives each function
+// record a start line and no column, in source order. The functions of one
+// start line pair with its records in that order. A function inside a
+// function that never ran was never created, so lcov holds no record of it
+// and it never ran either. A function that has no record at its position
+// never ran. When the number of records on a line differs from the number
+// of functions left, lcov cannot tell the functions apart, so they count as
+// never run only if every record of that line has a count of 0.
+function deadFunctions(functions, paired) {
+  const dead = new Set();
+  const byLine = new Map();
+  for (const fn of [...paired].sort((a, b) => a.start - b.start)) {
+    if (!byLine.has(fn.startLine)) byLine.set(fn.startLine, []);
+    byLine.get(fn.startLine).push(fn);
   }
-  return matches.length > 0 && matches.every((count) => count === 0);
+  const inside = (fn) => [...dead].some((d) => d !== fn && d.start <= fn.start && fn.end <= d.end);
+  for (const [line, fns] of byLine) {
+    const counts = functions.get(line) || [];
+    // Walk the functions in source order. One that sits inside a dead
+    // function takes no record; any other takes the next one.
+    const found = new Set();
+    let next = 0;
+    for (const fn of fns) {
+      if (inside(fn) || [...found].some((d) => d.start <= fn.start && fn.end <= d.end && d !== fn)) {
+        found.add(fn);
+      } else {
+        if (counts[next] === undefined || counts[next] === 0) found.add(fn);
+        next += 1;
+      }
+    }
+    if (next === counts.length || counts.length === 0) {
+      for (const fn of found) dead.add(fn);
+    } else if (counts.every((count) => count === 0)) {
+      for (const fn of fns) dead.add(fn);
+    }
+  }
+  // A function inside a function that a later pass found dead.
+  for (const fn of paired) if (inside(fn)) dead.add(fn);
+  return dead;
 }
 
 function coveragePct(lines, start, end) {
@@ -377,9 +408,7 @@ function measure(root, work) {
     const code = fs.readFileSync(path.join(root, file), "utf8");
     const { lines, functions } = coverage.get(path.resolve(root, file));
     const paired = pairFunctions(file, code, eslint.messages.get(file) || []);
-    // A function inside a function that never ran was never created, so
-    // lcov holds no record of it. It never ran either.
-    const dead = paired.filter((fn) => neverCalled(functions, fn));
+    const dead = deadFunctions(functions, paired);
     for (const fn of paired) {
       rows.push({
         file,
@@ -387,7 +416,7 @@ function measure(root, work) {
         start_line: fn.startLine,
         end_line: fn.endLine,
         complexity: fn.complexity,
-        coverage_pct: dead.some((d) => d.start <= fn.start && fn.end <= d.end) ? 0 : coveragePct(lines, fn.startLine, fn.endLine),
+        coverage_pct: dead.has(fn) ? 0 : coveragePct(lines, fn.startLine, fn.endLine),
       });
     }
   }
