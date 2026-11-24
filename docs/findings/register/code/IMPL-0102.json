@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0102",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/crap-score:546-550",
+  "story": "ST-0451",
+  "finding": "A story whose diff holds more than 128 KiB of paths, about 3000 paths, makes crap-score --base end in a traceback with exit 1 and no report. GATE_CHANGED_FILES is one environment string, and Linux refuses to start a program when one such string is longer than 128 KiB, so Popen in run_command raises OSError E2BIG. Nothing catches it, and exit 1 means \"a judged function fails\" in the exit codes of crap-score, so the gate-check step counts an attempt where the gate could not measure. crap-score at 38579fdc judges the same diff with exit 0. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/st0451-review/repro_e2big.sh builds a story that adds 3000 files with 163890 bytes of paths and prints \"OSError: [Errno 7] Argument list too long: '/bin/sh'\". Fix: in run_command, catch OSError around Popen and raise GateError that names the measure, the command and the cause, so the gate exits 2. If large diffs must measure, a later decision can hand the paths in a file instead of a variable; that changes the contract of DEC-84.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the story branch. The gate still stops the story and never passes it, and a diff of this size does not occur in this repository, whose tracked paths hold 172 KiB in total (no to fails_purpose). Whoever reads the result gets a traceback and a wrong exit code, and must find the cause.",
+  "commit": "3944eb80cec8d7da7357864d400643f5b81e916d",
+  "status": "open"
+}

@@ -213,3 +213,94 @@ def test_main_transcript_chain_is_named_after_the_session(transcript, expected):
     lifecycle = load_script("usage-capture-lifecycle")
 
     assert lifecycle.chain_name(Path(transcript), "fe14aa7b") == expected
+
+
+# A stand-in for uv: `uv venv <path>` creates the folder, and the step named
+# in FAIL_STEP exits 1 with a cause on stderr, as an offline sync or a hash
+# mismatch does.
+FAKE_UV = """#!/bin/sh
+step="$1"
+if [ "$step" = "venv" ]; then
+    for last; do :; done
+    mkdir -p "$last/bin"
+fi
+if [ "$step" = "$FAIL_STEP" ]; then
+    echo "hash mismatch for tiktoken" >&2
+    exit 1
+fi
+exit 0
+"""
+
+
+@pytest.mark.parametrize("fail_step", ["venv", "pip"])
+def test_bug_0147_failed_build_keeps_the_runtime_and_its_marker(
+    tmp_path, monkeypatch, fail_step
+):
+    """BUG-0147: a failed build leaves the working runtime complete."""
+    inf = load_script("init-factory")
+    project = tmp_path / "project"
+    requirements = project / inf.USAGE_REQUIREMENTS
+    requirements.parent.mkdir(parents=True)
+    requirements.write_text("tiktoken==0.0.0 --hash=sha256:00\n", encoding="utf-8")
+    runtime = project / inf.USAGE_RUNTIME
+    (runtime / "bin").mkdir(parents=True)
+    (runtime / ".requirements-sha256").write_text("old-digest\n", encoding="ascii")
+    (runtime / "bin" / "python").write_text("old python\n", encoding="utf-8")
+    transcript = runtime.parent / "usage.jsonl"
+    transcript.write_text('{"recorded_at": "2026-11-01"}\n', encoding="utf-8")
+    fake_bin = tmp_path / "fake-bin"
+    _executable(fake_bin / "uv", FAKE_UV)
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("FAIL_STEP", fail_step)
+    report: list[str] = []
+
+    # The previous runtime stays usable, so capture keeps running on it.
+    state, cause = inf.provision_usage_runtime(project, report)
+    assert state == inf.USAGE_KEPT
+    assert cause == "hash mismatch for tiktoken"
+
+    marker = runtime / ".requirements-sha256"
+    assert marker.read_text(encoding="ascii") == "old-digest\n"
+    assert (runtime / "bin" / "python").read_text(encoding="utf-8") == "old python\n"
+    assert transcript.read_text(encoding="utf-8") == '{"recorded_at": "2026-11-01"}\n'
+    assert sorted(p.name for p in runtime.parent.iterdir()) == ["runtime", "usage.jsonl"]
+    assert any("hash mismatch for tiktoken" in line for line in report), report
+
+
+def test_impl_0114_full_run_reports_the_kept_runtime_and_the_cause(
+    tmp_path, monkeypatch
+):
+    """IMPL-0114: a full init-factory run, the path of an update, moves
+    .agent-factory/usage/ aside before the build. A failed build there keeps
+    the previous runtime, prints the cause, and keeps the capture hooks."""
+    from test_init_factory import run_init
+
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "-q", str(project)], check=True)
+    fake_bin = tmp_path / "fake-bin"
+    _executable(
+        fake_bin / "uv",
+        FAKE_UV.replace(
+            'mkdir -p "$last/bin"',
+            'mkdir -p "$last/bin"; printf "#!/bin/sh\\n" > "$last/bin/python"; '
+            'chmod +x "$last/bin/python"',
+        ),
+    )
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("FAIL_STEP", "none")
+    first = run_init(REPO_ROOT, project, "--project-name", "scratch")
+    assert first.returncode == 0, first.stdout + first.stderr
+    marker = project / ".agent-factory" / "usage" / "runtime" / ".requirements-sha256"
+    digest = marker.read_text(encoding="ascii")
+
+    monkeypatch.setenv("FAIL_STEP", "pip")
+    second = run_init(REPO_ROOT, project, "--project-name", "scratch")
+
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert "hash mismatch for tiktoken" in second.stdout
+    assert "capture keeps the previous runtime" in second.stdout
+    assert "hooks inactive" not in second.stdout
+    assert marker.read_text(encoding="ascii") == digest
+    settings = (project / ".claude" / "settings.json").read_text(encoding="utf-8")
+    assert "capture-usage" in settings

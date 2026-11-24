@@ -57,3 +57,10 @@ Supersede ADR-0010 and ADR-0022 with a single decision that preserves the layere
 **Reason**: Core artifact layout ([proposal](../proposals/implemented/core-artifact-layout.md))
 
 [ADR-0026](0026-layout-migration-runs-inside-the-factory-update.md) amends the relationship to `init-factory`. After application, `update-factory` runs the new version's `init-factory`, and a non-zero exit of `init-factory` triggers the rollback. On an update from a version before the layout release, `init-factory` runs `migrate-spec-layout` as its last step. The approval of the update covers that move.
+
+## Amended
+
+**Date**: 2026-11-24
+**Reason**: BUG-0147, the usage runtime and the rollback
+
+Step 6 now restores one more path. Before the sourced `init-factory` runs, `update-factory` copies `.agent-factory/usage/runtime` to a folder in `.agent-factory/` outside `usage/`. The rollback checks the copy and puts it back in place of the rebuilt runtime. A successful update deletes the copy. A failed copy refuses the update with no changes. The usage transcripts and records under `.agent-factory/usage/` are never moved, restored, or deleted.

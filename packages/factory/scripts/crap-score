@@ -22,7 +22,11 @@ Call
   array with one row per function. GATE_FILES holds the measure's trusted
   `files` pattern and GATE_EXCLUDE its trusted `exclude` patterns, one
   pattern per line, so the command can leave out the files the gate drops
-  (DEC-65). The gate still applies both to the rows itself. Every command gets the caller's
+  (DEC-65). The gate still applies both to the rows itself. GATE_SCOPE is
+  `changed` with --base and `all` with --all. GATE_CHANGED_FILES holds the
+  paths of the judged diff with --base, one repository-relative path per
+  line, and is empty with --all. A changed path with a line break exits 2.
+  The gate sets both and never reads them (DEC-84). Every command gets the caller's
   environment without the environments of `uv run --script`, those of
   dispatch and premerge-check included, so `python` in a command starts
   the project's interpreter. Such an environment is a folder with
@@ -160,6 +164,8 @@ class Measure:
     command: str
     exclude: tuple[str, ...] = ()
     ready: str | None = None
+    # The paths of the judged diff with --base, None with --all (DEC-84).
+    changed: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -512,7 +518,8 @@ def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
     """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129).
 
     Both commands get the caller's environment without the environments of
-    `uv run --script`, plus GATE_OUTPUT, GATE_FILES and GATE_EXCLUDE.
+    `uv run --script`, plus GATE_OUTPUT, GATE_FILES, GATE_EXCLUDE,
+    GATE_SCOPE and GATE_CHANGED_FILES.
     """
     with tempfile.TemporaryDirectory(prefix="crap-score-") as folder:
         output = Path(folder) / "rows.json"
@@ -521,6 +528,7 @@ def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
             "GATE_OUTPUT": str(output),
             "GATE_FILES": measure.files,
             "GATE_EXCLUDE": "\n".join(measure.exclude),
+            **scope_environment(measure.changed),
         }
         with measure_lock(measure, root, clock):
             if measure.ready is not None:
@@ -533,6 +541,26 @@ def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
         except ValueError as exc:
             raise GateError(f"measure {measure.name} wrote no JSON to GATE_OUTPUT: {exc}") from exc
     return rows
+
+
+def scope_environment(changed: tuple[str, ...] | None) -> dict[str, str]:
+    """GATE_SCOPE and GATE_CHANGED_FILES: the paths of the judged diff, or none with --all (DEC-84)."""
+    if changed is None:
+        return {"GATE_SCOPE": "all", "GATE_CHANGED_FILES": ""}
+    return {"GATE_SCOPE": "changed", "GATE_CHANGED_FILES": "\n".join(changed)}
+
+
+def changed_paths(changes: dict[str, FileChanges] | None) -> tuple[str, ...] | None:
+    """The paths of the judged diff, None with --all; a path with a line break cannot measure."""
+    if changes is None:
+        return None
+    broken = [path for path in changes if "\n" in path or "\r" in path]
+    if broken:
+        raise GateError(
+            f"the diff holds the path {broken[0]!r} with a line break, and "
+            "GATE_CHANGED_FILES holds one path per line"
+        )
+    return tuple(changes)
 
 
 def kept_rows(measure: Measure, rows: list[dict]) -> list[dict]:
@@ -1306,13 +1334,17 @@ def _describe(row: dict, exceptions: Exceptions | None = None) -> str:
 # --- main ------------------------------------------------------------------
 
 
-def measure_all(settings: Settings, root: Path) -> list[dict]:
-    """Run every measure in list order within one time limit; return the kept rows."""
+def measure_all(settings: Settings, root: Path, changed: tuple[str, ...] | None = None) -> list[dict]:
+    """Run every measure in list order within one time limit; return the kept rows.
+
+    *changed* holds the paths of the judged diff, None with --all (DEC-84).
+    """
     clock = Clock(settings.timeout_minutes)
     kept: list[dict] = []
     owners: dict[tuple[str, str], str] = {}
     for measure in settings.measures:
-        rows = kept_rows(measure, check_report(measure, run_measure(measure, root, clock)))
+        scoped = replace(measure, changed=changed)
+        rows = kept_rows(measure, check_report(measure, run_measure(scoped, root, clock)))
         check_duplicates(measure, rows, owners)
         kept.extend(rows)
     return kept
@@ -1336,7 +1368,7 @@ def main(argv: list[str] | None = None, source: TrustedGateSource | None = None)
             settings = apply_trusted(folder, trusted)
             exceptions, register_notices = source.exceptions()
             changes = changed_lines(root, base) if base is not None else None
-            rows = measure_all(settings, root)
+            rows = measure_all(settings, root, changed_paths(changes))
     except GateError as exc:
         print(f"crap-score: cannot measure: {exc}", file=sys.stderr)
         return 2

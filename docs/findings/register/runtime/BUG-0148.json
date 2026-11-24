@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0148",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "performance",
+  "severity": "minor",
+  "artifact": "scripts/crap-measure-typescript:285-291",
+  "story": null,
+  "finding": "Without network access, every gate run on this repository waits about 72 seconds in npm before ESLint starts, and on a machine whose npx cache lacks eslint@10.14.0 the gate cannot measure any story. The TypeScript measure ignores GATE_SCOPE, so this also holds for a story that changes only Python. npx --yes asks the registry for the package data even when its cache holds the package, and it retries until it gives up. Reproduction: in /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/feature-qa/offline, `unshare -rn npx --yes eslint@10.14.0 --no-config-lookup -c eslint.config.cjs -f json a.js` with a warm cache prints the report after 1m13s. The same call with an unreachable registry and no matching cache exits with ECONNREFUSED after 1m12s, so crap-measure-typescript exits 1 and crap-score exits 2. Fix: the locked local install that SEC-0013 asks for removes the registry call. Until then, pass --prefer-offline to npx: the same offline call with a warm cache then prints the report after 6 seconds.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The gate fails closed: an offline run without ESLint exits 2 and never passes a story (no to fails_purpose). Each offline run costs about 72 seconds of the 20-minute limit, and a cold offline machine blocks every story until it is online again.",
+  "commit": "94079fc1766d28a7bd11f3507a63771df71a880e",
+  "status": "resolved"
+}

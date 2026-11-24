@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0113",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "algorithm",
+  "severity": "minor",
+  "artifact": "scripts/crap-measure-typescript:382-383",
+  "story": "ST-0449",
+  "finding": "A function that a test calls gets 0 % when its line starts several functions whose lcov records differ in count. The rule protects against IMPL-0112, because lcov cannot tell the functions of such a line apart. A story that changes such a line can therefore fail the gate wrongly, for example with a called function of complexity 6, which scores 42 at 0 %. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/st0449-review/repro_typescript.sh <command> two-processes gives outer, outer.(anonymous) and later each 0 %, although tests call outer and later. Fix: read the V8 coverage files that NODE_V8_COVERAGE writes, which give each function its start offset and count, and pair by offset. Until then, the header could name the rule as a known limit, and the developer can split such a line.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "DEC-84 accepts a wrong failure, and the code of this repository rarely starts several functions on one line (no to fails_purpose). A story that changes such a line gets a failure that its tests cannot fix.",
+  "commit": "3408734794eff5e4855e9f013054f100432fde88",
+  "status": "open"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "crap-eslint",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ESLint for scripts/crap-measure-typescript, installed from package-lock.json with npm ci --ignore-scripts.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "eslint": "10.14.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0104",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "function",
+  "severity": "minor",
+  "artifact": "packages/factory/skills/setup-crap-score/crap-measure-python:145-157",
+  "story": "ST-0451",
+  "finding": "A test that calls pytest.main() in its own process now deletes its own tmp_path, so the test run fails and the template exits 1. The sitecustomize.py of the template sets --basetemp once per Python process. pytest.main() inside a test runs in that process and reads the same PYTEST_ADDOPTS, so the inner pytest gets the basetemp of the outer one and clears it. Before ST-0451 no --basetemp was set, and the same test passed. pytester is safe, because it removes PYTEST_ADDOPTS and sets its own basetemp. The header of the template says that a pytest that a test starts cannot clear the temp folder of the pytest that runs that test, which holds only for a pytest in a new process. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/st0451-review/repro_template.sh, case 3: the template run exits 1, and plain pytest on the same project passes. Fix: in the header of the template and in setup-crap-score/SKILL.md, limit the sentence to a pytest that a test starts as a new process, and name pytester as the way to run pytest inside a test. A change of the code is not needed for this repository.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the story branch. The gate fails such a project wrongly but never passes it, and tests rarely call pytest.main() outside pytester (no to fails_purpose). A project with such a test gets a failed test run that it cannot explain from its own code.",
+  "commit": "3944eb80cec8d7da7357864d400643f5b81e916d",
+  "status": "open"
+}

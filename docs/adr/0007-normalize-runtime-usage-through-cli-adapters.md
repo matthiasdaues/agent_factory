@@ -159,3 +159,10 @@ after the Pi drain/cancel fence settles.
   or stale-lock recovery is required. Crashes may leave empty reservations and
   valid sequence gaps; numeric reservation order, not JSONL append order, is the
   cumulative snapshot order.
+
+## Amended
+
+**Date**: 2026-11-24
+**Reason**: BUG-0147 and IMPL-0114, a failed rebuild keeps the previous runtime
+
+The sentence "if they are absent or verification fails, unrelated Factory setup continues but capture hooks remain inactive" now holds only when no runtime with a marker exists. `init-factory` builds the new runtime in a stage folder and replaces the working runtime and its marker only after the stage succeeded. When the build fails and a previous runtime with its marker exists, that runtime stays (in place with `--add`, in the preserve folder during a full run), capture stays active on it, the hooks stay installed, and the report names the cause.
