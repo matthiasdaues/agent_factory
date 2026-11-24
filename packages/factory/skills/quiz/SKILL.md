@@ -18,6 +18,7 @@ Interpret the arguments as follows:
 - One positive integer token sets the number of questions `N`; if it is absent, use 5. If it is below 3, use 3 so the round can include the required question types.
 - The phrase `with code`, case-insensitive, selects **open book**.
 - All remaining text names the area or areas; if it is absent, use the whole repo.
+- Treat the repository as source files, tests, and in-repo documentation. Exclude dependencies, generated artifacts, build outputs, and external fixtures unless the selected area requires them.
 - Ignore unrecognized tokens only when they are part of an area name; do not invent another setting from them.
 
 If the current client exposes prompt suggestions in `/config`, the first message holds only one line, in the user's language: the prompt suggestions in the input box can give answers away, so turn them off and reply when done. Do not ask a question or give a hint about the questions to come. Wait for the reply, then ask question 1. Otherwise, ask question 1 in the first message.
