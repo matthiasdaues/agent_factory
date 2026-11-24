@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0108",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "docs/spec/work/spec-feedback-ST-0449.md:3-6",
+  "story": "ST-0449",
+  "finding": "The commit 845db925 names DEC-87 as the source of the threshold 30, timeout_minutes 20 and measured_minutes 12, but the Appendix of docs/proposals/crap-gate-setup.md ends at DEC-86, on this branch, on dev and on main. docs/testing.yaml gives no reason for the three values either. Step 6 of setup-crap-score has the User confirm the threshold from the number of failing functions. The report .current-work/crap-score/setup.json of the setup run holds 429 failing functions out of 1541, and no committed text names that number. The story may not edit the proposal, so the missing decision belongs in the drift report. Fix: add a row to docs/spec/work/spec-feedback-ST-0449.md that asks the proposal owner to record DEC-87 with the three values, the 429 failing functions and the reason for the threshold 30.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The gate works with the values, and the User confirmed them during the setup run (no to fails_purpose). A reader who follows DEC-87 to learn why the threshold is 30 finds no such decision.",
+  "commit": "8c4bc215981e1dbe371e14758cbe19611df6c460",
+  "status": "open"
+}

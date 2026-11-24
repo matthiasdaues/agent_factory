@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -292,3 +293,167 @@ def test_cg_13_the_typescript_command_reports_a_planted_function(tmp_path: Path)
     assert len(sign) == 1, rows
     assert sign[0]["complexity"] == 2
     assert sign[0]["coverage_pct"] == 100
+
+
+def _run_typescript(
+    tmp_path: Path, files: dict[str, str], env_extra: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Plant *files* in a git folder and run the TypeScript command there."""
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text)
+    _fill(
+        TYPESCRIPT_COMMAND,
+        tmp_path / "scripts" / "crap-measure-typescript",
+        r"^const TEST_COMMAND = \[.*?^\];$",
+        'const TEST_COMMAND = [process.execPath, "--experimental-strip-types", "--test", "src/**/*.test.ts"];',
+    )
+    env = _clean_env()
+    env["GATE_OUTPUT"] = "rows.json"
+    env["GATE_FILES"] = "src/*.ts"
+    env["GATE_EXCLUDE"] = "src/*.test.ts"
+    env.update(env_extra or {})
+    return subprocess.run(
+        [shutil.which("node") or "node", "scripts/crap-measure-typescript"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+
+def _rows(tmp_path: Path) -> list[dict]:
+    return json.loads((tmp_path / "rows.json").read_text())
+
+
+UNCALLED_TS = """\
+export const used = (n: number): number => n + 1;
+
+export const pick = (a: number, b: number, c: number): number => a > 0 ? (b > 0 ? (c > 0 ? 1 : 2) : (c > 0 ? 3 : 4)) : (b > 0 ? (c > 0 ? 5 : 6) : 7);
+
+export const never = (xs: number[]): number[] => xs.filter((x) => {
+  if (x > 1) return true;
+  return false;
+});
+
+export function skipped(xs: number[]): number[] {
+  return xs.filter((x) => {
+    if (x > 1) return true;
+    return false;
+  });
+}
+
+export function ran(xs: number[]): number[] {
+  return xs.filter((x) => {
+    if (x > 1) return true;
+    return false;
+  });
+}
+"""
+
+UNCALLED_TS_TEST = """\
+import { test } from "node:test";
+import assert from "node:assert";
+import { used, ran, skipped } from "./pick.ts";
+
+test("used", () => {
+  assert.strictEqual(used(1), 2);
+  assert.deepStrictEqual(ran([1, 2]), [2]);
+  assert.deepStrictEqual(skipped([]), []);
+});
+"""
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_a_function_that_no_test_calls_gets_zero_coverage(tmp_path: Path) -> None:
+    """IMPL-0105: lcov marks a shared line as run; the function records tell better."""
+    result = _run_typescript(tmp_path, {"src/pick.ts": UNCALLED_TS, "src/pick.test.ts": UNCALLED_TS_TEST})
+    assert result.returncode == 0, result.stdout + result.stderr
+    by_name = {r["function"]: r for r in _rows(tmp_path)}
+    assert by_name["pick"]["complexity"] == 7
+    assert by_name["pick"]["coverage_pct"] == 0
+    assert by_name["never"]["coverage_pct"] == 0
+    callbacks = [r for r in by_name.values() if r["function"].startswith("never.(anonymous)")]
+    assert callbacks and all(r["coverage_pct"] == 0 for r in callbacks), by_name
+    assert by_name["used"]["coverage_pct"] == 100
+    skipped = [r for r in by_name.values() if r["function"].startswith("skipped.(anonymous)")]
+    assert skipped and all(r["coverage_pct"] == 0 for r in skipped), by_name
+    assert by_name["ran"]["coverage_pct"] == 100
+    ran_callback = [r for r in by_name.values() if r["function"].startswith("ran.(anonymous)")]
+    assert ran_callback and all(r["coverage_pct"] > 0 for r in ran_callback), by_name
+
+
+PROPERTY_TS = """\
+export const handlers = {
+  first: function (n: number): number {
+    if (n > 0) return 1;
+    return 0;
+  },
+};
+"""
+
+PROPERTY_TS_TEST = """\
+import { test } from "node:test";
+import assert from "node:assert";
+import { handlers } from "./obj.ts";
+
+test("first", () => {
+  assert.equal(handlers.first(1), 1);
+  assert.equal(handlers.first(0), 0);
+});
+"""
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_a_function_expression_as_an_object_value_gets_a_row(tmp_path: Path) -> None:
+    """IMPL-0106: the function is named as ESLint and lcov name it."""
+    result = _run_typescript(tmp_path, {"src/obj.ts": PROPERTY_TS, "src/obj.test.ts": PROPERTY_TS_TEST})
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = _rows(tmp_path)
+    assert [r["function"] for r in rows] == ["first"], rows
+    assert rows[0]["complexity"] == 2
+    assert rows[0]["coverage_pct"] == 100
+
+
+def _assert_no_rows(tmp_path: Path, result: subprocess.CompletedProcess[str], cause: str) -> None:
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "cannot measure" in result.stderr
+    assert cause in result.stderr, result.stderr
+    assert not (tmp_path / "rows.json").exists()
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_a_failed_test_run_exits_non_zero_and_writes_no_rows(tmp_path: Path) -> None:
+    failing = PLANTED_TS_TEST.replace('"positive");', '"wrong");')
+    result = _run_typescript(tmp_path, {"src/sign.ts": PLANTED_TS, "src/sign.test.ts": failing})
+    _assert_no_rows(tmp_path, result, "the test run failed")
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_a_file_that_no_test_loads_exits_non_zero_and_writes_no_rows(tmp_path: Path) -> None:
+    files = {
+        "src/sign.ts": PLANTED_TS,
+        "src/sign.test.ts": PLANTED_TS_TEST,
+        "src/lonely.ts": "export const lonely = (): number => 1;\n",
+    }
+    result = _run_typescript(tmp_path, files)
+    _assert_no_rows(tmp_path, result, "coverage cannot reach src/lonely.ts")
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_eslint_that_cannot_start_exits_non_zero_and_writes_no_rows(tmp_path: Path) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in ("git",):
+        found = subprocess.run(["which", name], capture_output=True, text=True, check=True).stdout.strip()
+        (bin_dir / name).symlink_to(found)
+    work = tmp_path / "work"
+    work.mkdir()
+    result = _run_typescript(
+        work,
+        {"src/sign.ts": PLANTED_TS, "src/sign.test.ts": PLANTED_TS_TEST},
+        {"PATH": str(bin_dir)},
+    )
+    _assert_no_rows(work, result, "ESLint cannot start")
