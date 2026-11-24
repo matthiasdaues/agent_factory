@@ -19,5 +19,7 @@
   },
   "why_this_severity": "A deleted dev or a moved feature branch lets a story above the threshold pass crap-score at the merge, so the bar starts at High. The attack needs the agent's shell in the repository (trusted_access), which lowers it to Medium. The guard on dev never claimed to protect these refs, and the finding asks for more defense in a guard that checks only the command text, so it is a suggestion, and a security suggestion is at most minor. The guard lines are unchanged on dev, so they are in use.",
   "commit": "a3c7b47edf8bed9692a7cf4e61d6221b92b387e4",
-  "status": "open"
+  "status": "waived",
+  "override_by": "Matthias Daues",
+  "override_reason": "Accepted 2026-11-23: since SEC-0012, crap-score --base refuses a missing dev, and SEC-0009 makes the gate ignore replace refs. The remaining route, moving a branch with update-ref, needs the agent shell and a deliberate act. A guard rule on git config and update-ref would block many harmless commands."
 }
