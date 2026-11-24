@@ -1,5 +1,64 @@
 # Changelog
 
+## 1.15.0 — 2026-11-24
+
+This release lets the CRAP gate measure only the files a story changed, and
+it keeps usage capture running through a failed update. Run
+`update-factory` to receive it.
+
+### Changes that need action
+
+- **Copy the Python measuring template again.** A project keeps its own copy
+  of `crap-measure-python`, so the update does not change it. To measure only
+  the changed files, copy `skills/setup-crap-score/crap-measure-python` into
+  the project again, fill `TEST_COMMAND` as before, and fill the new constant
+  `SELECT_COMMAND` with a command that runs only the tests of given paths.
+  With an empty `SELECT_COMMAND`, the template runs `TEST_COMMAND` on every
+  story, as before.
+- **`migrate-proposal` and `migrate-story-schema` are gone.** Both ran their
+  one-off migrations in 2026-09. A project that has not run them yet runs
+  them from 1.14.1 before it updates.
+
+### Changes
+
+- **The CRAP gate hands the changed paths to each measuring command.** With
+  `--base`, `crap-score` sets `GATE_SCOPE` to `changed` and
+  `GATE_CHANGED_FILES` to the paths of the judged diff, one per line. With
+  `--all`, `GATE_SCOPE` is `all` and `GATE_CHANGED_FILES` is empty. A command
+  may then run only the affected tests. Fewer tests can only lower the
+  coverage, so the gate can fail a story wrongly but never pass it wrongly. A
+  command that ignores both variables keeps working (ST-0451, DEC-84).
+- **The Python template runs a lighter measure.** With `changed`, it measures
+  only the changed files it keeps and runs `SELECT_COMMAND` with the changed
+  paths appended. It hands pytest its own `--basetemp` and
+  `-p no:cacheprovider`, so a run leaves no pytest temp folder behind. Each
+  Python process replaces the inherited options, so a pytest that a test
+  starts also runs (DEC-85, BUG-0141).
+- **A registry tool comes from a committed lock.** `setup-crap-score` now
+  asks a measuring command that installs a tool from a package registry,
+  such as ESLint from npm, to install it from a lock file with hashes and
+  without install scripts, never through `npx --yes` (SEC-0013).
+- **`trigger` and `validate` start through `uv run`.** Both scripts now
+  declare their Python version in a script header, like the other scripts
+  (DEC-86).
+- **Four pi and OpenCode extensions have tests.** `capture-usage`,
+  `check-factory-freshness`, `pi-usage` and `step-guard` are covered with
+  `node:test`.
+
+### Fixes
+
+- **A failed runtime build keeps capture running.** `init-factory` deleted
+  the marker of the working usage runtime before it built the new one, so a
+  failed build switched capture off without a message. It now builds in a
+  stage folder and replaces the runtime and its marker only after the build
+  succeeded. On failure, the previous runtime stays with its marker, the
+  hooks are installed, and the output names the cause (BUG-0147, IMPL-0114).
+- **A failed update restores the usage runtime.** `update-factory` copies the
+  usage runtime to `.agent-factory/usage-runtime-backup-<uuid>` before
+  `init-factory` runs, puts it back on rollback, and deletes the copy after a
+  successful update. The rollback checks the copy before it moves anything.
+  The usage records never move (BUG-0147, IMPL-0115).
+
 ## 1.14.1 — 2026-11-23
 
 This release makes usage capture work again after an update, and it keeps
