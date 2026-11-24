@@ -43,6 +43,6 @@ The round is done when all N questions are resolved.
 
 1. A table: number, topic, verdict with a one-line note.
 2. Two sentences on the pattern: where the user's knowledge is solid and where the gaps cluster.
-3. For each divergence, ask once whether to record it, in the project's issue tracker as its `AGENTS.md`/`CLAUDE.md` describes. Record only on a yes.
+3. For each divergence, locate the applicable `AGENTS.md` or `CLAUDE.md`. If it defines an issue tracker, ask once whether to record the divergence there and record it only on a yes. If no local instruction defines a tracker, report that no record was made.
 4. Offer another round; it quizzes areas this session has not covered.
 5. End with one line, in the user's language, reminding them to turn the prompt suggestions back on in `/config` if they want them. Leave it out if another round starts right away, and give it at the end of that round instead.
