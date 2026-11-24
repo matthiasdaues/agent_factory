@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0116",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "build",
+  "severity": "minor",
+  "artifact": "docs/testing.yaml:80-111",
+  "story": null,
+  "finding": "When the feature merges, dev enables the CRAP gate of this repository, but the gate-check step and premerge-check run the installed crap-score under .agent-factory/factory/scripts/. The installed copy is 1.14.1 and sets neither GATE_SCOPE nor GATE_CHANGED_FILES. So scripts/crap-measure-python sees no scope and runs the full TEST_COMMAND under coverage, twice per story, until a release with ST-0451 is installed. That is the full run of about 10 minutes and 1.8 GB of coverage data that DEC-84 and DEC-85 rejected. ST-0449 names ST-0451 'merged into dev and installed' as an input, and its Goal starts 'After this feature is installed'. Nothing in the feature makes the release and the update happen before the next story. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/feature-review/installed-scope.sh <crap-score> builds a scratch repository whose stub command records both variables. With the installed copy it records GATE_SCOPE=<unset>; with the crap-score of 94079fc1 it records GATE_SCOPE=changed and GATE_CHANGED_FILES=src/a.py. Fix: in the handoff of the feature merge, make the release that holds ST-0451 and the run of update-factory in this repository the next step, before the first gate-check step of any later run. A todo entry is enough when the release waits.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The full run judges correctly and only costs time and disk, and the timeout of 20 minutes covers the measured 12 minutes (no to fails_purpose). Each story pays two full runs until update-factory installs the release.",
+  "commit": "94079fc1766d28a7bd11f3507a63771df71a880e",
+  "status": "open"
+}

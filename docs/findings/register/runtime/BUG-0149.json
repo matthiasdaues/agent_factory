@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0149",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "usability",
+  "severity": "minor",
+  "artifact": "packages/factory/skills/setup-crap-score/crap-measure-python:354-372",
+  "story": null,
+  "finding": "When every changed file that the measure keeps is a file no test reaches, the Python measure with GATE_SCOPE=changed says \"crap-measure-python: cannot measure: coverage recorded no data for the test run: No data to report.\" and names no file. The Scenario Outline row \"coverage cannot reach packages/server/backend/src/plugins/load.py, and the run judges that file\" asks for a message that names the file. The cause is the narrow trace of DEC-85: coverage.py traces only the changed kept files, so a run that loads none of them records no data at all, and json_report raises NoDataError before measure() can list the unreached files. CG-03-IT-04 passes only because its second changed file, src/parser.py, is reached. scripts/crap-measure-python holds the same lines. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/feature-qa/repro-bug-0149.sh plants the untested script packages/factory/scripts/qa-orphan in a scratch clone and runs the measure with that one changed path: 47 tests pass, then the message above, exit 1. Fix: in run_tests, when traced is set and json_report raises NoDataError, return an empty table instead of raising, so measure() names every traced file with functions as unreached. Add a template test with one changed file that no test reaches.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The measure still exits non-zero and writes no rows, so the gate fails closed with exit 2 (no to fails_purpose). The message points the developer agent at the test setup instead of the file that needs a test, so finding the cause costs a second search.",
+  "commit": "94079fc1766d28a7bd11f3507a63771df71a880e",
+  "status": "open"
+}

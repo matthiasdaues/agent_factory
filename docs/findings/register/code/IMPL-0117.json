@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0117",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/init-factory:4449-4454",
+  "story": null,
+  "finding": "Three functions that BUG-0147 changed fail the CRAP gate that this feature enables: do_add of init-factory scores 342.49 (complexity 25, 20.21 % covered), _install of init-factory 38.71 (complexity 30, 78.69 %), and main of update-factory 61.66 (complexity 57, 88.72 %). BUG-0147 merged before ST-0449 enabled the gate on the feature branch, and premerge-check reads enabled from dev, where the gate is still off. So no gate judged these changes, and the feature merge into dev does not judge them either. The next story that changes a line of any of the three functions fails the gate for code it did not write. do_add is the one that fails on coverage, not on complexity: no test file under tests/ passes --add to init-factory, and the selected tests run only 20.21 % of its lines. Reproduction: in the scratch clone /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/feature-review/repo at 94079fc1, with a local dev that holds the docs/testing.yaml of the feature and a copy of the installed .agent-factory/, the call packages/factory/scripts/crap-score --base dev --story-id feature --report-dir <folder> judged 14 functions and failed these 3 (exit 1). Fix: add tests of init-factory --add, with a runtime build that succeeds and one that fails. At complexity 25, do_add needs about 80 % coverage to score below 30. For _install and update-factory main, which fail on complexity, add rows to docs/findings/exceptions.md on dev or name them in the follow-up story that splits large functions (DEC-87).",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "DEC-87 accepts that functions above 30 fail when a story touches them, and the code works as tested (no to fails_purpose). The cost lands on a later, unrelated story, which must add tests or split a function before it can merge.",
+  "commit": "94079fc1766d28a7bd11f3507a63771df71a880e",
+  "status": "open"
+}
