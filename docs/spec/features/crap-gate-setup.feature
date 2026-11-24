@@ -1546,6 +1546,21 @@ Feature: CRAP Gate Setup
       When the Factory maintainer reads the measuring command of the TypeScript measure
       Then the command runs node --test --experimental-test-coverage
 
+    Scenario: The TypeScript measure installs ESLint from a committed lock without install scripts
+      Given scripts/crap-eslint/package-lock.json is committed
+      When the TypeScript measure of this repository needs ESLint
+      Then it installs ESLint with npm ci --ignore-scripts --prefer-offline from that lock
+      And it keeps the install in a cache folder named by the hash of the lock and reuses it on the next run
+      And it never fetches ESLint through npx
+      # SEC-0013, @scripts/crap-measure-typescript::installEslint
+
+    Scenario: The TypeScript measure stops with the cause when the ESLint install fails
+      Given npm ci cannot install ESLint from the lock
+      When the TypeScript measure runs
+      Then it exits non-zero with the cause on stderr
+      And it writes no rows
+      # SEC-0013, @scripts/crap-measure-typescript::installEslint
+
     Scenario: The scripts that start with uv run show measured coverage
       Given packages/factory/scripts/dispatch starts with uv run --script
       When crap-score runs with --all in this repository
@@ -1561,6 +1576,7 @@ Feature: CRAP Gate Setup
       And the script does not start with uv run
 
       Examples:
+        | script |
         | generate-codex-agents |
         | generate-copilot-agents |
         | openrouter-discover |
