@@ -315,6 +315,10 @@ SEMVER = re.compile(
 )
 USAGE_RUNTIME = Path(".agent-factory/usage/runtime")
 USAGE_REQUIREMENTS = Path(".agent-factory/factory/config/usage-runtime-requirements.txt")
+# The states provision_usage_runtime returns (BUG-0147, IMPL-0114).
+USAGE_READY = "ready"
+USAGE_KEPT = "kept"
+USAGE_OFF = "unavailable"
 PROJECT_IDENTITY = Path(".agent-factory/config/project.json")
 
 KNOWN_COMPONENTS = ("usage",)
@@ -1472,7 +1476,9 @@ def _secure_runtime_tree(root: Path) -> None:
             os.chmod(path, 0o700 if info.st_mode & 0o111 else 0o600)
 
 
-def provision_usage_runtime(target: Path, report: list[str]) -> bool:
+def provision_usage_runtime(
+    target: Path, report: list[str], previous: Path | None = None
+) -> tuple[str, str]:
     """Install hash-verified tokenizer dependencies before hooks activate.
 
     Network access, when needed, is confined to this user-invoked init step.
@@ -1482,13 +1488,22 @@ def provision_usage_runtime(target: Path, report: list[str]) -> bool:
     The new runtime is built in a stage folder. The working runtime and its
     marker change only after the stage succeeded, so a failed build keeps
     the previous runtime and capture runs on it (BUG-0147).
+
+    ``previous`` is where the previous runtime lies during the run when it is
+    not in place: a full run moves `.agent-factory/usage/` aside first and
+    restores it afterwards (T-0011, IMPL-0114).
+
+    Returns the state and the cause of a failed build: ``USAGE_READY`` for a
+    new runtime, ``USAGE_KEPT`` when the build failed and capture keeps the
+    previous runtime, and ``USAGE_OFF`` when no runtime with a marker exists.
     """
     requirements = target / USAGE_REQUIREMENTS
     runtime = target / USAGE_RUNTIME
     ready = runtime / ".requirements-sha256"
     if runtime.is_symlink() or (runtime.exists() and not runtime.is_dir()):
-        log(report, f"usage capture unavailable: unsafe runtime path {runtime}")
-        return False
+        cause = f"unsafe runtime path {runtime}"
+        log(report, f"usage capture unavailable: {cause}")
+        return USAGE_OFF, cause
 
     runtime.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(runtime.parent, 0o700)
@@ -1537,21 +1552,47 @@ def provision_usage_runtime(target: Path, report: list[str]) -> bool:
         if backup.exists():
             shutil.rmtree(backup, ignore_errors=True)
         log(report, "usage capture runtime: exact hash-verified environment ready")
-        return True
+        return USAGE_READY, ""
     except (OSError, RuntimeError) as exc:
         if stage.exists():
             shutil.rmtree(stage)
         if backup.exists() and not runtime.exists():
             backup.rename(runtime)
-        if ready.is_file():
+        kept = ready.is_file() or (
+            previous is not None
+            and (previous / ".requirements-sha256").is_file()
+        )
+        if kept:
             log(
                 report,
                 "usage capture runtime not rebuilt; capture keeps the "
                 f"previous runtime — {exc}",
             )
-            return True
+            return USAGE_KEPT, str(exc)
         log(report, f"usage capture unavailable; lifecycle hooks left inactive — {exc}")
-        return False
+        return USAGE_OFF, str(exc)
+
+
+def _preserved_runtime(preserved: dict[str, Path]) -> Path | None:
+    """The previous usage runtime while a full run holds it aside (T-0011)."""
+    usage = preserved.get("usage")
+    return None if usage is None else usage / USAGE_RUNTIME.name
+
+
+def _report_usage_state(
+    report: list[str], state: str, cause: str, ready_line: str
+) -> None:
+    """Print the usage capture state, with the cause of a failed build."""
+    if state == USAGE_READY:
+        log(report, f"usage capture: {ready_line}")
+    elif state == USAGE_KEPT:
+        log(
+            report,
+            f"usage capture: runtime not rebuilt — {cause}; capture keeps the "
+            "previous runtime, hooks installed",
+        )
+    else:
+        log(report, f"usage capture: runtime unavailable, hooks inactive — {cause}")
 
 
 def _install_pi_usage_capture(target: Path, install: dict, report: list[str]) -> None:
@@ -4405,13 +4446,12 @@ def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> in
 
         _out.quiet = True
         pre_usage = len(report)
-        usage_runtime_ready = provision_usage_runtime(target, report)
-        if usage_runtime_ready:
+        usage_state, usage_cause = provision_usage_runtime(target, report)
+        if usage_state != USAGE_OFF:
             install_usage_capture(target, install, report, chosen)
         usage_count = len(report) - pre_usage
         _out.quiet = False
-        if usage_runtime_ready:
-            log(report, "usage capture: hooks installed")
+        _report_usage_state(report, usage_state, usage_cause, "hooks installed")
 
         _out.quiet = True
         install_freshness_check(target, install, report, chosen)
@@ -4953,15 +4993,16 @@ def _install(
 
         _out.quiet = True
         pre_usage = len(report)
-        usage_runtime_ready = provision_usage_runtime(target, report)
-        if usage_runtime_ready:
+        usage_state, usage_cause = provision_usage_runtime(
+            target, report, _preserved_runtime(preserved),
+        )
+        if usage_state != USAGE_OFF:
             install_usage_capture(target, install, report, clis)
         usage_count = len(report) - pre_usage
         _out.quiet = False
-        if usage_runtime_ready:
-            log(report, "usage capture: runtime ready, hooks installed")
-        else:
-            log(report, "usage capture: runtime unavailable, hooks inactive")
+        _report_usage_state(
+            report, usage_state, usage_cause, "runtime ready, hooks installed",
+        )
 
         if _wants(clis, "pi"):
             install_pi_invocation_layer(target, install, report)

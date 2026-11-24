@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0115",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "algorithm",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/update-factory:804-819",
+  "story": "BUG-0147",
+  "finding": "_restore_runtime renames the current runtime to usage-runtime-discard-<uuid> before it checks that the copy exists. When the copy is missing, the second rename raises FileNotFoundError, and the project ends with no .agent-factory/usage/runtime, so capture is off. The copy can be missing because it lies inside .agent-factory/usage/, and the sourced init-factory moves all of usage/ into .agent-factory/.preserve-usage-* for its run. When init-factory dies without its finally block, for example by SIGKILL or the out-of-memory killer, the copy stays there, update-factory sees a non-zero exit, and the rollback removes a runtime that init-factory may already have built. The unit test of the rollback does not model this, because its fake init-factory never moves usage/. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/bug0147-review/repro-2-restore-without-copy.py prints 'raised: FileNotFoundError', 'runtime present: False', and a usage/ that holds only the discard folder. Fix: in update-factory, put the copy at .agent-factory/usage-runtime-backup-<uuid>, beside factory-backup-<uuid> and on the same file system, so init-factory never carries it; and check aside.is_dir() before the first rename, leaving the current runtime in place when the copy is gone.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the story branch. The path needs init-factory to die without its finally block, which also leaves the usage data in the preserve folder, so the rollback works in every failure that init-factory reports itself (no to fails_purpose). The operator then has to find the discard folder and rename it back by hand.",
+  "commit": "2f94f9daba0ffaabdf70c841430f9959646e1ffb",
+  "status": "resolved"
+}

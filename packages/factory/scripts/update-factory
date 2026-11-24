@@ -69,9 +69,12 @@ be restored is listed too. The project is never left without a
 
 The usage runtime: init-factory rebuilds `.agent-factory/usage/runtime`.
 Before it runs, the runtime is copied aside to
-`.agent-factory/usage/usage-runtime-backup-<uuid>`, so the project keeps a
-runtime at every point of the run. A rollback puts the copy back in place
-of the rebuilt runtime; a successful update deletes the copy. Only
+`.agent-factory/usage-runtime-backup-<uuid>`, outside `usage/`, which
+init-factory moves aside for its run. So at every point of the run the
+project keeps a runtime or a complete copy it can restore. A rollback
+checks the copy first and puts it back in place of the rebuilt runtime; a
+missing copy leaves the current runtime in place. A successful update
+deletes the copy. Only
 `runtime/` is set aside: the usage transcripts and records under
 `.agent-factory/usage/` are never moved, restored, or deleted.
 
@@ -155,9 +158,10 @@ REMOTE_SCRATCH_PREFIX = "factory-remote-"
 
 # The sourced init-factory rebuilds the usage runtime. update-factory copies
 # the runtime aside first, so a rollback can put the earlier one back
-# (BUG-0147). A copy, not a move: the project keeps a runtime at every point
-# of the run. Only runtime/ is set aside; the usage records beside it never
-# move.
+# (BUG-0147). The copy lies in .agent-factory/, not in usage/, because
+# init-factory moves usage/ aside for its run (IMPL-0115). It is written
+# under a .partial name and renamed when complete, so a copy under the final
+# name is complete. Only runtime/ is set aside; the usage records never move.
 USAGE_RUNTIME = ".agent-factory/usage/runtime"
 RUNTIME_BACKUP_PREFIX = "usage-runtime-backup-"
 RUNTIME_DISCARD_PREFIX = "usage-runtime-discard-"
@@ -792,24 +796,34 @@ def _set_runtime_aside(target: Path) -> tuple[bool, Path | None]:
     existed = runtime.exists() or runtime.is_symlink()
     if runtime.is_symlink() or not runtime.is_dir():
         return existed, None
-    aside = runtime.parent / f"{RUNTIME_BACKUP_PREFIX}{uuid.uuid4()}"
+    aside = target / ".agent-factory" / f"{RUNTIME_BACKUP_PREFIX}{uuid.uuid4()}"
+    partial = aside.with_name(aside.name + ".partial")
     try:
-        shutil.copytree(runtime, aside, symlinks=True)
+        shutil.copytree(runtime, partial, symlinks=True)
+        os.rename(partial, aside)
     except OSError:
-        shutil.rmtree(aside, ignore_errors=True)
+        shutil.rmtree(partial, ignore_errors=True)
         raise
     return existed, aside
 
 
 def _restore_runtime(target: Path, existed: bool, aside: Path | None) -> None:
     """Put the runtime set aside back in place of the one the failed run
-    built, or remove a runtime the failed run created."""
+    built, or remove a runtime the failed run created.
+
+    The copy is checked before anything moves: when it is gone, the current
+    runtime stays in place and FileNotFoundError is raised (IMPL-0115)."""
     runtime = target / USAGE_RUNTIME
     if aside is None:
         if not existed and runtime.is_dir() and not runtime.is_symlink():
             shutil.rmtree(runtime)
         return
-    discard = runtime.parent / f"{RUNTIME_DISCARD_PREFIX}{uuid.uuid4()}"
+    if aside.is_symlink() or not aside.is_dir():
+        raise FileNotFoundError(
+            f"the copy {aside} is gone; the current runtime stays in place"
+        )
+    discard = target / ".agent-factory" / f"{RUNTIME_DISCARD_PREFIX}{uuid.uuid4()}"
+    runtime.parent.mkdir(parents=True, exist_ok=True)
     if runtime.exists() or runtime.is_symlink():
         os.rename(runtime, discard)
     os.rename(aside, runtime)

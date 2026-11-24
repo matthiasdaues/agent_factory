@@ -255,7 +255,9 @@ def test_bug_0147_failed_build_keeps_the_runtime_and_its_marker(
     report: list[str] = []
 
     # The previous runtime stays usable, so capture keeps running on it.
-    assert inf.provision_usage_runtime(project, report) is True
+    state, cause = inf.provision_usage_runtime(project, report)
+    assert state == inf.USAGE_KEPT
+    assert cause == "hash mismatch for tiktoken"
 
     marker = runtime / ".requirements-sha256"
     assert marker.read_text(encoding="ascii") == "old-digest\n"
@@ -263,3 +265,42 @@ def test_bug_0147_failed_build_keeps_the_runtime_and_its_marker(
     assert transcript.read_text(encoding="utf-8") == '{"recorded_at": "2026-11-01"}\n'
     assert sorted(p.name for p in runtime.parent.iterdir()) == ["runtime", "usage.jsonl"]
     assert any("hash mismatch for tiktoken" in line for line in report), report
+
+
+def test_impl_0114_full_run_reports_the_kept_runtime_and_the_cause(
+    tmp_path, monkeypatch
+):
+    """IMPL-0114: a full init-factory run, the path of an update, moves
+    .agent-factory/usage/ aside before the build. A failed build there keeps
+    the previous runtime, prints the cause, and keeps the capture hooks."""
+    from test_init_factory import run_init
+
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "-q", str(project)], check=True)
+    fake_bin = tmp_path / "fake-bin"
+    _executable(
+        fake_bin / "uv",
+        FAKE_UV.replace(
+            'mkdir -p "$last/bin"',
+            'mkdir -p "$last/bin"; printf "#!/bin/sh\\n" > "$last/bin/python"; '
+            'chmod +x "$last/bin/python"',
+        ),
+    )
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("FAIL_STEP", "none")
+    first = run_init(REPO_ROOT, project, "--project-name", "scratch")
+    assert first.returncode == 0, first.stdout + first.stderr
+    marker = project / ".agent-factory" / "usage" / "runtime" / ".requirements-sha256"
+    digest = marker.read_text(encoding="ascii")
+
+    monkeypatch.setenv("FAIL_STEP", "pip")
+    second = run_init(REPO_ROOT, project, "--project-name", "scratch")
+
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert "hash mismatch for tiktoken" in second.stdout
+    assert "capture keeps the previous runtime" in second.stdout
+    assert "hooks inactive" not in second.stdout
+    assert marker.read_text(encoding="ascii") == digest
+    settings = (project / ".claude" / "settings.json").read_text(encoding="utf-8")
+    assert "capture-usage" in settings
