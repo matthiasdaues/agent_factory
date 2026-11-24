@@ -38,8 +38,11 @@ Tools
   run when any code on it ran. A record matches by position: the start line
   of the function itself (not of its object key or class member) and its
   order among the functions of that line, not its name. A function that does
-  not pair with exactly one record gets 0 %, whatever the other records say,
-  and so does a function inside one that never ran. Every doubt ends at 0 %,
+  not pair with exactly one record gets 0 %, whatever the other records say.
+  So does every function of a line that starts several functions when its
+  records differ in count, because node merges the records of several test
+  processes out of source order. A function inside one that never ran gets
+  0 % as well. Every doubt ends at 0 %,
   because the gate may fail a story wrongly but never pass it wrongly.
   Complexity: ESLint, through `npx --yes eslint@<ESLINT_VERSION>` from npm's
   cache, with no package.json. Node strips the types of each file first
@@ -373,7 +376,11 @@ function deadFunctions(functions, paired) {
         next += 1;
       }
     }
-    const pairs = next === counts.length;
+    // Node merges the records of several test processes out of source
+    // order, so on a line with several functions the order proves nothing
+    // unless all its records agree.
+    const agree = fns.length < 2 || counts.every((count) => count === counts[0]);
+    const pairs = next === counts.length && agree;
     for (const fn of fns) if (!pairs || found.has(fn)) dead.add(fn);
   }
   // A function inside a function that a later line found dead.

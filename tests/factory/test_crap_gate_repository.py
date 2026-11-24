@@ -399,7 +399,9 @@ def test_cg_13_a_function_that_no_test_calls_gets_zero_coverage(tmp_path: Path) 
     assert by_name["assigned"]["complexity"] == 7
     assert by_name["assigned"]["coverage_pct"] == 0
     assert by_name["first"]["coverage_pct"] == 0
-    assert by_name["second"]["coverage_pct"] == 100
+    # first ran 0 times and second once on one line: the records differ, so
+    # the order proves nothing and both fail safe (IMPL-0112).
+    assert by_name["second"]["coverage_pct"] == 0
     skipped = [r for r in by_name.values() if r["function"].startswith("skipped.(anonymous)")]
     assert skipped and all(r["coverage_pct"] == 0 for r in skipped), by_name
     assert by_name["ran"]["coverage_pct"] == 100
@@ -489,6 +491,73 @@ def test_cg_13_two_functions_on_a_line_with_one_record_both_get_zero_coverage(tm
     rows = _rows(tmp_path)
     assert len(rows) == 2, rows
     assert [r["coverage_pct"] for r in rows] == [0, 0]
+
+
+TWO_PROCESSES_TS = """\
+export const outer = (c: number) => c > 0 ? [1].map((x: number) => x > 0 ? (x > 1 ? (x > 2 ? (x > 3 ? (x > 4 ? 1 : 2) : 3) : 4) : 5) : 6) : [], later = () => 2;
+"""
+
+TWO_PROCESSES_A = """\
+import { test } from "node:test";
+import assert from "node:assert";
+import { outer } from "./m.ts";
+
+test("a", () => {
+  assert.deepEqual(outer(0), []);
+});
+"""
+
+TWO_PROCESSES_B = """\
+import { test } from "node:test";
+import assert from "node:assert";
+import { later } from "./m.ts";
+
+test("b", () => {
+  assert.equal(later(), 2);
+});
+"""
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_a_line_whose_lcov_records_disagree_gives_its_functions_zero_coverage(
+    tmp_path: Path,
+) -> None:
+    """IMPL-0112: node merges the records of two test processes out of source order."""
+    files = {"src/m.ts": TWO_PROCESSES_TS, "src/a.test.ts": TWO_PROCESSES_A, "src/b.test.ts": TWO_PROCESSES_B}
+    result = _run_typescript(tmp_path, files)
+    assert result.returncode == 0, result.stdout + result.stderr
+    callback = [r for r in _rows(tmp_path) if r["function"] == "outer.(anonymous)"]
+    assert len(callback) == 1, _rows(tmp_path)
+    assert callback[0]["complexity"] == 6
+    assert callback[0]["coverage_pct"] == 0
+
+
+MERGED_RUNNER = """\
+// Stands in for two test processes that node merged out of source order:
+// the callback of outer comes last, after later.
+const fs = require("node:fs");
+const flag = process.execArgv.filter((a) => a.startsWith("--test-reporter-destination=")).pop();
+fs.writeFileSync(
+  flag.split("=")[1],
+  "SF:src/m.ts\\nFN:1,outer\\nFN:1,later\\nFN:1,anonymous_2\\n" +
+    "FNDA:1,outer\\nFNDA:1,later\\nFNDA:0,anonymous_2\\nDA:1,1\\nend_of_record\\n",
+);
+"""
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_records_out_of_source_order_give_the_functions_of_the_line_zero_coverage(
+    tmp_path: Path,
+) -> None:
+    """IMPL-0112, deterministic: the same merge as the run of two test files above."""
+    files = {"src/m.ts": TWO_PROCESSES_TS, "merged-runner.cjs": MERGED_RUNNER}
+    result = _run_typescript(
+        tmp_path, files, test_command='[process.execPath, "--no-warnings", "merged-runner.cjs"]'
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = _rows(tmp_path)
+    assert len(rows) == 3, rows
+    assert [r["coverage_pct"] for r in rows] == [0, 0, 0]
 
 
 def _assert_no_rows(tmp_path: Path, result: subprocess.CompletedProcess[str], cause: str) -> None:
