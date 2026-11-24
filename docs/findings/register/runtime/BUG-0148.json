@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The gate fails closed: an offline run without ESLint exits 2 and never passes a story (no to fails_purpose). Each offline run costs about 72 seconds of the 20-minute limit, and a cold offline machine blocks every story until it is online again.",
   "commit": "94079fc1766d28a7bd11f3507a63771df71a880e",
-  "status": "open"
+  "status": "resolved"
 }
