@@ -296,7 +296,10 @@ def test_cg_13_the_typescript_command_reports_a_planted_function(tmp_path: Path)
 
 
 def _run_typescript(
-    tmp_path: Path, files: dict[str, str], env_extra: dict[str, str] | None = None
+    tmp_path: Path,
+    files: dict[str, str],
+    env_extra: dict[str, str] | None = None,
+    test_command: str = '[process.execPath, "--experimental-strip-types", "--test", "src/**/*.test.ts"]',
 ) -> subprocess.CompletedProcess[str]:
     """Plant *files* in a git folder and run the TypeScript command there."""
     subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
@@ -307,7 +310,7 @@ def _run_typescript(
         TYPESCRIPT_COMMAND,
         tmp_path / "scripts" / "crap-measure-typescript",
         r"^const TEST_COMMAND = \[.*?^\];$",
-        'const TEST_COMMAND = [process.execPath, "--experimental-strip-types", "--test", "src/**/*.test.ts"];',
+        f"const TEST_COMMAND = {test_command};",
     )
     env = _clean_env()
     env["GATE_OUTPUT"] = "rows.json"
@@ -350,6 +353,10 @@ box.assigned = (a: number, b: number, c: number): number => a > 0 ? (b > 0 ? (c 
 
 export const pair = { first: (n: number): number => n > 0 ? 1 : 2, second: (n: number): number => n > 0 ? 3 : 4 };
 
+export const split = { warm: (n: number): number => n + 1, late:
+  (a: number): number => a > 0 ? (a > 1 ? (a > 2 ? (a > 3 ? (a > 4 ? 1 : 2) : 3) : 4) : 5) : 6, ok:
+  (a: number): number => a > 0 ? (a > 1 ? (a > 2 ? (a > 3 ? (a > 4 ? 1 : 2) : 3) : 4) : 5) : 6 };
+
 export function ran(xs: number[]): number[] {
   return xs.filter((x) => {
     if (x > 1) return true;
@@ -361,13 +368,15 @@ export function ran(xs: number[]): number[] {
 UNCALLED_TS_TEST = """\
 import { test } from "node:test";
 import assert from "node:assert";
-import { used, ran, skipped, pair } from "./pick.ts";
+import { used, ran, skipped, pair, split } from "./pick.ts";
 
 test("used", () => {
   assert.strictEqual(used(1), 2);
   assert.deepStrictEqual(ran([1, 2]), [2]);
   assert.deepStrictEqual(skipped([]), []);
   assert.strictEqual(pair.second(1), 3);
+  assert.strictEqual(split.warm(1), 2);
+  assert.strictEqual(split.ok(1), 5);
 });
 """
 
@@ -384,6 +393,9 @@ def test_cg_13_a_function_that_no_test_calls_gets_zero_coverage(tmp_path: Path) 
     callbacks = [r for r in by_name.values() if r["function"].startswith("never.(anonymous)")]
     assert callbacks and all(r["coverage_pct"] == 0 for r in callbacks), by_name
     assert by_name["used"]["coverage_pct"] == 100
+    assert by_name["late"]["complexity"] == 6
+    assert by_name["late"]["coverage_pct"] == 0
+    assert by_name["ok"]["coverage_pct"] == 100
     assert by_name["assigned"]["complexity"] == 7
     assert by_name["assigned"]["coverage_pct"] == 0
     assert by_name["first"]["coverage_pct"] == 0
@@ -452,6 +464,31 @@ def test_cg_13_an_arrow_function_as_a_class_field_gets_a_row(tmp_path: Path) -> 
     assert [r["function"] for r in rows] == ["Box.f"], rows
     assert rows[0]["complexity"] == 2
     assert rows[0]["coverage_pct"] == 100
+
+
+FAKE_RUNNER = """\
+// Stands in for the test run: it writes an lcov report with one function
+// record for a line that holds two functions.
+const fs = require("node:fs");
+const flag = process.execArgv.filter((a) => a.startsWith("--test-reporter-destination=")).pop();
+fs.writeFileSync(flag.split("=")[1], "SF:src/two.ts\\nFN:1,only\\nFNDA:1,only\\nDA:1,1\\nend_of_record\\n");
+"""
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_two_functions_on_a_line_with_one_record_both_get_zero_coverage(tmp_path: Path) -> None:
+    """IMPL-0111: a function that pairs with no single record fails safe."""
+    files = {
+        "src/two.ts": "export const two = [(a: number) => a > 0 ? 1 : 2, (b: number) => b > 0 ? 3 : 4];\n",
+        "fake-runner.cjs": FAKE_RUNNER,
+    }
+    result = _run_typescript(
+        tmp_path, files, test_command='[process.execPath, "--no-warnings", "fake-runner.cjs"]'
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = _rows(tmp_path)
+    assert len(rows) == 2, rows
+    assert [r["coverage_pct"] for r in rows] == [0, 0]
 
 
 def _assert_no_rows(tmp_path: Path, result: subprocess.CompletedProcess[str], cause: str) -> None:

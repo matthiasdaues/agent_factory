@@ -36,11 +36,11 @@ Tools
   line. A function whose lcov function record (FN and FNDA, merged over the
   records of a file) has a count of 0 gets 0 %, because node marks a line as
   run when any code on it ran. A record matches by position: the start line
-  of the function and its order among the functions of that line, not its
-  name. A function with no record never ran, and neither does a function
-  inside one that never ran. When the records of a line do not fit its
-  functions one to one, lcov cannot tell them apart, so they get 0 % only if
-  every record of the line has a count of 0.
+  of the function itself (not of its object key or class member) and its
+  order among the functions of that line, not its name. A function that does
+  not pair with exactly one record gets 0 %, whatever the other records say,
+  and so does a function inside one that never ran. Every doubt ends at 0 %,
+  because the gate may fail a story wrongly but never pass it wrongly.
   Complexity: ESLint, through `npx --yes eslint@<ESLINT_VERSION>` from npm's
   cache, with no package.json. Node strips the types of each file first
   (module.stripTypeScriptTypes), which keeps every line and column, so
@@ -241,6 +241,7 @@ const range = {
       context.report({
         node,
         message: JSON.stringify({ name: names.join("."), start: outer.range[0], end: outer.range[1],
+          nodeStart: node.range[0], nodeLine: node.loc.start.line,
           startLine: outer.loc.start.line, startColumn: outer.loc.start.column + 1, endLine: outer.loc.end.line }),
       });
     }
@@ -342,21 +343,22 @@ function pairFunctions(file, code, messages) {
 }
 
 // The functions that never ran, found by position. lcov gives each function
-// record a start line and no column, in source order. The functions of one
-// start line pair with its records in that order. A function inside a
-// function that never ran was never created, so lcov holds no record of it
-// and it never ran either. A function that has no record at its position
-// never ran. When the number of records on a line differs from the number
-// of functions left, lcov cannot tell the functions apart, so they count as
-// never run only if every record of that line has a count of 0.
+// record the start line of the function itself and no column, in source
+// order. The functions that start on one line, by the line of the function
+// node and not of its key or class member, pair with its records in that
+// order. A function inside a function that never ran was never created, so
+// lcov holds no record of it and it never ran either. Every doubt ends at
+// 0 %, because the gate may fail a story wrongly but never pass it wrongly
+// (DEC-84): a function that does not pair with exactly one record counts as
+// never run, whatever the other records of its line or file say.
 function deadFunctions(functions, paired) {
   const dead = new Set();
   const byLine = new Map();
-  for (const fn of [...paired].sort((a, b) => a.start - b.start)) {
-    if (!byLine.has(fn.startLine)) byLine.set(fn.startLine, []);
-    byLine.get(fn.startLine).push(fn);
+  for (const fn of [...paired].sort((a, b) => a.nodeStart - b.nodeStart)) {
+    if (!byLine.has(fn.nodeLine)) byLine.set(fn.nodeLine, []);
+    byLine.get(fn.nodeLine).push(fn);
   }
-  const inside = (fn) => [...dead].some((d) => d !== fn && d.start <= fn.start && fn.end <= d.end);
+  const within = (fn, set) => [...set].some((d) => d !== fn && d.start <= fn.start && fn.end <= d.end);
   for (const [line, fns] of byLine) {
     const counts = functions.get(line) || [];
     // Walk the functions in source order. One that sits inside a dead
@@ -364,21 +366,18 @@ function deadFunctions(functions, paired) {
     const found = new Set();
     let next = 0;
     for (const fn of fns) {
-      if (inside(fn) || [...found].some((d) => d.start <= fn.start && fn.end <= d.end && d !== fn)) {
+      if (within(fn, dead) || within(fn, found)) {
         found.add(fn);
       } else {
         if (counts[next] === undefined || counts[next] === 0) found.add(fn);
         next += 1;
       }
     }
-    if (next === counts.length || counts.length === 0) {
-      for (const fn of found) dead.add(fn);
-    } else if (counts.every((count) => count === 0)) {
-      for (const fn of fns) dead.add(fn);
-    }
+    const pairs = next === counts.length;
+    for (const fn of fns) if (!pairs || found.has(fn)) dead.add(fn);
   }
-  // A function inside a function that a later pass found dead.
-  for (const fn of paired) if (inside(fn)) dead.add(fn);
+  // A function inside a function that a later line found dead.
+  for (const fn of paired) if (within(fn, dead)) dead.add(fn);
   return dead;
 }
 
