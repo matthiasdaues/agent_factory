@@ -15,7 +15,7 @@ Defaults for anything left out: areas across the whole repo, 5 questions, **clos
 
 Interpret the arguments as follows:
 
-- One positive integer token sets the number of questions `N`; if it is absent, use 5.
+- One positive integer token sets the number of questions `N`; if it is absent, use 5. If it is below 3, use 3 so the round can include the required question types.
 - The phrase `with code`, case-insensitive, selects **open book**.
 - All remaining text names the area or areas; if it is absent, use the whole repo.
 - Ignore unrecognized tokens only when they are part of an area name; do not invent another setting from them.
