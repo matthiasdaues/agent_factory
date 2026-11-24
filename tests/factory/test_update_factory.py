@@ -939,6 +939,165 @@ class TestApplicationAndRollback:
         leftovers += list((target / ".agent-factory").glob(f"{uf.BACKUP_DIR_PREFIX}*"))
         assert leftovers == []
 
+    def _prepare_runtime_update(self, tmp_path: Path) -> tuple[Path, Path, Path]:
+        """An installed project with a usage runtime and a transcript."""
+        target = tmp_path / "target"
+        target.mkdir()
+        self._install(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+        usage = target / ".agent-factory" / "usage"
+        runtime = usage / "runtime"
+        (runtime / "bin").mkdir(parents=True)
+        (runtime / ".requirements-sha256").write_text("old-digest\n")
+        (runtime / "bin" / "python").write_text("old python\n")
+        transcript = usage / "usage.jsonl"
+        transcript.write_text('{"recorded_at": "2026-11-01"}\n')
+        return target, runtime, transcript
+
+    @staticmethod
+    def _init_rebuilds_runtime(code: int):
+        """A sourced init-factory that rebuilds the runtime, records a
+        session, and exits with ``code``."""
+        def _run_init(src, tgt):
+            runtime = tgt / ".agent-factory" / "usage" / "runtime"
+            shutil.rmtree(runtime)
+            (runtime / "bin").mkdir(parents=True)
+            (runtime / ".requirements-sha256").write_text("new-digest\n")
+            (runtime / "bin" / "python").write_text("new python\n")
+            with (tgt / ".agent-factory" / "usage" / "usage.jsonl").open("a") as f:
+                f.write('{"recorded_at": "2026-11-24"}\n')
+            return code
+        return _run_init
+
+    def test_bug_0147_rollback_restores_the_usage_runtime(
+        self, tmp_path, monkeypatch
+    ):
+        target, runtime, transcript = self._prepare_runtime_update(tmp_path)
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", self._init_rebuilds_runtime(1))
+
+        assert uf.main(["--target", str(target)]) != 0
+
+        assert (runtime / ".requirements-sha256").read_text() == "old-digest\n"
+        assert (runtime / "bin" / "python").read_text() == "old python\n"
+        # The rollback never moves or rewinds a usage record.
+        assert transcript.read_text() == (
+            '{"recorded_at": "2026-11-01"}\n{"recorded_at": "2026-11-24"}\n'
+        )
+        assert sorted(p.name for p in runtime.parent.iterdir()) == [
+            "runtime", "usage.jsonl",
+        ]
+
+    def test_bug_0147_successful_update_leaves_no_set_aside_runtime(
+        self, tmp_path, monkeypatch
+    ):
+        target, runtime, transcript = self._prepare_runtime_update(tmp_path)
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", self._init_rebuilds_runtime(0))
+
+        assert uf.main(["--target", str(target)]) == 0
+
+        assert (runtime / ".requirements-sha256").read_text() == "new-digest\n"
+        assert transcript.read_text() == (
+            '{"recorded_at": "2026-11-01"}\n{"recorded_at": "2026-11-24"}\n'
+        )
+        assert sorted(p.name for p in runtime.parent.iterdir()) == [
+            "runtime", "usage.jsonl",
+        ]
+        assert not list((target / ".agent-factory").glob("usage-runtime-*"))
+
+    @staticmethod
+    def _runtime_copies(target: Path) -> list[Path]:
+        af = target / ".agent-factory"
+        return sorted(af.glob("usage-runtime-*")) + sorted(
+            (af / "usage").glob("usage-runtime-*")
+        )
+
+    def test_impl_0115_the_copy_lies_outside_the_usage_folder(
+        self, tmp_path, monkeypatch
+    ):
+        """init-factory moves .agent-factory/usage/ for its run, so the copy
+        must not lie inside it."""
+        target, _runtime, _transcript = self._prepare_runtime_update(tmp_path)
+        seen = {}
+
+        def _run_init(src, tgt):
+            usage = tgt / ".agent-factory" / "usage"
+            seen["in usage/"] = sorted(p.name for p in usage.iterdir())
+            seen["copies"] = [p.name for p in self._runtime_copies(tgt)]
+            return 1
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", _run_init)
+
+        assert uf.main(["--target", str(target)]) != 0
+        assert seen["in usage/"] == ["runtime", "usage.jsonl"]
+        assert len(seen["copies"]) == 1
+
+    def test_impl_0115_rollback_without_the_copy_keeps_the_runtime(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """An init-factory killed without its finally block can take the copy
+        with it. The rollback then leaves the current runtime in place."""
+        target, runtime, _transcript = self._prepare_runtime_update(tmp_path)
+        rebuild = self._init_rebuilds_runtime(1)
+
+        def _run_init(src, tgt):
+            for copy in self._runtime_copies(tgt):
+                shutil.rmtree(copy)
+            return rebuild(src, tgt)
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", _run_init)
+
+        assert uf.main(["--target", str(target)]) != 0
+
+        assert (runtime / ".requirements-sha256").read_text() == "new-digest\n"
+        assert ".agent-factory/usage/runtime" in capsys.readouterr().out
+        assert sorted(p.name for p in runtime.parent.iterdir()) == [
+            "runtime", "usage.jsonl",
+        ]
+
+    def test_bug_0147_failed_copy_refuses_the_update(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """A disk too full for the copy refuses the update with no changes."""
+        import errno
+
+        target, runtime, _transcript = self._prepare_runtime_update(tmp_path)
+        real_copytree = shutil.copytree
+        calls = []
+
+        def _copy2(src, dst, **kwargs):
+            calls.append(src)
+            if len(calls) == 2:
+                raise OSError(errno.ENOSPC, "No space left on device")
+            return shutil.copy2(src, dst, **kwargs)
+
+        def _copytree(src, dst, *args, **kwargs):
+            # The second file copy of the runtime meets a full disk.
+            if Path(src) == runtime:
+                kwargs["copy_function"] = _copy2
+            return real_copytree(src, dst, *args, **kwargs)
+
+        def _never_runs(src, tgt):
+            raise AssertionError("init-factory ran after a failed copy")
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", _never_runs)
+        monkeypatch.setattr(uf.shutil, "copytree", _copytree)
+
+        assert uf.main(["--target", str(target)]) == 1
+
+        assert "no changes made" in capsys.readouterr().err
+        assert (runtime / ".requirements-sha256").read_text() == "old-digest\n"
+        assert self._runtime_copies(target) == []
+        assert not list((target / ".agent-factory").glob(f"{uf.STAGING_DIR_PREFIX}*"))
+
     def _prepare_wiring_update(self, tmp_path: Path) -> Path:
         target = tmp_path / "target"
         target.mkdir()
