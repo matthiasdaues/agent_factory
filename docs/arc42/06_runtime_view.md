@@ -562,11 +562,13 @@ sequenceDiagram
         else Digest verified
             UF->>UF: Stages verified replacement alongside current installation
             UF->>UF: Moves current Factory tree aside, applies staged replacement
+            UF->>UF: Copies the usage runtime aside (a failed copy refuses the update, no changes)
             UF->>IF: Runs the new version's init-factory
             alt Application failure or init-factory exits non-zero
-                UF->>UF: Restores previous Factory tree and instruction headers
+                UF->>UF: Restores previous Factory tree, instruction headers, and usage runtime
                 UF-->>M: Reports rolled-back state
             else Application succeeds
+                UF->>UF: Deletes the usage runtime copy
                 UF->>IM: 4. Writes receipt: source, version, digest, changed paths
                 UF-->>M: Receipt with changed paths and version
             end
@@ -580,6 +582,7 @@ sequenceDiagram
 - Modified Factory-owned files stop the update before staging. The user may select the existing preservation flow to proceed.
 - A different source selector or remote URL requires a separate `--source` option and its own confirmation step. No automatic fallback crosses the source boundary.
 - The previous Factory tree is moved aside, not deleted, before application. Rollback restores it if application fails.
+- The usage runtime is copied aside before `init-factory` runs, because `init-factory` rebuilds it. Rollback checks the copy and restores it, and a successful update deletes it ([ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md), amended for BUG-0147). A failed copy refuses the update with no changes.
 - `update-factory` owns the full transaction. After application, it runs the new version's `init-factory`, and a non-zero exit of `init-factory` triggers the rollback ([ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md)).
 
 ### 6.10.6 Sequence: Update Moves the Project into the Core Artifact Layout
