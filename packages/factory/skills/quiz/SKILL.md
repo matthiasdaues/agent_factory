@@ -1,7 +1,7 @@
 ---
 name: quiz
 description: Quiz me about the current codebase, one open question at a time, graded against the actual code.
-argument-hint: "[area] [number of questions] [with code]"
+argument-hint: "[area...] [N] [with code]"
 disable-model-invocation: true
 ---
 
@@ -12,6 +12,13 @@ Quiz the user about the codebase in the working directory: its code, tests and i
 Read them from the free-text arguments: $ARGUMENTS
 
 Defaults for anything left out: areas across the whole repo, 5 questions, **closed book** (the user answers from memory). Start right away, without asking about settings.
+
+Interpret the arguments as follows:
+
+- One positive integer token sets the number of questions `N`; if it is absent, use 5.
+- The phrase `with code`, case-insensitive, selects **open book**.
+- All remaining text names the area or areas; if it is absent, use the whole repo.
+- Ignore unrecognized tokens only when they are part of an area name; do not invent another setting from them.
 
 The first message holds nothing but one line, in the user's language: the prompt suggestions in the input box can give answers away, please turn them off in `/config` ("Prompt suggestions") and reply when done. No question and no hint about the questions to come. Wait for the reply, then ask question 1.
 
