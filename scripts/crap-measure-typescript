@@ -1,0 +1,370 @@
+#!/usr/bin/env node
+/*
+crap-measure-typescript — measuring command of the CRAP gate for TypeScript code.
+
+What: Runs the project's node:test tests under `node --test
+      --experimental-test-coverage`, reads the cyclomatic complexity of each
+      function with the ESLint rule `complexity`, and writes one row per
+      function to the path in GATE_OUTPUT.
+When: crap-score starts it for the measure typescript, with GATE_OUTPUT set.
+      A person runs it the same way from the repository root:
+      GATE_OUTPUT=/tmp/rows.json scripts/crap-measure-typescript
+By:   crap-score, or a person in the root of the project.
+
+Rows
+  One JSON array. Each row holds file (relative to the folder the command
+  runs in), function, start_line, end_line, complexity, and coverage_pct.
+  The function name is qualified by the enclosing classes, functions and
+  object keys, such as runAgent.execute. A name that a file holds twice,
+  such as (anonymous), gets @<start line> after it, and @<line>:<column>
+  when two such functions start on one line. A file that ESLint cannot
+  parse gets one row with file and parse_error, and the command still
+  exits 0.
+
+Files
+  Every .ts file that git lists below the folder (tracked and untracked,
+  without ignored files) and that matches a GATE_FILES pattern and no
+  GATE_EXCLUDE pattern. crap-score sets both, one glob pattern per line;
+  * matches within one path segment, ** any number of segments, and ?
+  one character other than /. Without GATE_FILES every .ts file counts.
+
+Tools
+  Tests: TEST_COMMAND below, with the lcov reporter added. The records of
+  one file merge, so a line counts as covered when any record covers it.
+  coverage_pct of a function is the share of the lcov lines after its first
+  line, up to its last line, that ran; a function on one line counts that
+  line.
+  Complexity: ESLint, through `npx --yes eslint@<ESLINT_VERSION>` from npm's
+  cache, with no package.json. Node strips the types of each file first
+  (module.stripTypeScriptTypes), which keeps every line and column, so
+  ESLint parses plain JavaScript. A small rule in the flat config reports
+  the line range of each function; the rule `complexity` reports its
+  complexity at the head of the function. The config and the stripped
+  copies live in a temporary folder, so the repository does not change.
+
+Duty
+  When the command cannot measure a case, it exits non-zero, names the
+  cause, and writes no rows. Such cases are a failed test run, ESLint that
+  does not run, a function whose complexity and range do not pair, and a
+  file that no test loads, so coverage cannot reach it. It never reports
+  such a file as 0 % covered. A file that GATE_FILES or GATE_EXCLUDE leaves
+  out is not measured, so it stops nothing.
+*/
+"use strict";
+
+const { spawnSync } = require("node:child_process");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { stripTypeScriptTypes } = require("node:module");
+
+const ESLINT_VERSION = "10.14.0";
+
+// The project's TypeScript test command, without the coverage options,
+// which the command adds. It runs in the folder the command runs in.
+const TEST_COMMAND = [
+  process.execPath,
+  "--experimental-strip-types",
+  "--import",
+  "./packages/factory/config/extensions/__tests__/envelope-loader.mjs",
+  "--test",
+  "packages/factory/config/**/*.test.ts",
+];
+
+class CannotMeasure extends Error {}
+
+function globMatch(pattern, file, pi = 0, si = 0) {
+  while (pi < pattern.length) {
+    if (pattern.startsWith("**", pi)) {
+      let npi = pi + 2;
+      while (npi < pattern.length && pattern[npi] === "/") npi += 1;
+      if (npi >= pattern.length) return true;
+      for (let i = si; i <= file.length; i += 1) if (globMatch(pattern, file, npi, i)) return true;
+      return false;
+    }
+    if (si >= file.length) return false;
+    if (pattern[pi] === "*") {
+      let end = file.indexOf("/", si);
+      if (end < 0) end = file.length;
+      for (let i = si; i <= end; i += 1) if (globMatch(pattern, file, pi + 1, i)) return true;
+      return false;
+    }
+    if (pattern[pi] === "?" && file[si] === "/") return false;
+    if (pattern[pi] !== "?" && pattern[pi] !== file[si]) return false;
+    pi += 1;
+    si += 1;
+  }
+  return si === file.length;
+}
+
+function patterns(name) {
+  const value = process.env[name];
+  if (value === undefined) return null;
+  return value.split(/\r?\n/).filter((line) => line.trim() !== "");
+}
+
+function codeFiles(root) {
+  const listed = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (listed.status !== 0) throw new CannotMeasure(`git ls-files failed: ${listed.stderr.trim()}`);
+  const files = patterns("GATE_FILES");
+  const exclude = patterns("GATE_EXCLUDE") || [];
+  return listed.stdout
+    .split("\0")
+    .filter((name) => name.endsWith(".ts") && fs.existsSync(path.join(root, name)))
+    .filter((name) => files === null || files.some((p) => globMatch(p, name)))
+    .filter((name) => !exclude.some((p) => globMatch(p, name)))
+    .sort();
+}
+
+function runTests(root, work) {
+  const lcov = path.join(work, "lcov.info");
+  const args = [
+    ...TEST_COMMAND.slice(1, -1),
+    "--experimental-test-coverage",
+    "--test-reporter=dot",
+    "--test-reporter-destination=stderr",
+    "--test-reporter=lcov",
+    `--test-reporter-destination=${lcov}`,
+    TEST_COMMAND[TEST_COMMAND.length - 1],
+  ];
+  const env = { ...process.env };
+  delete env.NODE_V8_COVERAGE;
+  const result = spawnSync(TEST_COMMAND[0], args, { cwd: root, env, stdio: ["ignore", "inherit", "inherit"] });
+  if (result.error) throw new CannotMeasure(`the test command cannot start: ${result.error.message}`);
+  if (result.status !== 0) throw new CannotMeasure(`the test run failed with exit ${result.status}`);
+  if (!fs.existsSync(lcov)) throw new CannotMeasure("the test run wrote no lcov report");
+  const table = new Map();
+  let current = null;
+  for (const line of fs.readFileSync(lcov, "utf8").split("\n")) {
+    if (line.startsWith("SF:")) {
+      // One file can have several records, one per test process. They
+      // merge: a line counts as covered when any record covers it.
+      const file = path.resolve(root, line.slice(3));
+      if (!table.has(file)) table.set(file, new Map());
+      current = table.get(file);
+    } else if (line.startsWith("DA:") && current) {
+      const [no, count] = line.slice(3).split(",");
+      current.set(Number(no), (current.get(Number(no)) || 0) + Number(count));
+    }
+  }
+  return table;
+}
+
+// The flat config of ESLint. The rule crap/range reports the line range and
+// the name of each function as JSON in its message.
+const ESLINT_CONFIG = String.raw`"use strict";
+const FUNCTIONS = ["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"];
+function keyName(key) {
+  if (!key) return null;
+  if (key.type === "Identifier" || key.type === "PrivateIdentifier") return key.name;
+  if (key.type === "Literal") return String(key.value);
+  return null;
+}
+function ownName(node) {
+  const parent = node.parent;
+  if (node.id && node.id.name) return node.id.name;
+  if (!parent) return null;
+  if (parent.type === "MethodDefinition" || parent.type === "Property" || parent.type === "PropertyDefinition") {
+    const name = keyName(parent.key);
+    if (name && parent.kind === "get") return name + ".get";
+    if (name && parent.kind === "set") return name + ".set";
+    return name;
+  }
+  if (parent.type === "VariableDeclarator") return keyName(parent.id);
+  if (parent.type === "AssignmentExpression") {
+    const left = parent.left;
+    return left.type === "MemberExpression" ? keyName(left.property) : keyName(left);
+  }
+  if (parent.type === "ExportDefaultDeclaration") return "default";
+  return null;
+}
+function scopeName(node) {
+  if (node.type === "ClassDeclaration" || node.type === "ClassExpression") {
+    if (node.id) return node.id.name;
+    if (node.parent && node.parent.type === "VariableDeclarator") return keyName(node.parent.id);
+    return null;
+  }
+  if (FUNCTIONS.includes(node.type)) return ownName(node) || "(anonymous)";
+  if (node.type === "Property" && node.value && node.value.type === "ObjectExpression") return keyName(node.key);
+  return null;
+}
+const range = {
+  create(context) {
+    function visit(node) {
+      const parent = node.parent;
+      const outer = parent && (parent.type === "MethodDefinition" ||
+        (parent.type === "Property" && (parent.method || parent.kind !== "init"))) ? parent : node;
+      const names = [];
+      for (let up = outer.parent; up; up = up.parent) {
+        const name = scopeName(up);
+        if (name) names.unshift(name);
+      }
+      names.push(ownName(node) || "(anonymous)");
+      context.report({
+        node,
+        message: JSON.stringify({ name: names.join("."), start: outer.range[0], end: outer.range[1],
+          startLine: outer.loc.start.line, startColumn: outer.loc.start.column + 1, endLine: outer.loc.end.line }),
+      });
+    }
+    return Object.fromEntries(FUNCTIONS.map((type) => [type, visit]));
+  },
+};
+module.exports = [{
+  files: ["**/*.js"],
+  languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+  plugins: { crap: { rules: { range } } },
+  rules: { complexity: ["warn", 0], "crap/range": "warn" },
+}];
+`;
+
+function runEslint(root, work, files) {
+  const src = path.join(work, "src");
+  for (const file of files) {
+    const target = path.join(src, `${file}.js`);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const code = fs.readFileSync(path.join(root, file), "utf8");
+    let stripped;
+    try {
+      stripped = stripTypeScriptTypes(code, { mode: "strip" });
+    } catch (error) {
+      stripped = null;
+      fs.writeFileSync(`${target}.error`, String(error.message));
+    }
+    if (stripped !== null) fs.writeFileSync(target, stripped);
+  }
+  const config = path.join(work, "eslint.config.cjs");
+  fs.writeFileSync(config, ESLINT_CONFIG);
+  const targets = files.map((file) => `${file}.js`).filter((name) => fs.existsSync(path.join(src, name)));
+  const result = { messages: new Map(), errors: new Map() };
+  for (const file of files) {
+    const marker = path.join(src, `${file}.js.error`);
+    if (fs.existsSync(marker)) result.errors.set(file, fs.readFileSync(marker, "utf8"));
+  }
+  if (targets.length === 0) return result;
+  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+  const run = spawnSync(
+    npx,
+    ["--yes", `eslint@${ESLINT_VERSION}`, "--no-config-lookup", "-c", config, "-f", "json", ...targets],
+    { cwd: src, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+  );
+  if (run.error) throw new CannotMeasure(`ESLint cannot start: ${run.error.message}`);
+  let report;
+  try {
+    report = JSON.parse(run.stdout);
+  } catch {
+    throw new CannotMeasure(`ESLint exited ${run.status} without a report: ${run.stderr.trim().slice(-800)}`);
+  }
+  for (const entry of report) {
+    const file = path.relative(src, entry.filePath).replace(/\\/g, "/").replace(/\.js$/, "");
+    const fatal = entry.messages.find((m) => m.fatal);
+    if (fatal) result.errors.set(file, fatal.message);
+    else result.messages.set(file, entry.messages);
+  }
+  return result;
+}
+
+function offsetOf(lineStarts, line, column) {
+  return lineStarts[line - 1] + column - 1;
+}
+
+function pairFunctions(file, code, messages) {
+  const lineStarts = [0];
+  for (let i = 0; i < code.length; i += 1) if (code[i] === "\n") lineStarts.push(i + 1);
+  const ranges = messages.filter((m) => m.ruleId === "crap/range").map((m) => ({ ...JSON.parse(m.message) }));
+  // A class field initializer and a static block get a complexity of their
+  // own from ESLint, but they are no functions, so they get no row.
+  const heads = messages.filter(
+    (m) => m.ruleId === "complexity" && !/^Class (field initializer|static block)/.test(m.message),
+  );
+  for (const head of heads) {
+    const match = /complexity of (\d+)/.exec(head.message);
+    if (!match) throw new CannotMeasure(`${file}: ESLint gave no complexity in "${head.message}"`);
+    const at = offsetOf(lineStarts, head.line, head.column);
+    const owner = ranges
+      .filter((r) => r.start <= at && at < r.end)
+      .sort((a, b) => a.end - a.start - (b.end - b.start))[0];
+    if (!owner || owner.complexity !== undefined) {
+      throw new CannotMeasure(`${file}: the complexity at line ${head.line} pairs with no single function`);
+    }
+    owner.complexity = Number(match[1]);
+  }
+  const unpaired = ranges.find((r) => r.complexity === undefined);
+  if (unpaired) throw new CannotMeasure(`${file}: ESLint gave no complexity for ${unpaired.name} at line ${unpaired.startLine}`);
+  const count = new Map();
+  for (const r of ranges) count.set(r.name, (count.get(r.name) || 0) + 1);
+  const lineCount = new Map();
+  for (const r of ranges) lineCount.set(`${r.name}@${r.startLine}`, (lineCount.get(`${r.name}@${r.startLine}`) || 0) + 1);
+  return ranges.map((r) => {
+    let name = r.name;
+    if (count.get(name) > 1) {
+      name = lineCount.get(`${name}@${r.startLine}`) > 1 ? `${name}@${r.startLine}:${r.startColumn}` : `${name}@${r.startLine}`;
+    }
+    return { ...r, name };
+  });
+}
+
+function coveragePct(lines, start, end) {
+  let body = [];
+  for (let line = start + 1; line <= end; line += 1) if (lines.has(line)) body.push(line);
+  if (body.length === 0 && lines.has(start)) body = [start];
+  if (body.length === 0) return 0;
+  const covered = body.filter((line) => lines.get(line) > 0).length;
+  return Math.round((covered / body.length) * 10000) / 100;
+}
+
+function measure(root, work) {
+  const files = codeFiles(root);
+  if (files.length === 0) return [];
+  const coverage = runTests(root, work);
+  const unreachable = files.filter((file) => !coverage.has(path.resolve(root, file)));
+  if (unreachable.length > 0) throw new CannotMeasure(`coverage cannot reach ${unreachable.join(", ")}`);
+  const eslint = runEslint(root, work, files);
+  const rows = [];
+  for (const file of files) {
+    if (eslint.errors.has(file)) {
+      process.stderr.write(`crap-measure-typescript: cannot parse ${file}: ${eslint.errors.get(file)}\n`);
+      rows.push({ file, parse_error: eslint.errors.get(file) });
+      continue;
+    }
+    const code = fs.readFileSync(path.join(root, file), "utf8");
+    const lines = coverage.get(path.resolve(root, file));
+    for (const fn of pairFunctions(file, code, eslint.messages.get(file) || [])) {
+      rows.push({
+        file,
+        function: fn.name,
+        start_line: fn.startLine,
+        end_line: fn.endLine,
+        complexity: fn.complexity,
+        coverage_pct: coveragePct(lines, fn.startLine, fn.endLine),
+      });
+    }
+  }
+  return rows;
+}
+
+function main() {
+  const target = process.env.GATE_OUTPUT;
+  if (!target) {
+    process.stderr.write("crap-measure-typescript: GATE_OUTPUT is not set\n");
+    return 2;
+  }
+  fs.rmSync(target, { force: true });
+  const root = process.cwd();
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), "crap-measure-typescript-"));
+  try {
+    const rows = measure(root, work);
+    fs.writeFileSync(target, `${JSON.stringify(rows, null, 2)}\n`);
+    return 0;
+  } catch (error) {
+    if (!(error instanceof CannotMeasure)) throw error;
+    process.stderr.write(`crap-measure-typescript: cannot measure: ${error.message}\n`);
+    return 1;
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
+process.exitCode = main();
