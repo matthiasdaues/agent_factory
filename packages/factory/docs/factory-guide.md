@@ -271,10 +271,26 @@ Codex, and Pi. Every capture site calls the same
 `.agent-factory/factory/scripts/usage-capture` pipeline: a CLI-specific transcript normalizer,
 the fixed `tiktoken cl100k_base` comparison tokenizer, and an append-only JSONL
 logging adapter. One record is appended to
-`.agent-factory/usage/<session-key>.jsonl`; the exact text that was tokenized is
-copied beneath `.agent-factory/usage/transcripts/` and linked through
-`transcript_ref`. The existing `/.agent-factory/` ignore rule covers the whole
+`.agent-factory/usage/<session-key>.jsonl`. The session key holds the time of
+the session's first capture and stays the same for the whole session.
+
+Each transcript of a session forms a chain: the main transcript, and one
+chain per subagent transcript. The record names its chain in the field
+`chain`. Each chain is stored once, in
+`.agent-factory/usage/transcripts/<session-key>/<chain>.jsonl` for the
+tokenized text and `<chain>.structured.jsonl` for the CLI's own transcript.
+A capture appends only the bytes that are new since the last capture of the
+chain. Its `transcript_ref` holds the half-open byte range of its own turn in
+`byte_range` and `structured_byte_range`. Bytes 0 to `end` hold the
+transcript as it stood at that capture. When the CLI rewrites a transcript,
+for example by compaction, the capture starts a new chain file
+`<chain>.2.jsonl`. The existing `/.agent-factory/` ignore rule covers the whole
 runtime area.
+
+Version 1.13.0 and earlier stored a full copy per capture. Run
+`.agent-factory/factory/scripts/migrate-usage-transcripts` to see what the
+migration would do, then run it again with `--apply` while no capture is
+pending.
 
 Initialization explicitly asks for a project name; non-interactive automation
 passes `--project-name`. The installer generates a stable UUID and writes both
@@ -295,16 +311,17 @@ after pending captures from every adapter settle.
 Session and record identifiers are opaque data. Existing bounded lowercase
 identifiers retain their familiar filenames; unsafe, platform-specific, Unicode,
 or oversized values use fixed digest-based filesystem keys while their original
-values remain in the JSON record. Capture rejects symlinked storage components
-and never overwrites an existing transcript copy.
+values remain in the JSON record. Capture rejects symlinked storage components.
+It never changes bytes that a record already points at.
 
 Usage storage is private by construction: Factory-owned runtime directories use
 `0700` and files use `0600`, with existing safe owned paths repaired regardless
 of umask. Configure copied text with
 `init-factory --usage-transcript-retention full|omit`, override temporarily via
 `AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION`, or pass the capture CLI option.
-`omit` preserves all token totals and audit context but stores only an empty
-evidence placeholder marked `content-omitted`. On platforms where owner-only
+`omit` preserves all token totals and audit context but stores no transcript
+text. The record's `transcript_ref` then carries the marker `content-omitted`
+in `span` and no byte range. On platforms where owner-only
 mode semantics cannot be enforced, omission is automatic. Invalid values also
 fail closed to omission.
 
@@ -313,10 +330,12 @@ Records and evidence remain until their session is manually deleted or
 is deleted immediately after processing. Regex redaction and disabling token
 accounting are not supported.
 
-Concurrent captures for one session reserve transcript paths atomically and
-probe forward when another process already owns a candidate. Record IDs can
-therefore contain gaps after a crashed capture. Their numeric reservation
-sequence, rather than JSONL line order, determines cumulative snapshot order.
+Concurrent captures for one session take the session lock, a file lock on
+`transcripts/<session-key>/.lock`, before they reserve a record. The record
+sequence therefore counts up without gaps, and it gives the capture order. A
+capture that crashes after its chain append leaves bytes that no record points
+at. The next capture of the chain cuts them off before it appends. The usage
+analysis keeps the latest snapshot per `(cli, session_id, chain)`.
 
 `project_id`, `project_name`, `normalized_input`, `normalized_output`, and the
 derived total are always present. Provider `reported_*` fields and

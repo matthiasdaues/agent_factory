@@ -150,19 +150,47 @@
     },
     "transcript_ref": {
       "type": ["object", "null"],
-      "description": "Reference to persisted transcript copy.",
+      "description": "Reference to this capture's turn in the chain file of its transcript.",
       "properties": {
         "path": {
           "type": "string",
-          "description": "Path to the transcript file."
+          "description": "Path to the plain chain file."
         },
         "span": {
           "type": ["string", "null"],
-          "description": "Byte span within the transcript file."
+          "description": "The marker content-omitted when transcript retention is omit, otherwise null."
+        },
+        "byte_range": {
+          "type": ["object", "null"],
+          "description": "Half-open byte range of this capture's turn in the file at path. Bytes 0 to end hold the transcript as it stood at this capture.",
+          "properties": {
+            "start": { "type": "integer", "minimum": 0 },
+            "end": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["start", "end"],
+          "additionalProperties": false
+        },
+        "structured_path": {
+          "type": ["string", "null"],
+          "description": "Path to the structured chain file, a byte copy of the CLI's own transcript."
+        },
+        "structured_byte_range": {
+          "type": ["object", "null"],
+          "description": "Half-open byte range of this capture's turn in the file at structured_path.",
+          "properties": {
+            "start": { "type": "integer", "minimum": 0 },
+            "end": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["start", "end"],
+          "additionalProperties": false
         }
       },
       "required": ["path", "span"],
       "additionalProperties": false
+    },
+    "chain": {
+      "type": ["string", "null"],
+      "description": "The transcript this capture measured within its session: the main transcript or one subagent transcript. Records written before BUG-0139 have none."
     }
   }
 }
