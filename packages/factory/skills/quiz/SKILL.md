@@ -20,7 +20,7 @@ Interpret the arguments as follows:
 - All remaining text names the area or areas; if it is absent, use the whole repo.
 - Ignore unrecognized tokens only when they are part of an area name; do not invent another setting from them.
 
-The first message holds nothing but one line, in the user's language: the prompt suggestions in the input box can give answers away, please turn them off in `/config` ("Prompt suggestions") and reply when done. No question and no hint about the questions to come. Wait for the reply, then ask question 1.
+If the current client exposes prompt suggestions in `/config`, the first message holds only one line, in the user's language: the prompt suggestions in the input box can give answers away, so turn them off and reply when done. Do not ask a question or give a hint about the questions to come. Wait for the reply, then ask question 1. Otherwise, ask question 1 in the first message.
 
 - **Closed book**: lean on scenario questions; exact-value questions are guesswork here, keep them rare.
 - **Open book** ("with code", "mit Code"): the user may read the code before answering; lean on why-is-it-built-this-way questions.
