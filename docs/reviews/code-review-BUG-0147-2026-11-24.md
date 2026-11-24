@@ -2,110 +2,119 @@
 type: code-review
 title: Code review of BUG-0147, the usage runtime through a failed build or update
 date: 2026-11-24
-status: fail
+status: pass
 reviewer: code-review-agent
 findings_filed: 2
 story: BUG-0147
 run:
 branch: story/BUG-0147
 branch_base: ad2436a3defae5e18141531f73d7e5b2896d1615
-branch_head: 2f94f9daba0ffaabdf70c841430f9959646e1ffb
+branch_head: ada2cabdf62d766e2d48da26279af8204ae3fa0c
 ---
 
 # Code review of BUG-0147, the usage runtime through a failed build or update
 
 ## Verdict
 
-BUG-0147 does not pass the code review yet. The rollback half works: a failed update now puts the earlier usage runtime back, and CAL-07-IT-03 passes on the branch. The build half does not reach the update path. In a full `init-factory` run the runtime is already moved aside when `provision_usage_runtime` runs, so the new branch that keeps the old runtime never runs there. After a failed build the run still prints "runtime unavailable, hooks inactive", while capture keeps running on the restored runtime, and the cause of the failure is never printed. The review files this as the major finding [IMPL-0114](../findings/IMPL-0114.md).
+BUG-0147 passes the code review on the repeat pass. The first pass filed two findings, and `ada2cabd` fixes both. The review checked each fix and keeps both statuses at `resolved`:
 
-The review also files one minor finding, [IMPL-0115](../findings/register/code/IMPL-0115.json): the rollback moves the current runtime away before it checks that the copy exists. Four notes follow in [Findings](#findings).
+- [IMPL-0114](../findings/IMPL-0114.md), major: a full `init-factory` run now finds the earlier runtime in the preserve folder. After a failed build it prints the cause, keeps the hooks, and says that capture keeps the previous runtime.
+- [IMPL-0115](../findings/register/code/IMPL-0115.json), minor: the copy of the runtime now lies in `.agent-factory/`, outside `usage/`. The rollback checks the copy before it moves anything.
 
-Next, the developer agent fixes IMPL-0114 on `story/BUG-0147` and commits this report with it. Then the code review runs again.
+CAL-07-IT-03 passes. Two notes remain in [Findings](#findings). Neither blocks.
+
+Next, the developer agent commits this report on `story/BUG-0147`. Then the implementation agent runs the gate-check step.
 
 ## Scope
 
-The review covers the diff `ad2436a3..2f94f9da`, the one commit `2f94f9da`. It changes six files:
+The first pass covered `ad2436a3..2f94f9da`. That commit stopped deleting the marker `.requirements-sha256` before a build. It also added the copy of the runtime before the sourced `init-factory` runs, the restore of that copy on rollback, and three tests.
 
-- `packages/factory/scripts/init-factory`: `provision_usage_runtime` no longer deletes the marker `.requirements-sha256` before the build. After a failed build it returns True and logs the cause when the marker is still there.
-- `packages/factory/scripts/update-factory`: `_set_runtime_aside` copies `.agent-factory/usage/runtime` to `.agent-factory/usage/usage-runtime-backup-<uuid>` before the sourced `init-factory` runs. `_restore_runtime` puts the copy back on rollback. The success path deletes the copy. The header describes this.
-- `tests/factory/test_usage_capture_paths.py`: one test with a fake `uv` that fails at `venv` or at `pip`.
-- `tests/factory/test_update_factory.py`: two tests with a fake `_run_init` that rebuilds the runtime and exits `1` or `0`.
-- `docs/findings/BUG-0147.md` and `docs/spec/work/spec-feedback-BUG-0147.md`: the status and three drift rows.
+The repeat pass covers `2f94f9da..ada2cabd`, the one commit `ada2cabd`:
 
-The review read BUG-0147, the spec feedback, the callers of `provision_usage_runtime`, `backup_preserved_dirs` and `restore_preserved_dirs` in `init-factory`, the hook wrapper `usage-capture-runtime`, and `_runtime_ready` in `housekeeping-about`.
+- `packages/factory/scripts/init-factory`: `provision_usage_runtime` returns a state and a cause: `ready`, `kept`, or `unavailable`. It takes `previous`, the runtime in the preserve folder `.agent-factory/.preserve-usage-*` during a full run (T-0011). `_report_usage_state` prints the state with the cause, outside the quiet block, at both call sites.
+- `packages/factory/scripts/update-factory`: `_set_runtime_aside` copies the runtime to `.agent-factory/usage-runtime-backup-<uuid>.partial` and renames the copy when it is complete. `_restore_runtime` raises before any rename when the copy is gone. The discard folder lies in `.agent-factory/`. The header describes the new place.
+- `tests/factory/test_usage_capture_paths.py`: a test that runs the real `init-factory` twice, the second time with a failing `uv`.
+- `tests/factory/test_update_factory.py`: tests that the copy lies outside `usage/` during the run, that a rollback without the copy keeps the runtime, and that a failed copy refuses the update. Both earlier update tests now also check that no `usage-runtime-*` folder stays in `.agent-factory/`.
+- `docs/spec/work/spec-feedback-BUG-0147.md`: the three drift rows name the new place of the copy and the two paths of a kept runtime.
 
 ## The update path
 
-The review traced one update with a failed build, step by step. "Copy" is the copy that `update-factory` makes, and "preserve folder" is `.agent-factory/.preserve-usage-*`.
+The table follows one update in which the build fails. "Copy" is the copy that `update-factory` makes, and "preserve folder" is `.agent-factory/.preserve-usage-*`.
 
-| Step                                                | What lies at `usage/runtime`                       | Where the copy lies      | Capture                                         |
-| --------------------------------------------------- | -------------------------------------------------- | ------------------------ | ----------------------------------------------- |
-| `_set_runtime_aside` copies the runtime             | old runtime                                        | `usage/`                 | on                                              |
-| `init-factory` runs `backup_preserved_dirs`         | nothing; all of `usage/` is in the preserve folder | preserve folder          | off for the length of the run (T-0011, earlier) |
-| `provision_usage_runtime` fails                     | nothing                                            | preserve folder          | off; the function returns False                 |
-| `restore_preserved_dirs` runs in `finally`          | old runtime with its marker                        | `usage/`                 | on; the earlier hooks stay wired                |
-| `init-factory` exits `0`, `update-factory` succeeds | old runtime                                        | deleted                  | on                                              |
-| `init-factory` exits non-zero, rollback             | the copy, renamed into place                       | gone (it is the runtime) | on                                              |
-| `init-factory` killed without `finally`, rollback   | renamed to `usage-runtime-discard-*`               | still in preserve folder | off; IMPL-0115                                  |
+| Step                                                | What lies at `usage/runtime`                       | Where the copy lies                 | Capture                                           |
+| --------------------------------------------------- | -------------------------------------------------- | ----------------------------------- | ------------------------------------------------- |
+| `_set_runtime_aside` copies the runtime             | old runtime                                        | `.agent-factory/`                   | on                                                |
+| `init-factory` runs `backup_preserved_dirs`         | nothing; all of `usage/` is in the preserve folder | `.agent-factory/`, not moved        | off for the length of the run (T-0011, earlier)   |
+| `provision_usage_runtime` fails                     | nothing                                            | `.agent-factory/`                   | state `kept`, because `previous` has its marker   |
+| `restore_preserved_dirs` runs in `finally`          | old runtime with its marker                        | `.agent-factory/`                   | on, hooks installed                               |
+| `init-factory` exits `0`, `update-factory` succeeds | old runtime                                        | deleted                             | on                                                |
+| `init-factory` exits non-zero, rollback             | the copy, renamed into place                       | gone, because it is now the runtime | on                                                |
+| `init-factory` killed without `finally`, rollback   | the copy, renamed into place                       | gone, because it is now the runtime | on; the usage records stay in the preserve folder |
 
-So the project keeps a runtime or a copy at every step that `init-factory` reports itself. The window in which capture is off during the run comes from T-0011, not from this commit.
+The killed case changed with IMPL-0115. The copy no longer travels into the preserve folder, so the rollback finds it and puts it back.
 
-`repro-1-update-path.sh` in the scratch folder runs the real `init-factory` twice with a fake `uv` and shows rows 3 to 5. The second run prints "usage capture: runtime unavailable, hooks inactive", prints no line with the cause, and leaves the marker and two capture hooks in `.claude/settings.json`.
+## Scratch cases on `ada2cabd`
 
-## Crash safety and a full disk
+The scripts lie in `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/bug0147-review/`. Each one works only on scratch projects in that folder.
 
-The usage runtime of the primary checkout is 9.1 MB, read with `du` only. The build in `init-factory` needs space for one more runtime of that size, so a disk too full for the copy is too full for the build as well.
+| Script                            | First pass, `2f94f9da`                                                                 | Repeat pass, `ada2cabd`                                                                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repro-1-update-path.sh`          | run 2 prints "runtime unavailable, hooks inactive" and no cause; marker and hooks stay | run 2 prints "runtime not rebuilt — hash mismatch for tiktoken (fake uv); capture keeps the previous runtime, hooks installed"; marker and two hooks stay |
+| `repro-2-restore-without-copy.py` | `FileNotFoundError`; no runtime, only the discard folder in `usage/`                   | `FileNotFoundError`; the runtime stays, and `usage/` holds only `runtime`                                                                                 |
+| `check-3-copy-fails.py`           | `shutil.Error`; no partial copy; marker unchanged                                      | `shutil.Error`; no partial copy in `.agent-factory/`; marker unchanged                                                                                    |
 
-`check-3-copy-fails.py` makes the second file copy of `copytree` raise `ENOSPC`. `_set_runtime_aside` then raises `shutil.Error`, removes the partial copy, and leaves the runtime and its marker unchanged. `main` turns that into exit `1` with "no changes made", after it removes the staging folder. So a full disk refuses the update and leaves capture on. No test covers this path; see the notes.
+## The copy in `.agent-factory/`
 
-A crash between the two renames of `_restore_runtime` leaves `usage/runtime` missing, with the copy and the discard folder beside it. Nothing recovers the copy on the next run. The window is two renames in one folder. The factory tree has the same window between its two renames in `main`, so the behavior matches the existing code.
+The coordinator asked whether a script can mistake the copy for something else. The review searched `update-factory`, `init-factory` and `remove-factory` for scans of `.agent-factory/`:
 
-## Usage records
+- `remove-factory` deletes `.agent-factory/` as a whole, so it removes a copy left behind without reading it.
+- The staging of `update-factory` writes `factory-staging-<uuid>`, the factory backup is `factory-backup-<uuid>`, and remote downloads use `factory-remote-<uuid>`. No code globs `.agent-factory/` by a prefix that matches `usage-runtime-`.
+- `backup_preserved_dirs` moves only `usage` and `user-changes`, so it leaves the copy alone.
+- The block that `init-factory` writes into `.gitignore` ignores `/.agent-factory/`, so a copy left behind never shows in `git status`.
 
-`update-factory` moves, copies or deletes only `usage/runtime`, the copy, and the discard folder. The two update tests assert that `usage.jsonl` keeps the record that the fake `init-factory` appended, and that `usage/` holds only `runtime` and `usage.jsonl` afterwards. `init-factory` still moves all of `usage/` for its run (T-0011), and the copy travels with it. That move is older than this commit.
+After a successful update and after a rollback, `.agent-factory/` holds no `usage-runtime-*` folder. The two earlier update tests now assert this. A copy left behind by a crash stays until the next `remove-factory`; see the notes.
 
-## The decision to return True
+## The decision to keep the old runtime
 
-The hook wrapper `usage-capture-runtime` checks only that the marker exists and that `bin/python` is executable. It compares no digest. `usage-capture` imports only the standard library at the top and imports `tiktoken` inside a function. So an old runtime keeps capturing after a newer Factory is installed, unless a later release adds a package that the capture imports at the top. Then every capture fails with exit `1`, `housekeeping-about` still reports "healthy" with an old date, and nothing names the cause. Today that does not happen.
-
-The report does not say clearly that capture runs on the old runtime. In `--add` the visible line after a failed build is "usage capture: hooks installed". In a full run it is "runtime unavailable, hooks inactive", which is false. The line that names the old runtime and the cause is logged while output is quiet, so the operator never sees it. IMPL-0114 covers both.
+The hook wrapper `usage-capture-runtime` checks only the marker and `bin/python`. It compares no digest. `usage-capture` imports only the standard library at the top and imports `tiktoken` inside a function, so an old runtime keeps capturing. A later release that adds a package which the capture imports at the top would break every capture on a kept runtime. The printed line now names the kept runtime and the cause, so the operator learns that the rebuild failed and can run the update again.
 
 ## The tests
 
-| Test                                                          | Fails on the fault it names?                                                                                                                                                                                                                            |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `test_bug_0147_failed_build_keeps_the_runtime_and_its_marker` | Yes for `provision_usage_runtime` alone: with the old `ready.unlink()` the marker is gone, and without the new branch the function returns False. It runs with the runtime in place, which only `--add` produces, so it does not cover the update path. |
-| `test_bug_0147_rollback_restores_the_usage_runtime`           | Yes: without `_restore_runtime` the runtime holds `new-digest`. The fake `init-factory` never moves `usage/`, so the test does not see the case of IMPL-0115.                                                                                           |
-| `test_bug_0147_successful_update_leaves_no_set_aside_runtime` | Yes: without the delete on success, `usage/` holds the copy, and the listing check fails.                                                                                                                                                               |
-| CAL-07-IT-03                                                  | Passes on `2f94f9da`.                                                                                                                                                                                                                                   |
+| Test                                                                     | Fails on the fault it names?                                                                                                                                                                       |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_impl_0114_full_run_reports_the_kept_runtime_and_the_cause`         | Yes. It runs the real `init-factory` twice and asserts the cause, "capture keeps the previous runtime", no "hooks inactive", the marker, and the hook. Code at `2f94f9da` prints "hooks inactive". |
+| `test_bug_0147_failed_build_keeps_the_runtime_and_its_marker`            | Yes, for `--add`: it asserts the state `kept` and the cause.                                                                                                                                       |
+| `test_impl_0115_the_copy_lies_outside_the_usage_folder`                  | Yes. A fake `init-factory` lists `usage/` during the run, and a copy inside `usage/` would appear in the listing.                                                                                  |
+| `test_impl_0115_rollback_without_the_copy_keeps_the_runtime`             | Yes. With the order of `2f94f9da`, the runtime moves to the discard folder.                                                                                                                        |
+| `test_bug_0147_failed_copy_refuses_the_update`                           | Yes. It asserts exit `1`, "no changes made", the kept marker, and no leftover copy or staging folder.                                                                                              |
+| `test_bug_0147_rollback_restores_the_usage_runtime` and the success test | Yes. They also assert that no `usage-runtime-*` folder stays in `.agent-factory/`.                                                                                                                 |
+| CAL-07-IT-03                                                             | Passes on `ada2cabd`.                                                                                                                                                                              |
 
 ## Findings
 
-| Finding                                                                                                                                                                                                                                                                                                                                                                        | Artifact                                            | Category   | Type          | Severity | Basis                                                                                    | Filed as                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------- | ------------- | -------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| In a full `init-factory` run, `backup_preserved_dirs` moves the runtime aside before `provision_usage_runtime` runs, so the new branch is not reached. A failed build prints "runtime unavailable, hooks inactive" while capture runs on the restored runtime, and the cause is never printed. The test covers only the state of `--add`.                                      | `packages/factory/scripts/init-factory:1546-1552`   | defect     | function      | major    | `in_use: false`, `harms_downstream: false`, `fails_purpose: true`, `raises_cost: true`   | [IMPL-0114](../findings/IMPL-0114.md)                 |
-| `_restore_runtime` renames the current runtime away before it checks that the copy exists. The copy lies inside `usage/`, which `init-factory` moves for its run, so an `init-factory` killed without `finally` leaves the project with no runtime after the rollback. Fix: put the copy at `.agent-factory/usage-runtime-backup-<uuid>` and check it before the first rename. | `packages/factory/scripts/update-factory:804-819`   | defect     | algorithm     | minor    | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: true`  | [IMPL-0115](../findings/register/code/IMPL-0115.json) |
-| No test covers the refusal after a failed copy. The review checked it with `check-3-copy-fails.py`. A test that patches the copy to raise `ENOSPC` and asserts exit `1`, "no changes made", the kept marker, and no leftover copy would hold it.                                                                                                                               | `packages/factory/scripts/update-factory:1709-1720` | suggestion | test          | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only                                           |
-| The header says the copy exists "so the project keeps a runtime at every point of the run". During the sourced `init-factory` the project has no runtime at `usage/runtime`, because `init-factory` moves `usage/` aside. The sentence can say that the project keeps a runtime or a copy it can restore.                                                                      | `packages/factory/scripts/update-factory:70-76`     | suggestion | documentation | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only                                           |
-| Ctrl-C during the sourced `init-factory` raises `KeyboardInterrupt` in `update-factory`, which `except Exception` does not catch. No rollback runs, and the copy of about 9 MB stays in `usage/`. The factory backup has the same gap, so the commit only adds one more leftover.                                                                                              | `packages/factory/scripts/update-factory:1735-1747` | suggestion | algorithm     | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only                                           |
-| The drift row for ADR-0007 says a failed rebuild keeps capture active on a previous runtime. That holds through `restore_preserved_dirs` and the earlier wiring, not through the True return, in a full run. The architecture agent can name both paths when it updates ADR-0007.                                                                                              | `docs/spec/work/spec-feedback-BUG-0147.md`          | suggestion | documentation | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only                                           |
+| Finding                                                                                                                                                                                                                                                                                                                          | Artifact                                          | Category   | Type      | Severity | Basis                                                                                    | Filed as                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------- | --------- | -------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| In a full `init-factory` run the new branch of `provision_usage_runtime` was not reached. A failed build printed "runtime unavailable, hooks inactive" and no cause. Fixed in `ada2cabd`, checked with `repro-1-update-path.sh`.                                                                                                 | `packages/factory/scripts/init-factory:1561-1571` | defect     | function  | major    | `in_use: false`, `harms_downstream: false`, `fails_purpose: true`, `raises_cost: true`   | [IMPL-0114](../findings/IMPL-0114.md), `resolved`                 |
+| `_restore_runtime` moved the runtime away before it checked the copy, and the copy lay inside `usage/`. Fixed in `ada2cabd`, checked with `repro-2-restore-without-copy.py`.                                                                                                                                                     | `packages/factory/scripts/update-factory:804-819` | defect     | algorithm | minor    | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: true`  | [IMPL-0115](../findings/register/code/IMPL-0115.json), `resolved` |
+| A crash of `update-factory` itself leaves `usage-runtime-backup-<uuid>` or its `.partial` folder in `.agent-factory/`, about 9 MB each, and no run removes it. Only `remove-factory` does. The factory backup `factory-backup-<uuid>` has the same gap. A later update could delete leftovers of both prefixes before it starts. | `packages/factory/scripts/update-factory:1724`    | suggestion | algorithm | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only                                                       |
+| Ctrl-C during the sourced `init-factory` raises `KeyboardInterrupt` in `update-factory`, and `except Exception` does not catch it. No rollback runs, and the copy stays. The factory backup has the same gap, so this commit adds one more leftover.                                                                             | `packages/factory/scripts/update-factory:1759`    | suggestion | algorithm | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | report only                                                       |
+
+The first pass also had notes on an untested failed copy, on a header sentence, and on the drift row for ADR-0007. `ada2cabd` covers all three: it adds `test_bug_0147_failed_copy_refuses_the_update`, rewrites the header, and rewrites the row.
 
 ## Focus areas
 
-| Focus area         | Result                                                                                                                                                                             |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Correctness        | The rollback restores the runtime, and CAL-07-IT-03 passes. The build half does not reach the update path, and the printed status after a failed build is false there (IMPL-0114). |
-| Clean Architecture | The copy and the restore stay in `update-factory`, beside the factory backup. The copy lies inside `usage/`, which `init-factory` owns for its run (IMPL-0115).                    |
-| SOLID              | `_set_runtime_aside` and `_restore_runtime` each do one job. `_rollback_update` takes one more tuple and keeps one responsibility.                                                 |
-| Maintainability    | The constants name the prefixes, and the docstrings name BUG-0147. The test of the build half sets up a state that the main caller never produces.                                 |
-| Consistency        | The copy and the rename follow the pattern of `factory-backup-<uuid>`. Unlike that backup, the copy lies in a folder that another script moves.                                    |
+| Focus area         | Result                                                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Correctness        | A failed build keeps the old runtime and its hooks in both paths and prints the cause. The rollback restores the runtime, and CAL-07-IT-03 passes. |
+| Clean Architecture | The copy and the restore stay in `update-factory`. The copy now lies outside the folder that `init-factory` moves.                                 |
+| SOLID              | `provision_usage_runtime` builds and returns a state. `_report_usage_state` owns the printed line. The two call sites share it.                    |
+| Maintainability    | The three states are named constants. The docstrings name BUG-0147, IMPL-0114, IMPL-0115, and T-0011.                                              |
+| Consistency        | The copy lies beside `factory-backup-<uuid>`, follows its naming, and is gitignored with it.                                                       |
 
 ## Verification
 
 ```bash
-uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-self-host/story/BUG-0147 pytest -q tests/factory/test_update_factory.py::TestFailedMigrationRollsTheUpdateBack::test_CAL_07_failed_migration_rolls_the_whole_update_back
-uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-self-host/story/BUG-0147 pytest -q tests/factory/test_update_factory.py
-uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-self-host/story/BUG-0147 pytest -q tests/factory/test_usage_capture_paths.py
+uv run --directory /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-self-host/story/BUG-0147 pytest -q tests/factory/test_update_factory.py tests/factory/test_usage_capture_paths.py
 ```
 
-CAL-07-IT-03 passed, `test_update_factory.py` passed 95 tests, and `test_usage_capture_paths.py` passed 15 tests, all on `2f94f9da`. The scripts lie in `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/bug0147-review/`: `repro-1-update-path.sh` for IMPL-0114, `repro-2-restore-without-copy.py` for IMPL-0115, and `check-3-copy-fails.py` for the full disk. Each works only on scratch projects in that folder.
+The run passed 114 tests on `ada2cabd`: 98 in `test_update_factory.py`, CAL-07-IT-03 among them, and 16 in `test_usage_capture_paths.py`. The three scratch cases ran on `ada2cabd`, as [Scratch cases on `ada2cabd`](#scratch-cases-on-ada2cabd) shows.
