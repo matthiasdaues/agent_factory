@@ -375,6 +375,10 @@ regime. Add `pytest-cov` and a step that writes `coverage.json`, then enable
 command and time limit into `docs/testing.yaml`, and pick the gate per story
 through `quality-gates` for stories with risky logic.
 
+**Proposals:** [`docs/proposals/crap-gate-setup.md`](../../proposals/crap-gate-setup.md)
+sets up the CRAP gate, and [`docs/proposals/mutation-gate.md`](../../proposals/mutation-gate.md)
+sets up the mutation gate.
+
 ## T-0403 — `test_st_0365_slow_command_is_stopped_with_its_child_and_blocks_the_merge` fails at random
 
 - status: open

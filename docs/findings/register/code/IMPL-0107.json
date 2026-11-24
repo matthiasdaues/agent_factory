@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0107",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_crap_gate_repository.py:265-294",
+  "story": "ST-0449",
+  "finding": "No test checks that scripts/crap-measure-typescript keeps the duty of its header: exit non-zero with a cause and no rows after a failed test run, for a file that no test loads, and when ESLint cannot start. CG-13-IT-02 runs only the case of a fully covered function. A change that writes rows after a failed test run, or that reports an unloaded file at 0 %, passes every test of the story. The review checked the paths by hand: without npx on PATH the command exits 1 with \"ESLint cannot start: spawnSync npx ENOENT\", and with an empty npm cache and npm_config_offline=true it exits 1 with \"ENOTCACHED\". In both cases it writes no rows. Fix: add three cases to tests/factory/test_crap_gate_repository.py: a failing test, a .ts file that no test imports, and a PATH without npx; each asserts a non-zero exit, the cause on stderr and no GATE_OUTPUT file.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code keeps the duty today, and no QA row of this repository's TypeScript command owns these cases (no to fails_purpose). A later change to the command can break the duty of BR-130 without a failing test.",
+  "commit": "8c4bc215981e1dbe371e14758cbe19611df6c460",
+  "status": "resolved"
+}

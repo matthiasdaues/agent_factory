@@ -75,9 +75,40 @@ layers:
 # Preserved from the former testing charter; these gates were not part of the
 # regime scan.
 gates:
+  # Set up by setup-crap-score (ST-0449). Both measuring commands run the
+  # tests from the repository root and need no running service.
   crap-score:
-    enabled: false
-    threshold: 8
+    enabled: true
+    threshold: 30
+    timeout_minutes: 20
+    measured_minutes: 12
+    measures:
+      - name: python
+        files: "packages/factory/scripts/*"
+        exclude:
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/generate-codex-agents"
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/generate-copilot-agents"
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/openrouter-discover"
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/policy-validate"
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/resolve-model"
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/session-reconcile"
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/usage-capture-lifecycle"
+          # No test runs it yet; a follow-up story tests it and switches it to uv run (DEC-86).
+          - "packages/factory/scripts/usage-query"
+        command: "scripts/crap-measure-python"
+      - name: typescript
+        files: "packages/factory/config/**/*.ts"
+        exclude:
+          # Test files and the test loader, not product code.
+          - "**/__tests__/**"
+        command: "scripts/crap-measure-typescript"
   mutation-testing:
     enabled: false
 

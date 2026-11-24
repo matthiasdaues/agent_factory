@@ -456,3 +456,16 @@ def test_cg_12_the_test_strategy_agent_runs_the_setup_and_no_gate_on_a_story() -
     assert "The diff leaves out the entry `gates.crap-score`" in flat
     completion = _flat(_section(text, "Completion Criteria"))
     assert "gate ran" not in completion
+
+
+TODO = REPO_ROOT / "docs" / "spec" / "work" / "todo.md"
+
+
+@pytest.mark.spec("CG-12-LN-06")
+def test_cg_12_t_0402_names_both_proposals() -> None:
+    """Scenario: T-0402 names both proposals."""
+    match = re.search(r"^## T-0402 .*?(?=^## T-)", TODO.read_text(), re.MULTILINE | re.DOTALL)
+    assert match, "T-0402 is missing from todo.md"
+    text = _flat(match.group(0))
+    assert "docs/proposals/crap-gate-setup.md" in text
+    assert "docs/proposals/mutation-gate.md" in text

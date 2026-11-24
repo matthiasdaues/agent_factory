@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0106",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "algorithm",
+  "severity": "minor",
+  "artifact": "scripts/crap-measure-typescript:194-214",
+  "story": "ST-0449",
+  "finding": "The TypeScript measure stops with exit 1 on a function expression that is the value of an object key, such as `first: function (n) { ... }`, so crap-score exits 2 and the story is blocked as `gate cannot measure`. The ESLint rule `complexity` reports such a function at its key, which lies before the range that the rule crap/range records for the function. pairFunctions then finds no single owner and throws \"the complexity at line 2 pairs with no single function\". The measure ignores GATE_SCOPE, so one such function in any kept .ts file blocks every story of the repository, also a story that changes only Python. Reproduction: /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/st0449-review/repro_typescript.sh <command> property-function. Fix: in the rule crap/range, take the parent Property as the outer node also when its value is a FunctionExpression with kind init, as for a method. Add the case to CG-13-IT-02.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The command exists only on the story branch. The current TypeScript code has no such function, because the setup run measured it, and the measure stops loudly instead of reporting a wrong row (no to fails_purpose). The first story that adds the pattern gets a blocked run whose message does not name the cause.",
+  "commit": "8c4bc215981e1dbe371e14758cbe19611df6c460",
+  "status": "resolved"
+}
