@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0142",
+  "source": "bug-report",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "performance",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/usage-capture:696-750",
+  "story": null,
+  "finding": "Each capture stores the full cumulative transcript again, as a plain copy and as a structured copy, so every later copy repeats every earlier copy of the same transcript. In gigacron the copies take 9.4 GB, while 0.55 GB hold all the text. One session has 253 plain copies with 677 MB in total, and its last copy is 5.7 MB. docs/reviews/usage-capture-defects-2026-11-23.md, parts 1 and 4, holds the full report. Fix: store each chain of a session in one transcript file. A capture checks that the stored file is a byte prefix of the current transcript, appends only the new bytes, and records the byte range of its own turn in transcript_ref. When the prefix check fails, the capture starts a new chain file. A one-time migration, migrate-usage-transcripts, turns the stored copies of existing installations into chain files with turn spans and has a dry-run mode.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every copy holds the correct text, and the record points at it (no to fails_purpose). The disk use grows with the square of the session length, so a long session costs gigabytes, and every reader of the copies reads the same text again.",
+  "commit": "d0548ee8011f45bf0e2c24f1d1cbcaa32a5be32f",
+  "status": "resolved"
+}

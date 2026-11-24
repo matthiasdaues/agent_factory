@@ -3823,7 +3823,12 @@ def _private_file(path: Path, content: str) -> None:
 
 
 def _repair_private_tree(root: Path) -> None:
-    """Repair only safe, owner-owned Factory usage descendants."""
+    """Repair only safe, owner-owned Factory usage descendants.
+
+    A file with an execute bit becomes ``0700`` and every other file ``0600``,
+    the rule of ``_secure_runtime_tree``. The usage-analysis environment lives
+    inside this tree, so its programs must stay runnable (BUG-0140).
+    """
     if not root.exists() or root.is_symlink():
         return
     for entry in os.scandir(root):
@@ -3842,7 +3847,7 @@ def _repair_private_tree(root: Path) -> None:
                 opened = os.fstat(fd)
                 if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
                     continue
-                os.fchmod(fd, 0o600)
+                os.fchmod(fd, 0o700 if opened.st_mode & 0o111 else 0o600)
             finally:
                 os.close(fd)
 

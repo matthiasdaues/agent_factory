@@ -94,6 +94,7 @@ def _parse_lines(paths: list[Path]) -> list[dict[str, Any]]:
 
 _NULLABLE_CASTS: dict[str, str] = {
     "parent_session_id": "VARCHAR",
+    "chain": "VARCHAR",
     "reported_cache_read": "BIGINT",
     "reported_cache_write": "BIGINT",
     "cache_miss_turns": "BIGINT",
@@ -385,6 +386,9 @@ def _build_duckdb(
     all_annotated: list[dict[str, Any]] = []
     for rec in records:
         out = dict(rec)
+        # A record written before BUG-0139 has no chain; the column must
+        # exist for the latest-snapshot rule.
+        out.setdefault("chain", None)
         lk = (rec["_source_file"], rec["_line_number"])
         out["_failure_code"] = failure_map.get(lk)
         all_annotated.append(out)

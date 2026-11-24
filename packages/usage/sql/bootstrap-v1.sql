@@ -13,6 +13,10 @@ CREATE TABLE _staging AS
 SELECT *, filename AS _source_file, row_number() OVER () AS _line_number
 FROM read_json_auto('.agent-factory/usage/*.jsonl', union_by_name=true);
 
+-- A record written before BUG-0139 has no chain; the column must exist for
+-- the latest-snapshot rule.
+ALTER TABLE _staging ADD COLUMN IF NOT EXISTS chain VARCHAR;
+
 -- ── Internal views (preflight + accounting) ────────────────────────────
 
 CREATE VIEW preflight_valid AS
@@ -26,7 +30,7 @@ WHERE FALSE;
 CREATE VIEW latest_run_snapshots AS
 SELECT * FROM (
     SELECT *, ROW_NUMBER() OVER (
-        PARTITION BY cli, session_id, record_id
+        PARTITION BY cli, session_id, COALESCE(chain, record_id)
         ORDER BY _source_file DESC, _line_number DESC
     ) AS _snapshot_rank
     FROM preflight_valid

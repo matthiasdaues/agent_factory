@@ -60,6 +60,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - not POSIX
+    fcntl = None  # type: ignore[assignment]
+
 _DIRECTORY_MODE = 0o700
 _FILE_MODE = 0o600
 _RETENTION_ENV = "AGENT_FACTORY_USAGE_TRANSCRIPT_RETENTION"
@@ -133,14 +138,49 @@ class UsageStoragePaths:
         self.usage_dir = self.agent_dir / "usage"
         self.transcripts_dir = self.usage_dir / "transcripts"
         self._cli = cli
-        self._timestamp_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
+        self._session_keys: dict[str, str] = {}
 
-    def _session_key(self, session_id: object) -> str:
-        """Composite storage key: ``YYYY-MM-DDTHH-MM-SS_<cli>_<session_id>``."""
+    def _session_component(self, session_id: object) -> str:
         session_component = filesystem_key(session_id)
         if not self._cli:
-            return f"{self._timestamp_prefix}_{session_component}"
-        return f"{self._timestamp_prefix}_{filesystem_key(self._cli)}_{session_component}" if session_id else f"{self._timestamp_prefix}_{filesystem_key(self._cli)}"
+            return session_component
+        cli_component = filesystem_key(self._cli)
+        return f"{cli_component}_{session_component}" if session_id else cli_component
+
+    def _session_key(self, session_id: object) -> str:
+        """Composite storage key: ``YYYY-MM-DDTHH-MM-SS_<cli>_<session_id>``.
+
+        The key stays the same for the life of a session (BUG-0139). The
+        timestamp is the one of the first capture: a later capture reuses the
+        prefix of the session's existing record file or transcript directory.
+        """
+        component = self._session_component(session_id)
+        key = self._session_keys.get(component)
+        if key is None:
+            key = self._existing_session_key(component) or (
+                f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H-%M-%S')}_{component}"
+            )
+            self._session_keys[component] = key
+        return key
+
+    def _existing_session_key(self, component: str) -> Optional[str]:
+        """Return the earliest stored key of *component*, or ``None``."""
+        pattern = re.compile(
+            r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_" + re.escape(component)
+        )
+        keys: list[str] = []
+        for directory, suffix in ((self.usage_dir, ".jsonl"), (self.transcripts_dir, "")):
+            try:
+                names = os.listdir(directory)
+            except OSError:
+                continue
+            for name in names:
+                if suffix and not name.endswith(suffix):
+                    continue
+                stem = name[: -len(suffix)] if suffix else name
+                if pattern.fullmatch(stem):
+                    keys.append(stem)
+        return min(keys) if keys else None
 
     @staticmethod
     def _ensure_directory(path: Path, *, repair: bool = True) -> None:
@@ -193,10 +233,40 @@ class UsageStoragePaths:
     def transcript_directory(self, session_id: object) -> Path:
         return self.transcripts_dir / self._session_key(session_id)
 
-    def transcript_path(self, session_id: object, record_id: object) -> Path:
-        return (
-            self.transcript_directory(session_id) / f"{filesystem_key(record_id)}.jsonl"
-        )
+    def chain_path(
+        self, session_id: object, chain: object, generation: int = 1, *, structured: bool = False
+    ) -> Path:
+        """Path of one chain file: ``<chain>[.<generation>][.structured].jsonl``.
+
+        A chain is the sequence of captures of one transcript in a session.
+        Its file only grows. A new generation starts when the CLI rewrote the
+        transcript, so that the stored file is no prefix of it any more.
+        """
+        stem = filesystem_key(chain)
+        if generation > 1:
+            stem = f"{stem}.{generation}"
+        suffix = ".structured.jsonl" if structured else ".jsonl"
+        return self.transcript_directory(session_id) / f"{stem}{suffix}"
+
+    def chain_records(self, session_id: object, chain: str) -> list[dict]:
+        """Return the stored records of *chain* in file order."""
+        path = self.session_path(session_id)
+        self._require_regular_if_present(path)
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except FileNotFoundError:
+            return []
+        records = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(record, dict) and record.get("chain") == chain:
+                records.append(record)
+        return records
 
     def existing_record_count(self, session_id: object) -> int:
         self.ensure_layout()
@@ -234,98 +304,198 @@ class UsageStoragePaths:
         return max(highest, populated) + 1
 
     def reserve_transcript(
-        self, session_id: str, record_id: Optional[str] = None
+        self,
+        session_id: str,
+        record_id: Optional[str] = None,
+        chain: Optional[str] = None,
     ) -> "TranscriptReservation":
-        """Exclusively reserve evidence for one record without an OS lock.
+        """Reserve the next record of a session under the session lock.
 
-        Concurrent allocators may share an estimate, but only one can create a
-        candidate. Losers probe monotonically forward. An abandoned empty file
-        is a durable crash reservation and therefore creates a valid gap.
+        The reservation holds an exclusive lock on the session until the
+        record is written or discarded, so captures of one session write in
+        reservation order and the sequence is exact. Without ``fcntl`` the
+        lock is skipped and concurrent captures may race.
         """
         self.ensure_layout()
         transcript_dir = self.transcript_directory(session_id)
         self._ensure_directory(transcript_dir)
-        sequence = self.next_sequence_estimate(session_id) if record_id is None else 0
-        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
-        while True:
-            candidate = record_id or f"{session_id}-{sequence:04d}"
-            path = self.transcript_path(session_id, candidate)
-            try:
-                fd = os.open(path, flags, _FILE_MODE)
-            except FileExistsError:
-                if record_id is not None:
-                    raise
-                sequence += 1
-                continue
+        lock_fd = self._lock_session(transcript_dir)
+        try:
+            if record_id is None:
+                sequence = self.next_sequence_estimate(session_id)
+                record_id = f"{session_id}-{sequence:04d}"
+        except Exception:
+            _unlock(lock_fd)
+            raise
+        return TranscriptReservation(
+            record_id=record_id,
+            session_id=session_id,
+            chain=chain or "main",
+            storage=self,
+            lock_fd=lock_fd,
+        )
+
+    def _lock_session(self, transcript_dir: Path) -> int:
+        lock_path = transcript_dir / ".lock"
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(lock_path, flags, _FILE_MODE)
+        try:
             opened = os.fstat(fd)
             if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
-                os.close(fd)
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
-                raise OSError(f"unsafe transcript target: {path}")
-            os.fchmod(fd, _FILE_MODE)
-            # Reserve structured JSONL alongside text rendering
-            structured = path.parent / f"{filesystem_key(candidate)}.structured.jsonl"
-            structured_fd = -1
-            try:
-                structured_fd = os.open(structured, flags, _FILE_MODE)
-                s_opened = os.fstat(structured_fd)
-                if not stat.S_ISREG(s_opened.st_mode) or s_opened.st_nlink != 1:
-                    os.close(structured_fd)
-                    try:
-                        structured.unlink()
-                    except OSError:
-                        pass
-                    raise OSError(f"unsafe structured transcript target: {structured}")
-                os.fchmod(structured_fd, _FILE_MODE)
-            except Exception:
-                os.close(fd)
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
-                if structured_fd >= 0:
-                    os.close(structured_fd)
-                    try:
-                        structured.unlink()
-                    except OSError:
-                        pass
-                raise
-            return TranscriptReservation(
-                candidate, path, fd,
-                structured_path=structured,
-                structured_fd=structured_fd,
+                raise OSError(f"unsafe usage lock: {lock_path}")
+            if fcntl is not None:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+        except Exception:
+            os.close(fd)
+            raise
+        return fd
+
+
+def _unlock(fd: int) -> None:
+    if fd < 0:
+        return
+    try:
+        if fcntl is not None:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+@dataclass
+class ChainSpan:
+    """Where one capture's turn landed in a chain file."""
+
+    path: Path
+    byte_range: Optional[dict]
+
+
+def _open_chain_file(path: Path) -> int:
+    flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, _FILE_MODE)
+    opened = os.fstat(fd)
+    if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+        os.close(fd)
+        raise OSError(f"unsafe transcript target: {path}")
+    if hasattr(os, "geteuid") and opened.st_uid != os.geteuid():
+        os.close(fd)
+        raise OSError(f"foreign-owned transcript target: {path}")
+    os.fchmod(fd, _FILE_MODE)
+    return fd
+
+
+def _read_prefix(fd: int, length: int) -> bytes:
+    os.lseek(fd, 0, os.SEEK_SET)
+    chunks = []
+    remaining = length
+    while remaining > 0:
+        chunk = os.read(fd, min(remaining, 1 << 20))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def append_turn(
+    storage: "UsageStoragePaths",
+    session_id: str,
+    chain: str,
+    data: bytes,
+    previous: list[dict],
+    *,
+    structured: bool,
+) -> ChainSpan:
+    """Append the new part of *data* to its chain file and return its span.
+
+    *previous* holds the earlier records of the chain. The function finds the
+    current chain file from the last of them and the bytes that records
+    already cover. Bytes beyond that come from a crashed capture and are cut
+    off. When the covered bytes are a prefix of *data*, only the rest is
+    appended. When *data* is a prefix of the covered bytes, a late capture
+    arrived out of order, and nothing is written. Otherwise the CLI rewrote
+    the transcript, and *data* starts a new generation of the chain file.
+    The span is half-open: ``data[start:end]`` is the turn.
+    """
+    path_key = "structured_path" if structured else "path"
+    range_key = "structured_byte_range" if structured else "byte_range"
+    current: Optional[Path] = None
+    ends: list[int] = []
+    for record in previous:
+        ref = record.get("transcript_ref") or {}
+        ref_path = ref.get(path_key)
+        if not ref_path:
+            continue
+        if current is None or Path(ref_path) != current:
+            current = Path(ref_path)
+            ends = []
+        byte_range = ref.get(range_key) or {}
+        if isinstance(byte_range.get("end"), int):
+            ends.append(byte_range["end"])
+    generation = 1
+    if current is not None:
+        generation = _generation_of(storage, session_id, chain, current, structured)
+    else:
+        current = storage.chain_path(session_id, chain, 1, structured=structured)
+    covered = max(ends, default=0)
+    if not data:
+        return ChainSpan(current, None)
+    fd = _open_chain_file(current)
+    try:
+        size = os.fstat(fd).st_size
+        if size > covered:
+            os.ftruncate(fd, covered)
+        stored = _read_prefix(fd, covered)
+        if len(stored) == covered and data[:covered] == stored:
+            os.lseek(fd, 0, os.SEEK_END)
+            _write_all(fd, data[covered:])
+            return ChainSpan(current, {"start": covered, "end": len(data)})
+        if len(data) < covered and stored[: len(data)] == data:
+            start = max((end for end in ends if end <= len(data)), default=0)
+            return ChainSpan(current, {"start": start, "end": len(data)})
+    finally:
+        os.close(fd)
+    while True:
+        generation += 1
+        candidate = storage.chain_path(session_id, chain, generation, structured=structured)
+        try:
+            fd = os.open(
+                candidate,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
+                _FILE_MODE,
             )
+        except FileExistsError:
+            continue
+        try:
+            os.fchmod(fd, _FILE_MODE)
+            _write_all(fd, data)
+        finally:
+            os.close(fd)
+        return ChainSpan(candidate, {"start": 0, "end": len(data)})
+
+
+def _generation_of(
+    storage: "UsageStoragePaths", session_id: str, chain: str, path: Path, structured: bool
+) -> int:
+    suffix = ".structured.jsonl" if structured else ".jsonl"
+    stem = filesystem_key(chain)
+    name = path.name[: -len(suffix)] if path.name.endswith(suffix) else path.name
+    rest = name[len(stem) + 1 :] if name.startswith(f"{stem}.") else ""
+    return int(rest) if rest.isdecimal() else 1
 
 
 @dataclass
 class TranscriptReservation:
-    """An exclusively-created transcript path owned by one capture."""
+    """The next record of one session, reserved under the session lock."""
 
     record_id: str
-    path: Path
-    fd: int
-    structured_path: Optional[Path] = None
-    structured_fd: int = -1
+    session_id: str
+    chain: str
+    storage: "UsageStoragePaths"
+    lock_fd: int = -1
 
     def discard(self) -> None:
-        if self.fd >= 0:
-            os.close(self.fd)
-            self.fd = -1
-        try:
-            self.path.unlink()
-        except OSError:
-            pass
-        if self.structured_fd >= 0:
-            os.close(self.structured_fd)
-            self.structured_fd = -1
-        if self.structured_path is not None:
-            try:
-                self.structured_path.unlink()
-            except OSError:
-                pass
+        _unlock(self.lock_fd)
+        self.lock_fd = -1
 
 
 def supports_owner_only_permissions() -> bool:
@@ -444,6 +614,12 @@ class TranscriptRef:
 
     path: str
     span: Optional[str] = None
+    # Half-open byte range of this capture's turn in the chain file
+    # (BUG-0142): ``{"start": s, "end": e}``. ``data[0:end]`` is the
+    # transcript as it stood at this capture. Null when nothing was stored.
+    byte_range: Optional[dict] = None
+    structured_path: Optional[str] = None
+    structured_byte_range: Optional[dict] = None
 
 
 @dataclass(frozen=True)
@@ -568,6 +744,10 @@ class UsageRecord:
     branch: Optional[str] = None
     commit_id: Optional[str] = None
     transcript_ref: Optional[TranscriptRef] = None
+    # The transcript this capture measured within its session: the main
+    # transcript or one subagent transcript. The analysis keeps the latest
+    # snapshot per (cli, session_id, chain) (BUG-0139).
+    chain: Optional[str] = None
 
     def __post_init__(self) -> None:
         uuid.UUID(self.project_id)
@@ -622,12 +802,13 @@ class JsonlLoggingAdapter:
     per-session JSONL file and persists a transcript copy alongside it.
 
     What: Implements the seam above against the local filesystem
-          (proposal: "Persistence"). `record()` first writes the
-          transcript copy to
-          `<base_dir>/.agent-factory/usage/transcripts/<session_id>/<record_id>.jsonl`
-          and sets `usage_record.transcript_ref`, then appends the
-          serialized record as one JSON line to
-          `<base_dir>/.agent-factory/usage/<session_id>.jsonl`. The append
+          (proposal: "Persistence"). `record()` first appends the new turn
+          of the transcript to its chain file
+          `<base_dir>/.agent-factory/usage/transcripts/<session_key>/<chain>.jsonl`
+          and sets `usage_record.transcript_ref` to the turn's byte range,
+          then appends the serialized record as one JSON line to
+          `<base_dir>/.agent-factory/usage/<session_key>.jsonl`. Both run
+          under the session lock (BUG-0142). The record append
           uses a single `os.open(..., O_APPEND | O_CREAT | O_WRONLY)` plus
           one `os.write()` call per line: POSIX guarantees an O_APPEND
           write of this shape lands as one atomic block, so concurrent
@@ -660,7 +841,9 @@ class JsonlLoggingAdapter:
         try:
             session_id = usage_record.session_id or "unknown"
             reservation = self._storage.reserve_transcript(
-                session_id, usage_record.record_id
+                session_id,
+                usage_record.record_id,
+                usage_record.chain or usage_record.agent or "main",
             )
             self._write_reserved(usage_record, transcript_text, reservation)
             return True
@@ -679,7 +862,7 @@ class JsonlLoggingAdapter:
         reservation: TranscriptReservation,
         source_transcript: Optional[Path] = None,
     ) -> bool:
-        """Persist a capture using the transcript it atomically reserved."""
+        """Persist a capture under the session lock its reservation holds."""
         try:
             self._write_reserved(
                 usage_record, transcript_text, reservation, source_transcript
@@ -693,6 +876,25 @@ class JsonlLoggingAdapter:
             )
             return False
 
+    @staticmethod
+    def _read_source(storage: UsageStoragePaths, source: Path) -> Optional[bytes]:
+        try:
+            storage._require_regular_if_present(Path(source))
+            src_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                chunks = []
+                while True:
+                    chunk = os.read(src_fd, 1 << 20)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+            finally:
+                os.close(src_fd)
+            return b"".join(chunks)
+        except Exception as exc:
+            print(f"usage-capture: structured JSONL copy failed: {exc}", file=sys.stderr)
+            return None
+
     def _write_reserved(
         self,
         usage_record: "UsageRecord",
@@ -700,60 +902,52 @@ class JsonlLoggingAdapter:
         reservation: TranscriptReservation,
         source_transcript: Optional[Path] = None,
     ) -> None:
-        session_id = usage_record.session_id or "unknown"
+        """Append the turn to the chain files, then append the record.
+
+        Both writes run under the session lock of *reservation*, which this
+        method releases at the end. The chain files and the record file only
+        grow (BUG-0142).
+        """
+        storage = reservation.storage
+        session_id = reservation.session_id
+        chain = reservation.chain
         try:
+            usage_record.chain = chain
+            previous = storage.chain_records(session_id, chain)
             if self._retention == "full":
-                _write_all(reservation.fd, transcript_text.encode("utf-8"))
-                # Write verbatim byte-level copy of source transcript
-                if (
-                    source_transcript is not None
-                    and reservation.structured_fd >= 0
-                    and reservation.structured_path is not None
-                ):
-                    try:
-                        self._storage._require_regular_if_present(
-                            Path(source_transcript)
+                plain = append_turn(
+                    storage,
+                    session_id,
+                    chain,
+                    transcript_text.encode("utf-8"),
+                    previous,
+                    structured=False,
+                )
+                structured = None
+                if source_transcript is not None:
+                    raw = self._read_source(storage, Path(source_transcript))
+                    if raw is not None:
+                        structured = append_turn(
+                            storage, session_id, chain, raw, previous, structured=True
                         )
-                        source_flags = (
-                            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-                        )
-                        src_fd = os.open(source_transcript, source_flags)
-                        try:
-                            raw = b""
-                            while True:
-                                chunk = os.read(src_fd, 65536)
-                                if not chunk:
-                                    break
-                                raw += chunk
-                        finally:
-                            os.close(src_fd)
-                        _write_all(reservation.structured_fd, raw)
-                    except Exception as exc:
-                        print(
-                            "usage-capture: structured JSONL copy failed: "
-                            f"{exc}",
-                            file=sys.stderr,
-                        )
-            if reservation.structured_fd >= 0:
-                os.close(reservation.structured_fd)
-                reservation.structured_fd = -1
-            if self._retention == "omit" and reservation.structured_path is not None:
-                try:
-                    reservation.structured_path.unlink()
-                except OSError:
-                    pass
-            os.close(reservation.fd)
-            reservation.fd = -1
-            usage_record.transcript_ref = TranscriptRef(
-                path=str(reservation.path),
-                span="content-omitted" if self._retention == "omit" else None,
-            )
-            session_path = self._storage.session_path(session_id)
+                usage_record.transcript_ref = TranscriptRef(
+                    path=str(plain.path),
+                    span=None,
+                    byte_range=plain.byte_range,
+                    structured_path=str(structured.path) if structured else None,
+                    structured_byte_range=structured.byte_range if structured else None,
+                )
+            else:
+                usage_record.transcript_ref = TranscriptRef(
+                    path=str(storage.chain_path(session_id, chain)),
+                    span="content-omitted",
+                )
+            session_path = storage.session_path(session_id)
             line = (json.dumps(usage_record.to_dict()) + "\n").encode("utf-8")
             session_flags = (
                 os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
             )
-            self._storage._require_regular_if_present(session_path)
+            storage._require_regular_if_present(session_path)
             fd = os.open(session_path, session_flags, _FILE_MODE)
             try:
                 if not stat.S_ISREG(os.fstat(fd).st_mode):
@@ -767,8 +961,9 @@ class JsonlLoggingAdapter:
                 os.close(fd)
         except Exception:
             usage_record.transcript_ref = None
-            reservation.discard()
             raise
+        finally:
+            reservation.discard()
 
 
 # ── Transcript-normalizer seam (per CLI) (ST-0037) ───────────────────────
@@ -832,6 +1027,9 @@ class NormalizedTranscript:
     usage_granularity: Optional[str] = None
     model: Optional[str] = None
     eligible_turns: list[ProviderUsageTurn] = field(default_factory=list)
+    # False when the file holds no line of the normalizer's own CLI, such as
+    # a Copilot transcript handed to the Claude Code hook (BUG-0143).
+    recognized: bool = True
 
     @property
     def text(self) -> str:
@@ -942,6 +1140,7 @@ class ClaudeCodeNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
         messages: dict[tuple[str, object], tuple[bool, object]] = {}
+        recognized = False
 
         raw = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
         for line_number, line in enumerate(raw.splitlines()):
@@ -957,6 +1156,8 @@ class ClaudeCodeNormalizer:
                 continue
 
             message = obj.get("message")
+            if obj.get("type") in ("user", "assistant") and isinstance(message, dict):
+                recognized = True
             if not isinstance(message, dict):
                 message = obj  # tolerate a top-level shape (e.g. system lines)
             role = message.get("role") or obj.get("type")
@@ -1018,6 +1219,7 @@ class ClaudeCodeNormalizer:
             ordered_segments=ordered,
             model=model,
             eligible_turns=eligible_turns,
+            recognized=recognized,
         )
         if saw_usage:
             result.reported_input = reported["reported_input"]
@@ -1429,6 +1631,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="path to the CLI's own transcript file",
     )
     parser.add_argument("--session", dest="session_id")
+    parser.add_argument(
+        "--chain",
+        help=(
+            "name of the measured transcript within the session, such as the"
+            " stem of the CLI's transcript file; defaults to the agent or 'main'"
+        ),
+    )
     parser.add_argument("--parent-session", dest="parent_session_id")
     parser.add_argument("--depth", type=int)
     parser.add_argument("--agent")
@@ -1652,6 +1861,14 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
     """
     normalizer = get_normalizer(args.cli)  # raises ValueError for unknown cli
     transcript = normalizer.parse(args.transcript)
+    if not transcript.recognized:
+        # Another CLI ran this CLI's hook, e.g. Copilot running the Claude
+        # Code Stop hook. Its own hook captures the session (BUG-0143).
+        print(
+            f"usage-capture: the transcript is no {args.cli} transcript; skipping capture",
+            file=sys.stderr,
+        )
+        return False
     signals = derive_session_usage_signals(
         transcript.eligible_turns,
         cli=args.cli,
@@ -1671,7 +1888,8 @@ def _capture(args: argparse.Namespace, base_dir: Union[str, Path] = ".") -> bool
             storage = UsageStoragePaths(base_dir, cli=args.cli)
             session_id = args.session_id or "unknown"
             fallback_id = None if args.session_id else str(uuid.uuid4())
-            reservation = storage.reserve_transcript(session_id, fallback_id)
+            chain = getattr(args, "chain", None) or args.agent or "main"
+            reservation = storage.reserve_transcript(session_id, fallback_id, chain)
             try:
                 record = UsageRecord(
                     record_id=reservation.record_id,
