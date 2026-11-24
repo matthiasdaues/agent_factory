@@ -1478,6 +1478,10 @@ def provision_usage_runtime(target: Path, report: list[str]) -> bool:
     Network access, when needed, is confined to this user-invoked init step.
     ``UV_OFFLINE`` is passed explicitly so an offline init either uses already
     cached verified artifacts or leaves capture inactive with a clear report.
+
+    The new runtime is built in a stage folder. The working runtime and its
+    marker change only after the stage succeeded, so a failed build keeps
+    the previous runtime and capture runs on it (BUG-0147).
     """
     requirements = target / USAGE_REQUIREMENTS
     runtime = target / USAGE_RUNTIME
@@ -1485,8 +1489,6 @@ def provision_usage_runtime(target: Path, report: list[str]) -> bool:
     if runtime.is_symlink() or (runtime.exists() and not runtime.is_dir()):
         log(report, f"usage capture unavailable: unsafe runtime path {runtime}")
         return False
-    if runtime.exists() and ready.exists():
-        ready.unlink()
 
     runtime.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(runtime.parent, 0o700)
@@ -1541,6 +1543,13 @@ def provision_usage_runtime(target: Path, report: list[str]) -> bool:
             shutil.rmtree(stage)
         if backup.exists() and not runtime.exists():
             backup.rename(runtime)
+        if ready.is_file():
+            log(
+                report,
+                "usage capture runtime not rebuilt; capture keeps the "
+                f"previous runtime — {exc}",
+            )
+            return True
         log(report, f"usage capture unavailable; lifecycle hooks left inactive — {exc}")
         return False
 
