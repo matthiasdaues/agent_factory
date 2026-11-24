@@ -1,0 +1,294 @@
+"""Checks of the CRAP gate setup of this repository (docs/spec/features/crap-gate-setup.feature).
+
+Rule: Factory maintainer runs the CRAP gate on this repository for Python
+and TypeScript (CG-13).
+
+The text checks read `docs/testing.yaml`, the two measuring commands and the
+scripts of this repository. The integration tests copy each measuring command
+into a project in tmp_path and run it there, never on the repository root.
+CG-13-IT-03 is the one-time setup run (`gate-setup-proof` and `crap-score
+--all`); no retained test stands for it.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+import yaml
+
+from conftest import REPO_ROOT
+
+TESTING_YAML = REPO_ROOT / "docs" / "testing.yaml"
+SCRIPTS = REPO_ROOT / "packages" / "factory" / "scripts"
+PYTHON_COMMAND = REPO_ROOT / "scripts" / "crap-measure-python"
+TYPESCRIPT_COMMAND = REPO_ROOT / "scripts" / "crap-measure-typescript"
+UV_RUN_LINE = "#!/usr/bin/env -S uv run --script"
+PLAIN_LINE = "#!/usr/bin/env python3"
+UNTESTED_SCRIPTS = (
+    "generate-codex-agents",
+    "generate-copilot-agents",
+    "openrouter-discover",
+    "policy-validate",
+    "resolve-model",
+    "session-reconcile",
+    "usage-capture-lifecycle",
+    "usage-query",
+)
+GATE_VARIABLES = ("GATE_FILES", "GATE_EXCLUDE", "GATE_SCOPE", "GATE_CHANGED_FILES", "GATE_OUTPUT")
+
+
+def _entry() -> dict:
+    return yaml.safe_load(TESTING_YAML.read_text())["gates"]["crap-score"]
+
+
+def _measure(name: str) -> dict:
+    return next(m for m in _entry()["measures"] if m["name"] == name)
+
+
+def _first_line(path: Path) -> str:
+    return path.read_text().splitlines()[0]
+
+
+def _matches(pattern: str, path: str) -> bool:
+    """Glob match as crap-score reads it: * within a segment, ** across segments, ? one character."""
+    regex = ""
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            regex += "(?:.*/)?"
+            i += 3
+        elif pattern.startswith("**", i):
+            regex += ".*"
+            i += 2
+        elif pattern[i] == "*":
+            regex += "[^/]*"
+            i += 1
+        elif pattern[i] == "?":
+            regex += "[^/]"
+            i += 1
+        else:
+            regex += re.escape(pattern[i])
+            i += 1
+    return re.fullmatch(regex, path) is not None
+
+
+@pytest.mark.spec("CG-13-LN-01")
+def test_cg_13_the_entry_is_enabled_with_a_python_and_a_typescript_measure() -> None:
+    """Scenario: The gate is enabled with a measure for Python and one for TypeScript."""
+    entry = _entry()
+    assert entry["enabled"] is True
+    assert isinstance(entry["threshold"], int)
+    assert isinstance(entry["measured_minutes"], int)
+    assert "ready" not in entry
+    assert sorted(m["name"] for m in entry["measures"]) == ["python", "typescript"]
+    for measure in entry["measures"]:
+        assert (REPO_ROOT / measure["command"]).is_file()
+
+
+@pytest.mark.spec("CG-13-LN-01")
+def test_cg_13_the_time_limit_covers_the_measured_run_time() -> None:
+    """Scenario: The time limit covers the measured run time."""
+    entry = _entry()
+    assert entry["timeout_minutes"] >= entry["measured_minutes"] > 0
+
+
+@pytest.mark.spec("CG-13-LN-01")
+def test_cg_13_the_typescript_measure_uses_the_test_runner_of_node() -> None:
+    """Scenario: The TypeScript measure uses the test runner of node."""
+    text = TYPESCRIPT_COMMAND.read_text()
+    assert "--experimental-test-coverage" in text
+    assert '"--test",' in text
+    assert _measure("typescript")["command"] == "scripts/crap-measure-typescript"
+    assert not (REPO_ROOT / "package.json").exists()
+
+
+@pytest.mark.spec("CG-13-LN-01")
+def test_cg_13_the_measuring_commands_refer_to_nothing_under_agent_factory() -> None:
+    """Scenario: The measuring commands depend on no installed Factory copy."""
+    for command in (PYTHON_COMMAND, TYPESCRIPT_COMMAND):
+        assert ".agent-factory" not in command.read_text(), command.name
+
+
+@pytest.mark.spec("CG-13-LN-01")
+def test_cg_13_no_exclude_pattern_matches_a_script_that_starts_with_uv_run() -> None:
+    """Scenario: The scripts that start with uv run show measured coverage."""
+    measure = _measure("python")
+    uv_scripts = [p for p in SCRIPTS.iterdir() if p.is_file() and _first_line(p) == UV_RUN_LINE]
+    assert uv_scripts
+    for script in uv_scripts:
+        relative = f"packages/factory/scripts/{script.name}"
+        assert _matches(measure["files"], relative)
+        for pattern in measure["exclude"]:
+            assert not _matches(pattern, relative), f"{pattern} matches {relative}"
+
+
+@pytest.mark.spec("CG-13-LN-02")
+@pytest.mark.parametrize("script", UNTESTED_SCRIPTS)
+def test_cg_13_the_measure_python_excludes_a_script_that_no_test_runs_by_name_with_a_reason(
+    script: str,
+) -> None:
+    """Scenario Outline: The measure python excludes a script that no test runs, by name with a reason."""
+    path = f"packages/factory/scripts/{script}"
+    assert _first_line(REPO_ROOT / path) == PLAIN_LINE
+    assert path in _measure("python")["exclude"]
+    lines = TESTING_YAML.read_text().splitlines()
+    index = lines.index(f'          - "{path}"')
+    assert lines[index - 1].lstrip().startswith("#")
+    assert "No test runs it yet" in lines[index - 1]
+
+
+@pytest.mark.spec("CG-13-LN-03")
+@pytest.mark.parametrize("script", ["trigger", "validate"])
+def test_cg_13_the_scripts_that_tests_run_start_with_uv_run(script: str) -> None:
+    """Scenario: The scripts that tests run and that start with python3 switch to uv run."""
+    assert _first_line(SCRIPTS / script) == UV_RUN_LINE
+    relative = f"packages/factory/scripts/{script}"
+    for pattern in _measure("python")["exclude"]:
+        assert not _matches(pattern, relative)
+
+
+def _clean_env() -> dict[str, str]:
+    return {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("COVERAGE_", "NODE_V8_COVERAGE")) and k not in GATE_VARIABLES
+    }
+
+
+def _fill(source: Path, target: Path, pattern: str, replacement: str) -> None:
+    """Copy *source* to *target* with one match of *pattern* replaced."""
+    text, count = re.subn(
+        pattern, lambda _m: replacement, source.read_text(), count=1, flags=re.DOTALL | re.MULTILINE
+    )
+    assert count == 1, f"{source.name} has no match for {pattern}"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+    target.chmod(0o755)
+
+
+PLANTED_SCRIPT = """\
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+import sys
+
+
+def shout(word):
+    if not word:
+        return ""
+    return word.upper()
+
+
+if __name__ == "__main__":
+    print(shout(sys.argv[1] if len(sys.argv) > 1 else ""))
+"""
+
+PLANTED_SCRIPT_TEST = """\
+import subprocess
+from pathlib import Path
+
+SCRIPT = Path(__file__).resolve().parents[1] / "tools" / "shout"
+
+
+def test_shout():
+    result = subprocess.run(
+        ["uv", "run", "--quiet", "--script", str(SCRIPT), "hi"], capture_output=True, text=True
+    )
+    assert result.stdout.strip() == "HI"
+"""
+
+
+@pytest.mark.spec("CG-13-IT-01")
+def test_cg_13_the_python_command_shows_coverage_for_a_uv_run_script(tmp_path: Path) -> None:
+    """Scenario: The scripts that start with uv run show measured coverage."""
+    (tmp_path / "tools").mkdir()
+    script = tmp_path / "tools" / "shout"
+    script.write_text(PLANTED_SCRIPT)
+    script.chmod(0o755)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_shout.py").write_text(PLANTED_SCRIPT_TEST)
+    command = tmp_path / "scripts" / "crap-measure-python"
+    test_command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+    _fill(
+        PYTHON_COMMAND,
+        command,
+        r"^TEST_COMMAND: list\[str\] = \[.*?^\]$",
+        f"TEST_COMMAND: list[str] = {test_command!r}",
+    )
+    _fill(command, command, r"^SELECT_COMMAND: list\[str\] = \[.*?\]$", "SELECT_COMMAND: list[str] = []")
+    env = _clean_env()
+    env["GATE_OUTPUT"] = "rows.json"
+    result = subprocess.run(
+        ["uv", "run", "--quiet", "--script", "scripts/crap-measure-python"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = json.loads((tmp_path / "rows.json").read_text())
+    shout = [r for r in rows if r.get("function") == "shout" and r["file"] == "tools/shout"]
+    assert len(shout) == 1, rows
+    assert shout[0]["coverage_pct"] > 0
+
+
+PLANTED_TS = """\
+export function sign(n: number): string {
+  if (n < 0) {
+    return "negative";
+  }
+  return "positive";
+}
+"""
+
+PLANTED_TS_TEST = """\
+import { test } from "node:test";
+import assert from "node:assert";
+import { sign } from "./sign.ts";
+
+test("sign", () => {
+  assert.strictEqual(sign(-1), "negative");
+  assert.strictEqual(sign(1), "positive");
+});
+"""
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_cg_13_the_typescript_command_reports_a_planted_function(tmp_path: Path) -> None:
+    """Scenario: The TypeScript measure uses the test runner of node."""
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "sign.ts").write_text(PLANTED_TS)
+    (tmp_path / "src" / "sign.test.ts").write_text(PLANTED_TS_TEST)
+    _fill(
+        TYPESCRIPT_COMMAND,
+        tmp_path / "scripts" / "crap-measure-typescript",
+        r"^const TEST_COMMAND = \[.*?^\];$",
+        'const TEST_COMMAND = [process.execPath, "--experimental-strip-types", "--test", "src/**/*.test.ts"];',
+    )
+    env = _clean_env()
+    env["GATE_OUTPUT"] = "rows.json"
+    env["GATE_FILES"] = "src/*.ts"
+    env["GATE_EXCLUDE"] = "src/*.test.ts"
+    result = subprocess.run(
+        ["node", "scripts/crap-measure-typescript"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    rows = json.loads((tmp_path / "rows.json").read_text())
+    sign = [r for r in rows if r.get("function") == "sign"]
+    assert len(sign) == 1, rows
+    assert sign[0]["complexity"] == 2
+    assert sign[0]["coverage_pct"] == 100
