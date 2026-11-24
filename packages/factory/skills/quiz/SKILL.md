@@ -20,7 +20,7 @@ The first message holds nothing but one line, in the user's language: the prompt
 
 ## Each question
 
-1. **Pick** an area this session has not quizzed yet. Read the code for that area now, just enough to ask and resolve this one question.
+1. **Pick** an area this session has not quizzed yet. An area is a cohesive module, component or subsystem, not a single file. Keep a running list of the areas already used and pick one that is not on it, even if another area is bigger or harder to read. Read the code for that area now, just enough to ask and resolve this one question.
 2. **Write** the question. Across a round, mostly scenarios ("What happens when …?"), plus one exact value ("What does `f` return for …?") and one flow or design question ("How does X come about, why is it built so?"). The question is **spoiler-free**: open wording, no answer options, no hint at which case is special. Check every premise of the question against the code before asking.
 3. **Ask** exactly one question in the message, headed "Question n of N" in the user's language. Then wait for the answer.
 4. **Resolve**: verdict ✔ / ½ / ✗, what the code actually does with `file:line` references, and what the answer missed. Every fact in the resolution is verified: by reading the code, and for exact values by running the function. Run only pure functions, extracted and called in isolation with the inputs from the question; scripts, tests and anything that reads or writes data, files or the network stay unrun.
