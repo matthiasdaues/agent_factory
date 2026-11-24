@@ -44,8 +44,14 @@ Tools
   processes out of source order. A function inside one that never ran gets
   0 % as well. Every doubt ends at 0 %,
   because the gate may fail a story wrongly but never pass it wrongly.
-  Complexity: ESLint, through `npx --yes eslint@<ESLINT_VERSION>` from npm's
-  cache, with no package.json. Node strips the types of each file first
+  Complexity: ESLint, from the package in crap-eslint next to this command.
+  Its package-lock.json fixes every dependency with an integrity hash. The
+  command installs it once with `npm ci --ignore-scripts --prefer-offline`
+  into ${XDG_CACHE_HOME:-~/.cache}/agent-factory/crap-eslint/<SHA-256 of
+  the lock>/ and runs ESLint from there with node. npm fills a temporary
+  folder that is renamed into place when the install is complete, so a
+  killed install leaves no cache that counts. A changed lock gets a new
+  folder. Node strips the types of each file first
   (module.stripTypeScriptTypes), which keeps every line and column, so
   ESLint parses plain JavaScript. A small rule in the flat config reports
   the line range of each function; the rule `complexity` reports its
@@ -54,8 +60,9 @@ Tools
 
 Duty
   When the command cannot measure a case, it exits non-zero, names the
-  cause, and writes no rows. Such cases are a failed test run, ESLint that
-  does not run, a function whose complexity and range do not pair, and a
+  cause, and writes no rows. Such cases are a failed test run, an ESLint
+  install that fails (no network and nothing cached), ESLint that does not
+  run, a function whose complexity and range do not pair, and a
   file that no test loads, so coverage cannot reach it. It never reports
   such a file as 0 % covered. A file that GATE_FILES or GATE_EXCLUDE leaves
   out is not measured, so it stops nothing.
@@ -63,12 +70,15 @@ Duty
 "use strict";
 
 const { spawnSync } = require("node:child_process");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { stripTypeScriptTypes } = require("node:module");
 
-const ESLINT_VERSION = "10.14.0";
+// The ESLint package: package.json and package-lock.json, committed.
+const ESLINT_PACKAGE = path.join(__dirname, "crap-eslint");
+const ESLINT_BIN = path.join("node_modules", "eslint", "bin", "eslint.js");
 
 // The project's TypeScript test command, without the coverage options,
 // which the command adds. It runs in the folder the command runs in.
@@ -259,7 +269,46 @@ module.exports = [{
 }];
 `;
 
-function runEslint(root, work, files) {
+// Install the ESLint package from its lock into the cache, unless a
+// complete install of that lock is there, and return the path of ESLint.
+function installEslint() {
+  const lock = fs.readFileSync(path.join(ESLINT_PACKAGE, "package-lock.json"));
+  const hash = crypto.createHash("sha256").update(lock).digest("hex");
+  const cache = path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "agent-factory", "crap-eslint");
+  const target = path.join(cache, hash);
+  const bin = path.join(target, ESLINT_BIN);
+  if (fs.existsSync(bin)) return bin;
+  fs.mkdirSync(cache, { recursive: true });
+  const temporary = fs.mkdtempSync(path.join(cache, `.${hash}-`));
+  try {
+    for (const name of ["package.json", "package-lock.json"]) {
+      fs.copyFileSync(path.join(ESLINT_PACKAGE, name), path.join(temporary, name));
+    }
+    const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+    const run = spawnSync(npm, ["ci", "--ignore-scripts", "--prefer-offline", "--no-audit", "--no-fund"], {
+      cwd: temporary,
+      encoding: "utf8",
+    });
+    if (run.error) throw new CannotMeasure(`ESLint cannot be installed: npm cannot start: ${run.error.message}`);
+    if (run.status !== 0) {
+      throw new CannotMeasure(`ESLint cannot be installed: npm ci exited ${run.status}: ${run.stderr.trim().slice(-800)}`);
+    }
+    if (!fs.existsSync(path.join(temporary, ESLINT_BIN))) {
+      throw new CannotMeasure(`ESLint cannot be installed: npm ci left no ${ESLINT_BIN}`);
+    }
+    try {
+      fs.renameSync(temporary, target);
+    } catch (error) {
+      // Another run renamed its complete install into place first.
+      if (!fs.existsSync(bin)) throw new CannotMeasure(`ESLint cannot be installed: ${error.message}`);
+    }
+    return bin;
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+function runEslint(root, work, files, eslintBin) {
   const src = path.join(work, "src");
   for (const file of files) {
     const target = path.join(src, `${file}.js`);
@@ -283,10 +332,9 @@ function runEslint(root, work, files) {
     if (fs.existsSync(marker)) result.errors.set(file, fs.readFileSync(marker, "utf8"));
   }
   if (targets.length === 0) return result;
-  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
   const run = spawnSync(
-    npx,
-    ["--yes", `eslint@${ESLINT_VERSION}`, "--no-config-lookup", "-c", config, "-f", "json", ...targets],
+    process.execPath,
+    [eslintBin, "--no-config-lookup", "-c", config, "-f", "json", ...targets],
     { cwd: src, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
   );
   if (run.error) throw new CannotMeasure(`ESLint cannot start: ${run.error.message}`);
@@ -400,10 +448,11 @@ function coveragePct(lines, start, end) {
 function measure(root, work) {
   const files = codeFiles(root);
   if (files.length === 0) return [];
+  const eslintBin = installEslint();
   const coverage = runTests(root, work);
   const unreachable = files.filter((file) => !coverage.has(path.resolve(root, file)));
   if (unreachable.length > 0) throw new CannotMeasure(`coverage cannot reach ${unreachable.join(", ")}`);
-  const eslint = runEslint(root, work, files);
+  const eslint = runEslint(root, work, files, eslintBin);
   const rows = [];
   for (const file of files) {
     if (eslint.errors.has(file)) {

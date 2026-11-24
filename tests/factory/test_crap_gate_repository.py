@@ -12,6 +12,7 @@ CG-13-IT-03 is the one-time setup run (`gate-setup-proof` and `crap-score
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -29,6 +30,7 @@ TESTING_YAML = REPO_ROOT / "docs" / "testing.yaml"
 SCRIPTS = REPO_ROOT / "packages" / "factory" / "scripts"
 PYTHON_COMMAND = REPO_ROOT / "scripts" / "crap-measure-python"
 TYPESCRIPT_COMMAND = REPO_ROOT / "scripts" / "crap-measure-typescript"
+ESLINT_PACKAGE = REPO_ROOT / "scripts" / "crap-eslint"
 UV_RUN_LINE = "#!/usr/bin/env -S uv run --script"
 PLAIN_LINE = "#!/usr/bin/env python3"
 UNTESTED_SCRIPTS = (
@@ -112,7 +114,12 @@ def test_cg_13_the_typescript_measure_uses_the_test_runner_of_node() -> None:
 @pytest.mark.spec("CG-13-LN-01")
 def test_cg_13_the_measuring_commands_refer_to_nothing_under_agent_factory() -> None:
     """Scenario: The measuring commands depend on no installed Factory copy."""
-    for command in (PYTHON_COMMAND, TYPESCRIPT_COMMAND):
+    for command in (
+        PYTHON_COMMAND,
+        TYPESCRIPT_COMMAND,
+        ESLINT_PACKAGE / "package.json",
+        ESLINT_PACKAGE / "package-lock.json",
+    ):
         assert ".agent-factory" not in command.read_text(), command.name
 
 
@@ -275,6 +282,7 @@ def test_cg_13_the_typescript_command_reports_a_planted_function(tmp_path: Path)
         r"^const TEST_COMMAND = \[.*?^\];$",
         'const TEST_COMMAND = [process.execPath, "--experimental-strip-types", "--test", "src/**/*.test.ts"];',
     )
+    shutil.copytree(ESLINT_PACKAGE, tmp_path / "scripts" / "crap-eslint")
     env = _clean_env()
     env["GATE_OUTPUT"] = "rows.json"
     env["GATE_FILES"] = "src/*.ts"
@@ -300,8 +308,13 @@ def _run_typescript(
     files: dict[str, str],
     env_extra: dict[str, str] | None = None,
     test_command: str = '[process.execPath, "--experimental-strip-types", "--test", "src/**/*.test.ts"]',
+    lock: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Plant *files* in a git folder and run the TypeScript command there."""
+    """Plant *files* in a git folder and run the TypeScript command there.
+
+    The command finds its ESLint package in scripts/crap-eslint next to it:
+    the committed one, or the files of *lock*.
+    """
     subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
     for name, text in files.items():
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
@@ -312,6 +325,12 @@ def _run_typescript(
         r"^const TEST_COMMAND = \[.*?^\];$",
         f"const TEST_COMMAND = {test_command};",
     )
+    if lock is None:
+        shutil.copytree(ESLINT_PACKAGE, tmp_path / "scripts" / "crap-eslint")
+    else:
+        (tmp_path / "scripts" / "crap-eslint").mkdir()
+        for name, text in lock.items():
+            (tmp_path / "scripts" / "crap-eslint" / name).write_text(text)
     env = _clean_env()
     env["GATE_OUTPUT"] = "rows.json"
     env["GATE_FILES"] = "src/*.ts"
@@ -586,7 +605,7 @@ def test_cg_13_a_file_that_no_test_loads_exits_non_zero_and_writes_no_rows(tmp_p
 
 
 @pytest.mark.spec("CG-13-IT-02")
-def test_cg_13_eslint_that_cannot_start_exits_non_zero_and_writes_no_rows(tmp_path: Path) -> None:
+def test_cg_13_npm_that_cannot_start_exits_non_zero_and_writes_no_rows(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     for name in ("git",):
@@ -597,6 +616,128 @@ def test_cg_13_eslint_that_cannot_start_exits_non_zero_and_writes_no_rows(tmp_pa
     result = _run_typescript(
         work,
         {"src/sign.ts": PLANTED_TS, "src/sign.test.ts": PLANTED_TS_TEST},
-        {"PATH": str(bin_dir)},
+        {"PATH": str(bin_dir), "XDG_CACHE_HOME": str(tmp_path / "cache")},
     )
-    _assert_no_rows(work, result, "ESLint cannot start")
+    _assert_no_rows(work, result, "ESLint cannot be installed: npm cannot start")
+
+
+# The ESLint package of a planted command. The stub npm ignores the content;
+# the cache folder takes its name from the SHA-256 of the lock.
+LOCK_FIXTURE = {
+    "package.json": '{"name": "crap-eslint", "private": true, "dependencies": {"eslint": "10.14.0"}}\n',
+    "package-lock.json": '{"name": "crap-eslint", "lockfileVersion": 3, "requires": true, "packages": {}}\n',
+}
+
+# A stub npm that records each call and fills node_modules with an ESLint
+# that reports no messages.
+STUB_NPM = """\
+#!/bin/sh
+echo "$PWD $*" >> "$STUB_LOG/npm.log"
+mkdir -p node_modules/eslint/bin
+echo 'process.stdout.write("[]");' > node_modules/eslint/bin/eslint.js
+"""
+
+# A stub npm that fails as npm does without network and without a cache.
+FAILING_NPM = """\
+#!/bin/sh
+echo "$PWD $*" >> "$STUB_LOG/npm.log"
+echo "npm error code ENOTCACHED" >&2
+exit 1
+"""
+
+STUB_NPX = """\
+#!/bin/sh
+echo "$*" >> "$STUB_LOG/npx.log"
+exit 1
+"""
+
+
+def _stub_tools(tmp_path: Path, npm: str) -> dict[str, str]:
+    """Put a stub npm and a stub npx first on PATH and return the environment of the run."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name, text in (("npm", npm), ("npx", STUB_NPX)):
+        (bin_dir / name).write_text(text)
+        (bin_dir / name).chmod(0o755)
+    log = tmp_path / "log"
+    log.mkdir()
+    return {
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        "STUB_LOG": str(log),
+        "XDG_CACHE_HOME": str(tmp_path / "cache"),
+    }
+
+
+def _calls(tmp_path: Path, tool: str) -> list[str]:
+    log = tmp_path / "log" / f"{tool}.log"
+    return log.read_text().splitlines() if log.exists() else []
+
+
+def _cache_folder(tmp_path: Path) -> Path:
+    digest = hashlib.sha256(LOCK_FIXTURE["package-lock.json"].encode()).hexdigest()
+    return tmp_path / "cache" / "agent-factory" / "crap-eslint" / digest
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_sec_0013_the_typescript_command_starts_no_npx() -> None:
+    """npx installs the newest releases of ESLint's dependency ranges (SEC-0013)."""
+    assert "npx" not in TYPESCRIPT_COMMAND.read_text()
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_sec_0013_the_eslint_lock_pins_every_package_with_an_integrity_hash() -> None:
+    manifest = json.loads((ESLINT_PACKAGE / "package.json").read_text())
+    lock = json.loads((ESLINT_PACKAGE / "package-lock.json").read_text())
+    assert manifest["dependencies"] == {"eslint": "10.14.0"}
+    packages = {name: entry for name, entry in lock["packages"].items() if name}
+    assert packages["node_modules/eslint"]["version"] == "10.14.0"
+    for name, entry in packages.items():
+        assert entry.get("integrity", "").startswith("sha512-"), name
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_sec_0013_the_command_installs_eslint_with_npm_ci_without_install_scripts(tmp_path: Path) -> None:
+    env = _stub_tools(tmp_path, STUB_NPM)
+    work = tmp_path / "work"
+    work.mkdir()
+    files = {"src/sign.ts": PLANTED_TS, "src/sign.test.ts": PLANTED_TS_TEST}
+    result = _run_typescript(work, files, env, lock=LOCK_FIXTURE)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _calls(tmp_path, "npx") == []
+    [call] = _calls(tmp_path, "npm")
+    folder, *args = call.split(" ")
+    assert args[0] == "ci"
+    assert "--ignore-scripts" in args
+    assert "--prefer-offline" in args
+    cache = _cache_folder(tmp_path)
+    assert Path(folder).parent == cache.parent
+    assert Path(folder) != cache, "npm ci fills a temporary folder, not the cache folder"
+    assert (cache / "node_modules" / "eslint" / "bin" / "eslint.js").is_file()
+    assert [p.name for p in cache.parent.iterdir()] == [cache.name]
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_sec_0013_a_second_run_reuses_the_eslint_cache_without_npm(tmp_path: Path) -> None:
+    env = _stub_tools(tmp_path, STUB_NPM)
+    files = {"src/sign.ts": PLANTED_TS, "src/sign.test.ts": PLANTED_TS_TEST}
+    for run in ("first", "second"):
+        work = tmp_path / run
+        work.mkdir()
+        result = _run_typescript(work, files, env, lock=LOCK_FIXTURE)
+        assert result.returncode == 0, result.stdout + result.stderr
+    assert len(_calls(tmp_path, "npm")) == 1
+    assert _calls(tmp_path, "npx") == []
+
+
+@pytest.mark.spec("CG-13-IT-02")
+def test_sec_0013_a_failed_eslint_install_exits_non_zero_with_the_cause_and_no_rows(tmp_path: Path) -> None:
+    env = _stub_tools(tmp_path, FAILING_NPM)
+    work = tmp_path / "work"
+    work.mkdir()
+    files = {"src/sign.ts": PLANTED_TS, "src/sign.test.ts": PLANTED_TS_TEST}
+    result = _run_typescript(work, files, env, lock=LOCK_FIXTURE)
+    _assert_no_rows(work, result, "ESLint cannot be installed")
+    assert "ENOTCACHED" in result.stderr
+    assert _calls(tmp_path, "npx") == []
+    cache = _cache_folder(tmp_path)
+    assert list(cache.parent.iterdir()) == [], "a failed install leaves no folder in the cache"

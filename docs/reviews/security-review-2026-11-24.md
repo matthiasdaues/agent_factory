@@ -2,7 +2,7 @@
 type: security-review
 title: Security review of feature/crap-gate-self-host
 date: 2026-11-24
-status: defects
+status: pass
 reviewer: qa-agent
 findings_filed: 1
 story:
@@ -56,3 +56,21 @@ The review covers `git diff dev...feature/crap-gate-self-host` from `634135fe` t
 ## Next step
 
 The Implementation Agent fixes SEC-0013 on the feature branch and resubmits the feature for QA.
+
+## Repeat pass on SEC-0013
+
+The fix in `302dfa27..f3389c9d` on `story/SEC-0013` resolves SEC-0013, and the review is now `pass`. The measure installs ESLint from `scripts/crap-eslint/package-lock.json` with `npm ci --ignore-scripts` and never starts `npx`. The reproductions lie in `/tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/feature-qa/sec13/`. They call `installEslint` of the measure with `XDG_CACHE_HOME` set to a scratch folder.
+
+| Check                                   | Result                                                                                                                                                                                                                                                           |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The lock pins every package             | The lock has 79 packages, all from `registry.npmjs.org`, each with a version and a `sha512` integrity hash. No package is a link, and none has `hasInstallScript`. `package.json` names `eslint` as exactly `10.14.0`.                                           |
+| No install script runs                  | A package with `preinstall`, `install`, `postinstall` and `prepare` scripts leaves no marker file after `npm ci --ignore-scripts`. Without the option, all four markers appear.                                                                                  |
+| A tampered lock                         | A changed lock gets a new cache folder, because the folder is named by the SHA-256 of the lock. A wrong integrity hash for `debug` makes `npm ci` exit 1. The measure then names the cause and leaves no cache folder.                                           |
+| A killed install                        | `SIGKILL` during `npm ci` leaves only the folder `.<hash>-<random>`, which does not count. The next run installs again and renames a complete install into place.                                                                                                |
+| A cache folder that holds other content | A folder `<hash>/` without `node_modules/eslint/bin/eslint.js` makes every run exit 1 with `ENOTEMPTY`, until a person deletes the folder. A folder that holds that file is used without any check. A planted `eslint.js` that prints `[]` is returned in 12 ms. |
+
+The planted entry gives an attacker nothing new. Only code that runs as the developer can write to `~/.cache`, such as the tests of a story that this measure runs before ESLint. Such code already controls the measure through `command` at the story head (DEC-75). So the bug bar records no finding. Three notes stay:
+
+- N-5: The measure trusts any cache folder that holds `eslint.js`. It could write a marker that holds the hash of the lock after the rename, and accept only a folder with that marker. That check would also catch a folder that was copied in by hand.
+- N-6: A folder `<hash>/` without `eslint.js` blocks the gate until a person deletes it, and the message names only `ENOTEMPTY`. The message could name the folder to delete.
+- N-7: A killed install leaves its `.<hash>-<random>` folder in the cache, and nothing removes it. Each such folder holds a full install.
