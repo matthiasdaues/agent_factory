@@ -3,7 +3,7 @@
 Generated: 2026-11-25
 Source: [factory-handbooks.md](../../proposals/factory-handbooks.md), accepted at commit `4ebf5101f70c1540a0d53dcfb3d00cfa977d361a` on `dev`
 
-The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 83 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. No question is open. [Resolved questions](#resolved-questions) records the seven answers of the run lead.
+The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 84 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. No question is open. [Resolved questions](#resolved-questions) records the seven answers of the run lead.
 
 ## Actor-Goal Matrix
 

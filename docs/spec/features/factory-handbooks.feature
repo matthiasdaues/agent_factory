@@ -405,6 +405,15 @@ Feature: Factory Handbooks
       And it reports the path of the contributor page and the field status
       And it reports the folder docs/handbook/testing/
 
+    Scenario: handbook-lint reports a stale page list next to a page with bad metadata
+      # trace: FH-04-16
+      Given add-an-integration.md in the user handbook has no type field
+      And the page list of docs/handbook/contributing/index.md is out of date
+      When the contributor runs handbook-lint
+      Then handbook-lint exits non-zero
+      And it reports the path of add-an-integration.md and the field type
+      And it reports the path of docs/handbook/contributing/index.md as out of date
+
   Rule: Contributor cannot commit a handbook page that breaks the page format
     # actor: Contributor
     # trace: FH-05
