@@ -188,12 +188,10 @@ conditions, stale content hashes, and invalid artifact states.
 
 As the first, cheapest check the orchestrator runs
 `.agent-factory/factory/scripts/conjecture-lint <conjecture> --expect-tests <plan tests-per-claim>`,
-which flags a **non-atomic (compound) claim** and a **planned-test-count that
-does not match the review protocol** — the two defects that, caught later, force
-a resolution/re-test pass after the claim's tests, reviews, and votes have
-already been spent. A conjecture that lints clean here cannot be sent back to be
-split at Step 8 or rejected on test count at admission. The lint is advisory: the
-author splits the claim or realigns the test count before the claim proceeds.
+using the conjecture's JSON payload as the input file. The script flags
+patterns that suggest a compound claim and checks the planned test count.
+Use those findings to split the claim or correct the count before review.
+Semantic review still checks whether the claim is atomic.
 
 **Gate**: the validation result must pass schema, then policy, then semantic
 review before Step 7 begins.

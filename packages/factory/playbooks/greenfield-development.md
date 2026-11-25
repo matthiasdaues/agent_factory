@@ -210,7 +210,16 @@ infrastructure; there is no separate setup epic.
 # Start new session, activate implementation-agent
 ```
 
-**Agent**: `implementation-agent` (spawns parallel `developer-agent` subagents)
+**Agent**: `implementation-agent`
+
+Follow the [story workflow](../agents/implementation-agent.md#story-workflow).
+`dispatch merge-story <story-id>` runs `premerge-check` before merging.
+If `premerge-check` exits `3` with `GATE CANNOT MEASURE`,
+`dispatch merge-story` records the story as `blocked`.
+After the stakeholder fixes the gate setup, run
+`dispatch resume-gates <story-id>` and repeat the gate checks.
+Close each wave with `dispatch close-wave <wave-number>` before starting the
+next.
 **Expected outputs**: `src/**/*`, `tests/**/*`, commits per story
 
 ### Step 4.2 — Run Code Review Agent On The Whole Feature (Separate Session)
@@ -223,28 +232,14 @@ feature, then QA, then the merge into `dev`, then reconciliation on `dev`.
 ```
 
 **Agent**: `code-review-agent`
-**Expected outputs**: `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`, `docs/findings/IMPL-*.md`
+**Expected outputs**: `docs/reviews/code-review-<feature-branch-with-hyphens>-YYYY-MM-DD.md`, `docs/findings/IMPL-*.md`
 
 ### Decision Point 4.3
 
-Check: `docs/findings/IMPL-*.md` files with `status: open`
-
-```bash
-grep -l "^status: open" docs/findings/IMPL-*.md
-```
-
-**If implementation defects exist** → Go to Step 4.4
-**If no defects** → The qa-agent's preconditions are satisfied.
-
-### Step 4.4 — Loop: Fix Implementation Defects
-
-```bash
-# Start NEW session, activate implementation-agent
-```
-
-**Instructions**: Implementation agent reads open `IMPL-*` findings and fixes code
-
-Return to Step 4.2 (run code-review-agent again)
+Check the whole-feature review report. For each blocking finding of this
+run, use `dispatch add <finding-id>` and run it through the story workflow.
+After the fixes merge into the feature branch, repeat the whole-feature code
+review. Continue to QA when the review leaves no blocking finding open.
 
 ## Quality
 
@@ -259,28 +254,23 @@ Return to Step 4.2 (run code-review-agent again)
 
 ### Decision Point 5.2
 
-Check: Open defects in findings
-
-```bash
-grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
-```
-
-**If open defects exist** → Go to Step 5.3
-**If no defects** → Go to Step 5.4.
-
-### Step 5.3 — Loop: Fix Defects
-
-```bash
-# Start NEW session, activate implementation-agent
-```
-
-**Instructions**: Implementation agent reads open findings and fixes them
-
-Return to Step 5.1 (run qa-agent again)
+Check the Fagan, security, and bug-hunt reports. Add each blocking finding
+of this run with `dispatch add <finding-id>`. Run each fix through the story
+workflow, then repeat QA on the feature branch.
 
 ### Step 5.4 — Merge Into `dev`
 
-The implementation-agent runs `.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows the result. When it refuses, fix each cause it names and run it again. When it passes, the stakeholder merges the feature branch into `dev` and ends the run with `dispatch close`. No agent merges into `dev`.
+The four feature review reports record `run` and `branch_head` in
+frontmatter. Use the feature branch name and the full SHA of the commit each
+review examined.
+
+The implementation agent runs
+`.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows
+the result. The script checks the dispatch ledger, review reports, and open
+blocking findings for the run. It runs the configured `test_command` in a
+temporary worktree. Fix each cause it reports and rerun the check. After it
+passes, the stakeholder merges into `dev` and ends the run with
+`.agent-factory/factory/scripts/dispatch close`.
 
 ## Reconciliation
 
@@ -324,7 +314,7 @@ The playbook ends when the following terminal artifacts exist:
 
 - [ ] `docs/spec/scope-map.md` exists with all Rules from the initial specification marked `deferred` (ready to be implemented as features)
 - [ ] `docs/spec/architecture.dsl` models the planned module structure (C4 components and dependencies as designed)
-- [ ] Arc42 prose chapters (01–12) pass architecture review with no blocking findings
+- [ ] The project’s architecture documentation passes review with no blocking findings
 - [ ] No `.feature` files exist yet (those are produced per-slice when `feature-addition` begins)
 
 **Process Checklist:**

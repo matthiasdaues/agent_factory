@@ -60,27 +60,15 @@ Look for:
 
 ## Decision Point 1.3
 
-Check for open findings found during reconciliation:
-
-```bash
-grep -l "^status: open" docs/findings/*.md
-```
-
-**If open findings** → Go to Step 1.4 (fix code first)
-**If only doc drift** → Go to Step 1.5
+Read the findings named by the reconciliation report. If it identifies a
+blocking code defect, follow Step 1.4. If it identifies documentation drift,
+follow Step 1.5.
 
 ### Step 1.4 — Fix Code Defects (If Found)
 
-Code defects = implementation doesn't match spec **intent**
-
-```bash
-# Start new session, activate implementation-agent
-```
-
-**Agent**: `implementation-agent`
-**Task**: Send each open finding to the agent in its `owner:` field. A `BUG` finding names the developer agent.
-
-Return to Step 1.1 (re-run reconciliation)
+Use the [bug fix playbook](bug-fix.md) for each blocking code defect.
+The finding's `owner:` field names the agent that fixes it. Repeat
+reconciliation after the reviewer verifies the fix.
 
 ### Step 1.5 — Bring Each Row Back To Its Owner
 
@@ -112,7 +100,7 @@ Go to Step 2.
 .agent-factory/factory/scripts/spec-lint --spec-dir docs/spec
 ```
 
-**If errors** → Fix manually or re-run reconciliation-agent
+**If errors** → Send the lint output to the owner of the affected specification. Run the lint again after the fix.
 **If clean** → Go to Step 2.2
 
 ### Step 2.2 — Lint Architecture

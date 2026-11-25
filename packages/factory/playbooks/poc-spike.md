@@ -62,5 +62,5 @@ Open it, run it, click it — whatever "run" means for this artifact. Compare wh
 Three ways forward, pick one:
 
 1. **Idea confirmed, worth building for real** → hand off to [feature-addition](feature-addition.md) (existing system) or the full requirements → architecture → planning chain (new system). Nothing from the spike carries over automatically — re-derive requirements properly; the spike was a sketch, not a foundation.
-2. **Idea confirmed, but this exact throwaway is still useful to keep around for reference** → commit it as-is under `poc/spikes/<name>/`, with no expectation it is maintained or gated. The gates skip `poc/`.
+2. **Idea confirmed, but this exact throwaway is still useful to keep around for reference** → commit it as-is under `poc/spikes/<name>/`, as a reference. Repository checks still follow the project’s hook and test configuration.
 3. **Idea didn't hold up** → delete it. A spike that fails fast and gets discarded is a successful spike, not a wasted one.

@@ -70,6 +70,6 @@ Then decide whether the decision itself is ADR-worthy, using this repo's usual b
 
 - [ ] Every candidate/question has a Definition-of-Done check and a comparison note
 - [ ] A decision was recorded (ADR) or explicitly deferred with a stated reason — not left implicit
-- [ ] Prototype code stays under `poc/<name>/` — nothing here was silently promoted into the real codebase. The gates skip `poc/`.
+- [ ] Prototype code stays under `poc/<name>/`. Repository checks follow the project’s hook and test configuration.
 
 **Next**: if the decision means the system is worth building for real, hand off to [feature-addition](feature-addition.md) or the full chain — same rule as [poc-spike](poc-spike.md): re-derive requirements properly, don't carry prototype code forward as a foundation just because it happened to run.

@@ -31,26 +31,13 @@ Run this playbook when:
 
 ### Step 1.1 — Check Completeness
 
-Verify required files exist:
+Check that `docs/spec/architecture.dsl` exists. Review the arc42 chapters
+declared by the project. The DSL supplies the building block, runtime, and
+deployment views. When its workspace sets `arc42.projected` to `true`,
+check the generated chapters as well.
 
-```bash
-ls docs/arc42/01_introduction_and_goals.md \
-   docs/arc42/02_architecture_constraints.md \
-   docs/arc42/03_system_scope_and_context.md \
-   docs/arc42/04_solution_strategy.md \
-   docs/arc42/05_building_block_view.md \
-   docs/arc42/06_runtime_view.md \
-   docs/arc42/07_deployment_view.md \
-   docs/arc42/08_crosscutting_concepts.md \
-   docs/arc42/09_architecture_decisions.md \
-   docs/arc42/10_quality_requirements.md \
-   docs/arc42/11_risks_and_technical_debt.md \
-   docs/arc42/12_glossary.md \
-   docs/spec/architecture.dsl
-```
-
-**If missing files** → Run `architecture-agent` to generate them (go to Playbook: documentation-update)
-**If complete** → Go to Step 1.2
+If a required artifact is missing, use the
+[documentation update playbook](documentation-update.md).
 
 ### Step 1.2 — Lint Architecture
 
@@ -58,7 +45,7 @@ ls docs/arc42/01_introduction_and_goals.md \
 .agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
-**If errors** → Document in `docs/spec/work/todos.md`, may need architecture-agent to fix
+**If errors** → Send the lint output to the architecture agent and rerun the check after the fix.
 **If clean** → Go to Step 2
 
 ## Step 2 — Run Architecture Review
@@ -95,31 +82,12 @@ Categorize findings:
 grep "^severity:" docs/findings/ATAM-*.md | sort | uniq -c
 ```
 
-Example output:
-
-```
-  3 severity: high
-  7 severity: medium
-  2 severity: low
-```
-
 ### Step 3.2 — Prioritize Risks
 
-**Manual**: Review each high/medium finding with stakeholders
-
-Create prioritized fix backlog:
-
-```bash
-# Add to docs/spec/work/todos.md
-cat >> docs/spec/work/todos.md << EOF
-
-## Architecture Review Action Items
-
-- [ ] T-$(date +%s)-001: Address ATAM-0001 (high) - [description]
-- [ ] T-$(date +%s)-002: Address ATAM-0003 (high) - [description]
-- [ ] T-$(date +%s)-003: Address ATAM-0007 (medium) - [description]
-EOF
-```
+Use the report to discuss critical and major risks with the stakeholder.
+Record deferred decisions and questions in `docs/spec/work/todo.md` using
+the [todo format](../rulebooks/conventions/todo-format.md). Claim each ID
+with `.agent-factory/factory/scripts/next-id T`.
 
 ## Decision Point
 
@@ -155,7 +123,7 @@ Check remaining open findings:
 grep -l "^status: open" docs/findings/ATAM-*.md
 ```
 
-**If high/medium risks remain** → Return to Step 4.1
+**If blocking risks remain** → Return to Step 4.1
 **If acceptable** → Go to Step 5
 
 ## Stop notice
@@ -174,7 +142,7 @@ Deliverables:
 
 - [ ] `docs/reviews/atam-review.md` (review report)
 - [ ] `docs/findings/ATAM-*.md` (risk findings)
-- [ ] Prioritized action items in `docs/spec/work/todos.md`
+- [ ] Prioritized action items in `docs/spec/work/todo.md`
 - [ ] Stakeholder presentation (optional)
 
 **Next steps**: Schedule follow-up or proceed with fix implementation

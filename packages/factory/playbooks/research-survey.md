@@ -26,6 +26,9 @@ directory: `docs/research/<slug>/`. The slug is the kebab-case topic name
 invocation receives this directory as its working root. See
 [research-directory-layout.md](../rulebooks/conventions/research-directory-layout.md).
 
+Run the commands below from the project root. Pass the topic directory or
+its source folder to the scripts.
+
 ## Inputs
 
 - `research-brief.md` — a shared research brief whose mode is omitted or
@@ -102,9 +105,9 @@ including provenance, precise evidence location, method, and limitations.
 Each record is its own file, named by its record ID, with the schema fields in
 one `json` block ([source-research](../skills/source-research/SKILL.md#record-file)).
 
-**Gate**: `.agent-factory/factory/scripts/source-record-check sources/` exits
+**Gate**: `.agent-factory/factory/scripts/source-record-check docs/research/<slug>/sources/` exits
 0, applicable source policy passes, then semantic review passes. Each
-researcher runs the check on its own folder before it reports. Failure blocks
+researcher runs the check with its own source folder as the argument before it reports. Failure blocks
 progression to Step 4.
 
 ### Step 4 — Synthesise the Findings
@@ -123,7 +126,7 @@ When the brief asks for concept histories, the writer records each history as
 `histories/<concept>.json` against `research-concept-history.schema.json`.
 `.agent-factory/factory/scripts/concept-history-check` checks every quote,
 date, and entry rule and computes the rank. The report copies the table that
-`concept-history-check --table` prints and never states a count or a rank of
+`concept-history-check --table docs/research/<slug>/` prints and never states a count or a rank of
 its own ([research-synthesis](../skills/research-synthesis/SKILL.md#concept-histories)).
 
 **Gate**: schema validation, `concept-history-check` where histories exist,

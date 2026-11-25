@@ -272,8 +272,8 @@ for the tech stack and development practices.
 
 1. Invoke [`capture-context`](../skills/capture-context/SKILL.md) with `--update --scan` to update
    the relevant sections of `docs/agent-context.md`.
-2. Run `.agent-factory/factory/scripts/concern-lint` on the changed document to
-   ensure completeness.
+2. Run `.agent-factory/factory/scripts/concern-lint` from the project root to
+   validate `docs/agent-context.md` and its cross-references.
 3. If new decisions imply infrastructure, setup, or configuration artifacts
    not already in the repository, record them in the proposal. The planning
    agent adds each one as a line item to the first story that needs it.
@@ -508,6 +508,15 @@ deferred scope, and applies the declared governance and risk domains.
 
 **Agent**: `implementation-agent`
 
+Follow the [story workflow](../agents/implementation-agent.md#story-workflow).
+`dispatch merge-story <story-id>` runs `premerge-check` before merging.
+If `premerge-check` exits `3` with `GATE CANNOT MEASURE`,
+`dispatch merge-story` records the story as `blocked`.
+After the stakeholder fixes the gate setup, run
+`dispatch resume-gates <story-id>` and repeat the gate checks.
+Close each wave with `dispatch close-wave <wave-number>` before starting the
+next.
+
 ### Step 4.2 — Code Review (Separate Session)
 
 The code-review-agent reviews the whole feature. The feature checks start
@@ -519,19 +528,14 @@ feature, then QA, then the merge into `dev`, then reconciliation on `dev`.
 ```
 
 **Agent**: `code-review-agent`
-**Expected outputs**: `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`, `docs/findings/IMPL-*.md`
+**Expected outputs**: `docs/reviews/code-review-<feature-branch-with-hyphens>-YYYY-MM-DD.md`, `docs/findings/IMPL-*.md`
 
 ### Decision Point 4.3
 
-Check for implementation defects:
-
-```bash
-grep -l "^status: open" docs/findings/IMPL-*.md
-```
-
-**If defects** → Return to the implementation-agent to address findings, then
-re-run the code-review-agent.
-**If clean** → The qa-agent's preconditions are satisfied.
+Check the whole-feature review report. For each blocking finding of this
+run, use `dispatch add <finding-id>` and run it through the story workflow.
+After the fixes merge into the feature branch, repeat the whole-feature code
+review. Continue to QA when the review leaves no blocking finding open.
 
 ## Quality
 
@@ -546,23 +550,23 @@ re-run the code-review-agent.
 
 ### Decision Point 5.2
 
-Check for open defects:
-
-```bash
-grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
-```
-
-**If defects** → Return to the implementation-agent to address findings, then
-re-run the qa-agent.
-**If clean** → Go to Step 5.3.
+Check the Fagan, security, and bug-hunt reports. Add each blocking finding
+of this run with `dispatch add <finding-id>`. Run each fix through the story
+workflow, then repeat QA on the feature branch.
 
 ### Step 5.3 — Merge Into `dev`
 
-The implementation-agent runs
+The four feature review reports record `run` and `branch_head` in
+frontmatter. Use the feature branch name and the full SHA of the commit each
+review examined.
+
+The implementation agent runs
 `.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows
-the result. When it refuses, fix each cause it names and run it again. When it
-passes, the stakeholder merges the feature branch into `dev` and ends the run
-with `dispatch close`. No agent merges into `dev`.
+the result. The script checks the dispatch ledger, review reports, and open
+blocking findings for the run. It runs the configured `test_command` in a
+temporary worktree. Fix each cause it reports and rerun the check. After it
+passes, the stakeholder merges into `dev` and ends the run with
+`.agent-factory/factory/scripts/dispatch close`.
 
 ## Reconciliation
 

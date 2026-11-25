@@ -12,36 +12,23 @@ Operational procedure for **fixing defects** in production or development.
 
 ## Prerequisites
 
-- [ ] Bug reported and filed as `docs/findings/BUG-*.md`
+- [ ] Bug reported
 - [ ] Bug reproduced locally
 - [ ] Existing codebase with tests
 
 ## Step 1 — File Bug Finding (If Not Already Filed)
 
-If bug not yet in `docs/findings/`:
+For a new finding, run `.agent-factory/factory/scripts/next-id BUG`.
+Read the ID from standard output. If the command fails, stop and report its
+message.
 
-```bash
-# Create finding manually or via QA agent.
-# Run .agent-factory/factory/scripts/next-id BUG and read the ID from its standard output;
-# a shell variable does not survive between agent commands. When next-id fails,
-# stop and report its message; never pick a number by hand.
-cat > docs/findings/BUG-NNNN.md << EOF
----
-id: BUG-NNNN
-source: bug-report
-severity: <critical|major|minor>
-category: defect
-artifact: <file:line>
-status: open
----
-
-# <Bug title>
-
-**What is wrong:** <description>
-
-**Fix:** <expected behavior>
-EOF
-```
+Classify the report using the
+[finding classification](../rulebooks/conventions/finding-classification.md).
+For a blocking defect, use the
+[finding template](../rulebooks/templates/finding.md) and set
+`owner: developer-agent`. Record the reproduction and expected behavior.
+For a minor finding, use the
+[register format](../rulebooks/conventions/finding-format.md#register-files).
 
 ## Step 2 — Implement Fix
 
@@ -59,15 +46,8 @@ EOF
 
 ### Step 2.2 — Verify Fix
 
-Run test suite:
-
-```bash
-npm test
-# OR
-pytest
-# OR
-go test ./...
-```
+Run the regression test and the project's configured test suite. Look for
+`test_command` in `docs/testing.yaml`.
 
 **If tests pass** → Go to Step 3
 **If tests fail** → Return to Step 2.1
@@ -85,23 +65,14 @@ go test ./...
 
 ### Decision Point 3.2
 
-Check for new defects:
-
-```bash
-grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md | grep -v "BUG-NNNN"
-```
-
-**If new defects found** → Return to Step 2.1
-**If clean** → Go to Step 4
+Check the QA report for blocking findings from this review. Send any
+blocking findings to their owners, then repeat the review.
 
 ## Step 4 — Mark Bug Resolved
 
-Update finding status:
-
-```bash
-# Update BUG-NNNN.md
-sed -i 's/status: open/status: resolved/' docs/findings/BUG-NNNN.md
-```
+On a repeat pass, the reviewer verifies the fix and sets the finding status to
+`resolved`. For a register finding, the fix commit sets the register entry
+to `resolved`. See [finding status](../rulebooks/conventions/finding-format.md#status-lifecycle).
 
 ## Stop notice
 
@@ -117,7 +88,7 @@ The final summary lists each new register file with its `why_this_severity` sent
 
 Final checks:
 
-- [ ] Bug finding status: `resolved`
+- [ ] Bug finding or register entry status is `resolved`
 - [ ] Fix committed with `fix: ... (BUG-NNNN)` format
 - [ ] Test added that would catch this bug (regression test)
 - [ ] All tests pass

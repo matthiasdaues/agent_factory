@@ -1042,8 +1042,8 @@ playbooks:
       - architecture-review-agent
       - architecture-agent
       - architecture-review-agent
-    tokens: 1279
-    total_tokens: 19240
+    tokens: 1054
+    total_tokens: 19015
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -1059,8 +1059,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3477
-    total_tokens: 63861
+    tokens: 3473
+    total_tokens: 63857
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1069,8 +1069,8 @@ playbooks:
     agents:
       - developer-agent
       - qa-agent
-    tokens: 907
-    total_tokens: 20089
+    tokens: 841
+    total_tokens: 20023
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1078,11 +1078,10 @@ playbooks:
     path: playbooks/documentation-update.md
     agents:
       - reconciliation-agent
-      - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 1701
-    total_tokens: 57047
+    tokens: 1662
+    total_tokens: 36867
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1098,8 +1097,8 @@ playbooks:
       - code-review-agent
       - qa-agent
       - reconciliation-agent
-    tokens: 5224
-    total_tokens: 118495
+    tokens: 5388
+    total_tokens: 118659
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1116,14 +1115,14 @@ playbooks:
       - qa-agent
       - reconciliation-agent
       - coaching-agent
-    tokens: 3170
-    total_tokens: 117926
+    tokens: 3194
+    total_tokens: 117950
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
     description: Operational procedure for getting from an idea to something you can look at and see run — in minutes, not phases.
     path: playbooks/poc-spike.md
-    tokens: 825
+    tokens: 824
   - name: refactoring
     title: Refactoring Playbook
     category: orchestration
@@ -1132,8 +1131,8 @@ playbooks:
     agents:
       - developer-agent
       - qa-agent
-    tokens: 1358
-    total_tokens: 20540
+    tokens: 1306
+    total_tokens: 20488
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1145,8 +1144,8 @@ playbooks:
       - researcher
       - research-report-writer
       - research-orchestrator
-    tokens: 1455
-    total_tokens: 15837
+    tokens: 1493
+    total_tokens: 15875
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -1166,14 +1165,14 @@ playbooks:
       - research-orchestrator
       - research-report-writer
       - research-orchestrator
-    tokens: 3132
-    total_tokens: 19730
+    tokens: 3074
+    total_tokens: 19672
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
     description: Operational procedure for answering a genuine technical or architectural risk question with one or more working prototypes, before committing to a design decision.
     path: playbooks/technical-poc.md
-    tokens: 1402
+    tokens: 1393
 
 rulebooks:
   - name: rules

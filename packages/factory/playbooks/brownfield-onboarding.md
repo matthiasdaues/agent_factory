@@ -45,7 +45,7 @@ npm run coverage
 ```
 
 **If tests exist** → Use as behavioral specification
-**If no tests** → Document in `docs/spec/work/todos.md` as technical debt
+**If no tests** → Document in `docs/spec/work/todo.md` as technical debt
 
 ### Step 1.2 — Identify Seams
 
@@ -64,7 +64,7 @@ grep -r "^class " src/
 grep -r "^func " **/*.go
 ```
 
-Document discovered seams in `docs/spec/work/todos.md`.
+Document discovered seams in `docs/spec/work/todo.md`.
 
 ## Scope Map and Domain Vocabulary
 
@@ -310,7 +310,7 @@ Iterative loop: verify documentation matches code, identify gaps, fix, repeat.
 
 ### Step 6.2 — Identify Undocumented Behavior
 
-Check for untested code paths, undocumented decisions, unclear use cases. Add gaps to `docs/spec/work/todos.md`.
+Check for untested code paths, undocumented decisions, unclear use cases. Add gaps to `docs/spec/work/todo.md`.
 
 ### Step 6.3 — Fix and Iterate
 
@@ -335,7 +335,7 @@ The playbook ends when the following terminal artifacts exist:
 - [ ] `docs/adr/*.md` (documented architectural decisions)
 - [ ] `docs/spec/glossary.md` (domain glossary / ubiquitous language)
 - [ ] `docs/spec/entity-model.md`, `docs/spec/state-machines.md`, `docs/spec/validation-rules.md`, `docs/spec/interface-contracts.md`
-- [ ] `docs/spec/work/todos.md` (identified specification gaps and technical debt)
+- [ ] `docs/spec/work/todo.md` (identified specification gaps and technical debt)
 - [ ] `docs/agent-context.md` (project context: concerns, paths, boundaries)
 - [ ] `docs/reviews/spec-review-*.md` (specification review findings — all addressed)
 - [ ] `docs/reviews/atam-review.md` (architecture review findings — all addressed)

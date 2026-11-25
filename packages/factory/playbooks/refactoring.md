@@ -59,33 +59,13 @@ Save metrics for comparison later.
 
 ## Step 2 — Define Refactoring Scope
 
-### Step 2.1 — Create Refactoring Finding
+### Step 2.1 — Define the Refactoring Story
 
-Document what needs refactoring:
-
-```bash
-cat > docs/findings/REFACTOR-001.md << EOF
----
-id: REFACTOR-001
-source: technical-debt
-severity: medium
-category: refactor
-artifact: src/module.ts
-status: open
----
-
-# Refactor: [Goal]
-
-**Current state:** [What's wrong - complexity, duplication, etc.]
-
-**Target state:** [What it should look like after refactoring]
-
-**Constraints:**
-- [ ] All tests must still pass
-- [ ] No behavior changes
-- [ ] Performance maintained or improved
-EOF
-```
+Use a backlog story for planned refactoring. Record the affected paths,
+the intended structural improvement, and the behavior that must stay the
+same. If a review finding prompted the work, link to it from the story.
+Use the [story template](../rulebooks/templates/story.md) and claim the story
+ID with `.agent-factory/factory/scripts/next-id ST`.
 
 ## Step 3 — Implement Refactoring
 
@@ -93,7 +73,7 @@ EOF
 
 ```bash
 # Manual session (recommended for refactoring)
-"Refactor [module] per REFACTOR-001. Apply [pattern/principle]. Keep all tests passing."
+"Refactor [module] per ST-NNNN. Apply [pattern/principle]. Keep all tests passing."
 ```
 
 **Agent**: `developer-agent`
@@ -101,7 +81,7 @@ EOF
 
 - Refactor in small steps
 - Run tests after each step
-- Commit frequently: `refactor: <description> (REFACTOR-001)`
+- Commit frequently: `refactor: <description> (ST-NNNN)`
 
 ### Step 3.2 — Verify Tests Still Pass
 
@@ -184,8 +164,8 @@ Final checks:
 - [ ] All tests pass (same tests, no modifications)
 - [ ] Code quality metrics improved
 - [ ] No behavior changes (verified by tests)
-- [ ] Commits follow convention: `refactor: <desc> (REFACTOR-NNN)`
-- [ ] `REFACTOR-*` finding status: `resolved`
+- [ ] Commits follow convention: `refactor: <desc> (ST-NNNN)`
+- [ ] The reviewer verified any linked blocking finding and marked it `resolved`.
 
 **Ready to merge**
 
