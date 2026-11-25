@@ -16,5 +16,5 @@
   },
   "why_this_severity": "DEC-87 accepts that functions above 30 fail when a story touches them, and the code works as tested (no to fails_purpose). The cost lands on a later, unrelated story, which must add tests or split a function before it can merge.",
   "commit": "94079fc1766d28a7bd11f3507a63771df71a880e",
-  "status": "open"
+  "status": "resolved"
 }
