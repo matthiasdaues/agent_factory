@@ -18,8 +18,8 @@ Feature: Core artifact ownership
 
   Proposal trace: docs/proposals/implemented/core-artifact-ownership.md
 
-  Rule: Factory maintainer finds exactly one producer for every core and seam artifact
-    # actor: Factory maintainer
+  Rule: Contributor finds exactly one producer for every core and seam artifact
+    # actor: Contributor
     # rules: BR-056, BR-057, BR-058, BR-060
     # @tests/factory/test_core_artifact_ownership.py::producer_finding
     # @tests/factory/test_core_artifact_ownership.py::expectation_error
@@ -29,25 +29,25 @@ Feature: Core artifact ownership
       Given core-artifacts.yaml lists docs/spec/entity-model.md in the family domain structure
       And only the domain-modeling agent declares docs/spec/entity-model.md as an output
       And that declaration carries reviewed_by: [spec-review-agent]
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test passes for docs/spec/entity-model.md
 
     Scenario: An artifact that no agent declares fails the contract test
       Given core-artifacts.yaml lists docs/spec/dependency-rules.dsl
       And no agent declares an output pattern that matches docs/spec/dependency-rules.dsl
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test fails and names docs/spec/dependency-rules.dsl as an artifact without a producer
 
     Scenario: An artifact with two producers fails the contract test
       Given the domain-modeling agent declares docs/spec/state-machines.md as an output
       And the reconciliation agent declares docs/spec/*.md as an output
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test fails and names docs/spec/state-machines.md with both agents
 
     Scenario Outline: A producer declaration without a review fails the contract test
       Given the domain-modeling agent declares docs/spec/glossary.md as an output
       And the declaration carries <review field>
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test fails and names docs/spec/glossary.md as an artifact without a review
 
       Examples:
@@ -58,20 +58,20 @@ Feature: Core artifact ownership
     Scenario: A wording-only declaration does not count as a producer
       Given the lector agent declares docs/**/*.md with edits: wording
       And the domain-modeling agent declares docs/spec/glossary.md with reviewed_by: [spec-review-agent, stakeholder]
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test counts one producer for docs/spec/glossary.md
       And the test passes for docs/spec/glossary.md
 
     Scenario: The contract test checks the seam files like the core files
       Given core-artifacts.yaml lists docs/testing.yaml and docs/agent-context.md in the family seam
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test finds the test-strategy agent as the one producer of docs/testing.yaml
       And the test finds Virgil as the one producer of docs/agent-context.md
       And both declarations carry reviewed_by: [stakeholder]
 
     Scenario Outline: Each core and seam artifact has its declared producer and review
       Given the factory's agent definitions after this feature
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the one producer of <artifact> is <producer>
       And its declaration carries reviewed_by: <reviewers>
 
@@ -91,8 +91,8 @@ Feature: Core artifact ownership
         | docs/agent-context.md            | virgil                | [stakeholder]                    |
         | docs/testing.yaml                | test-strategy-agent   | [stakeholder]                    |
 
-  Rule: Factory maintainer sees every declared review checked against the reviewer's inputs
-    # actor: Factory maintainer
+  Rule: Contributor sees every declared review checked against the reviewer's inputs
+    # actor: Contributor
     # rules: BR-057, BR-059, BR-060
     # @packages/factory/scripts/index-lint::build_agents_data
     # @packages/factory/scripts/index-lint::_render_structured_field
@@ -100,49 +100,49 @@ Feature: Core artifact ownership
     Scenario: index-lint carries reviewed_by and edits into INDEX.yaml
       Given the domain-modeling agent declares docs/spec/glossary.md with reviewed_by: [spec-review-agent, stakeholder]
       And the lector agent declares docs/**/*.md with edits: wording
-      When the factory maintainer runs index-lint
+      When the contributor runs index-lint
       Then INDEX.yaml holds reviewed_by: [spec-review-agent, stakeholder] on the glossary declaration
       And INDEX.yaml holds edits: wording on the lector agent's declaration
 
     Scenario: A reviewer that declares the artifact as a context input passes
       Given the domain-modeling agent declares docs/spec/schemas/* with reviewed_by: [spec-review-agent]
       And the spec-review agent declares docs/spec/schemas/* as a context input
-      When the factory maintainer runs index-lint --check
+      When the contributor runs index-lint --check
       Then index-lint reports no reviewer finding for docs/spec/schemas/*
 
     Scenario: The reviewer check matches patterns of different form by sample path
       Given the requirements agent declares docs/spec/features/{name}.feature with reviewed_by: [spec-review-agent]
       And the spec-review agent declares docs/spec/features/*.feature as a required input
-      When the factory maintainer runs index-lint --check
+      When the contributor runs index-lint --check
       Then index-lint matches both patterns through the sample path docs/spec/features/example.feature
       And index-lint reports no reviewer finding for the feature files
 
     Scenario: A reviewer name that is no agent fails index-lint
       Given an output declaration carries reviewed_by: [spec-reviewer]
       And no agent named spec-reviewer exists
-      When the factory maintainer runs index-lint --check
+      When the contributor runs index-lint --check
       Then index-lint fails and names spec-reviewer as an unknown reviewer
 
     Scenario: A reviewer that does not read the artifact fails index-lint
       Given the architecture agent declares docs/spec/dependency-rules.dsl with reviewed_by: [architecture-review-agent]
       And the architecture-review agent declares docs/spec/dependency-rules.dsl neither as a required nor as a context input
-      When the factory maintainer runs index-lint --check
+      When the contributor runs index-lint --check
       Then index-lint fails and names the architecture-review agent and docs/spec/dependency-rules.dsl
 
     Scenario: The stakeholder needs no input declaration
       Given the requirements agent declares docs/spec/scope-map.md with reviewed_by: [stakeholder]
-      When the factory maintainer runs index-lint --check
+      When the contributor runs index-lint --check
       Then index-lint reports no reviewer finding for docs/spec/scope-map.md
 
     Scenario: A reader is never counted as a review
       Given the requirements agent declares docs/spec/features/{name}.feature with reviewed_by: []
       And the QA agent declares docs/spec/features/*.feature as a required input
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test fails and names docs/spec/features/*.feature as an artifact without a review
 
     Scenario: The factory catalog is up to date after the change
       Given the factory's agent definitions after this feature
-      When the factory maintainer runs index-lint --check
+      When the contributor runs index-lint --check
       Then index-lint exits 0
 
   Rule: Requirements agent keeps scope and behaviour only
@@ -151,14 +151,14 @@ Feature: Core artifact ownership
 
     Scenario: The requirements agent declares three core outputs and its working output
       Given the requirements agent definition after this feature
-      When the factory maintainer reads its output declarations
+      When the contributor reads its output declarations
       Then its outputs include the core outputs docs/spec/scope-map.md, docs/spec/features/*.feature, and docs/spec/areas/*.md
       And its outputs include the gaps reports, docs/spec/work/term-candidates.md, the spec-feedback reports, the reconciliation reports, and docs/findings/BUG-*.md
       And no output declaration names a QA strategy, a structure file, or the glossary
 
     Scenario: The requirements agent hands QA strategy and agent context to their owners
       Given the requirements agent definition after this feature
-      When the factory maintainer reads its skill list and its workflow
+      When the contributor reads its skill list and its workflow
       Then the skill list contains neither qa-strategy-from-spec nor capture-context
       And the workflow has no step that writes the structure files or a QA strategy
 
@@ -179,7 +179,7 @@ Feature: Core artifact ownership
 
     Scenario: The domain-modeling agent definition declares the domain structure family
       Given packages/factory/agents/domain-modeling-agent.md
-      When the factory maintainer reads its frontmatter
+      When the contributor reads its frontmatter
       Then the tier is strong
       And the required inputs are docs/spec/scope-map.md and docs/spec/features/*.feature
       And the context inputs are docs/spec/glossary.md, docs/spec/work/term-candidates.md, src/**/*, docs/agent-context.md, and .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
@@ -328,7 +328,7 @@ Feature: Core artifact ownership
 
     Scenario: The architecture agent declares the dependency rules and its findings
       Given the architecture agent definition after this feature
-      When the factory maintainer reads its frontmatter
+      When the contributor reads its frontmatter
       Then its outputs include docs/spec/dependency-rules.dsl with reviewed_by: [architecture-review-agent]
       And its outputs include docs/findings/ARCH-*.md
       And its outputs include no docs/spec/state-machines.md
@@ -367,7 +367,7 @@ Feature: Core artifact ownership
 
     Scenario: The spec-review agent requires only the files that always exist
       Given the spec-review agent definition after this feature
-      When the factory maintainer reads its inputs
+      When the contributor reads its inputs
       Then the required inputs are docs/spec/features/*.feature, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/spec/entity-model.md
       And the context inputs include docs/spec/state-machines.md, docs/spec/validation-rules.md, docs/spec/interface-contracts.md, docs/spec/areas/*.md, docs/spec/schemas/*, and docs/spec/work/term-candidates.md
 
@@ -438,7 +438,7 @@ Feature: Core artifact ownership
 
     Scenario: The test-strategy agent definition declares the test practice family
       Given packages/factory/agents/test-strategy-agent.md
-      When the factory maintainer reads its frontmatter
+      When the contributor reads its frontmatter
       Then the tier is strong
       And the skills are detect-test-regime, qa-strategy-from-spec, crap-score, and mutation-testing
       And it declares no required input
@@ -447,7 +447,7 @@ Feature: Core artifact ownership
 
     Scenario: No other agent declares the test practice files
       Given the factory's agent definitions after this feature
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then no agent other than the test-strategy agent declares docs/testing.yaml or docs/spec/work/*-qa-strategy.md as an output
 
     Scenario: The test-strategy agent writes testing.yaml in a project without a feature file
@@ -475,7 +475,7 @@ Feature: Core artifact ownership
 
     Scenario: Virgil gives up testing.yaml and the fitting names the test-strategy agent
       Given the Virgil definition after this feature
-      When the factory maintainer reads its outputs and the fitting step 2b
+      When the contributor reads its outputs and the fitting step 2b
       Then Virgil declares no docs/testing.yaml output
       And step 2b says that the session takes the test-strategy agent's role
       # @packages/factory/agents/virgil.md
@@ -624,7 +624,7 @@ Feature: Core artifact ownership
 
     Scenario: The developer and implementation agents declare no specification output
       Given the developer agent and implementation agent definitions after this feature
-      When the factory maintainer reads their outputs
+      When the contributor reads their outputs
       Then neither declares docs/spec/**/*.md
       And the developer agent declares docs/spec/work/spec-feedback-*.md
 
@@ -739,7 +739,7 @@ Feature: Core artifact ownership
 
     Scenario: The reconciliation agent declares one report and nothing else
       Given the reconciliation agent definition after this feature
-      When the factory maintainer reads its frontmatter
+      When the contributor reads its frontmatter
       Then its only output is docs/reviews/reconciliation-*.md
       And its skill list does not contain capture-context
 
@@ -869,13 +869,13 @@ Feature: Core artifact ownership
       And the next reconciliation run starts as usual
 
   Rule: Owner receives every finding it acts on next
-    # actor: Factory maintainer
+    # actor: Contributor
     # @packages/factory/rulebooks/conventions/finding-format.md
     # @packages/factory/rulebooks/templates/finding.md
 
     Scenario: The finding format defines the owner field and the new tags
       Given finding-format.md and templates/finding.md after this feature
-      When the factory maintainer reads them
+      When the contributor reads them
       Then the finding frontmatter has an owner: field
       And the format defines the owner as the agent that acts on the finding next
       And the tag table lists ARCH and QA
@@ -893,12 +893,12 @@ Feature: Core artifact ownership
       When the orchestrator loops over the open findings
       Then it sends SPEC-0041 to the domain-modeling agent
 
-  Rule: Factory maintainer sees every writer of shared working output declare its path
-    # actor: Factory maintainer
+  Rule: Contributor sees every writer of shared working output declare its path
+    # actor: Contributor
 
     Scenario Outline: Each writer of a shared working-output file declares its path
       Given the factory's agent definitions after this feature
-      When the factory maintainer reads the output declarations of <agent>
+      When the contributor reads the output declarations of <agent>
       Then they include <path>
 
       Examples:
@@ -934,7 +934,7 @@ Feature: Core artifact ownership
 
     Scenario: The single-producer rule does not count working output
       Given several agents declare docs/spec/work/term-candidates.md
-      When the factory maintainer runs the contract test
+      When the contributor runs the contract test
       Then the test reports no finding for docs/spec/work/term-candidates.md
 
   Rule: Human operator reaches the new owners through the playbooks and the routing

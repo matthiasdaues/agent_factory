@@ -3,7 +3,7 @@
 Generated: 2026-11-25
 Source: [factory-handbooks.md](../../proposals/factory-handbooks.md), accepted at commit `4ebf5101f70c1540a0d53dcfb3d00cfa977d361a` on `dev`
 
-The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 74 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. No question is open. [Resolved questions](#resolved-questions) records the three answers of the run lead.
+The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 76 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. No question is open. [Resolved questions](#resolved-questions) records the three answers of the run lead.
 
 ## Actor-Goal Matrix
 
@@ -30,11 +30,11 @@ The User is the person who runs the factory in a project, as the [glossary](../g
 
 | Completion criterion of the proposal                                                          | Scenario                                        |
 | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `handbook-lint` exits 0 on both handbooks and non-zero on a test page for each failure        | FH-04-01 to FH-04-13                            |
+| `handbook-lint` exits 0 on both handbooks and non-zero on a test page for each failure        | FH-04-01 to FH-04-14                            |
 | `handbook-index --check` exits 0 on both handbooks                                            | FH-03-01                                        |
 | `link-check` over every live document exits 0                                                 | FH-10-08                                        |
 | `handbook-index` and `handbook-lint` fail on an `index.md` without markers, no self-listing   | FH-01-08, FH-01-10, FH-03-03, FH-04-05          |
-| The pre-commit configuration runs `handbook-lint`, and a page without `type` fails the commit | FH-05-01 to FH-05-03                            |
+| The pre-commit configuration runs `handbook-lint`, and a page without `type` fails the commit | FH-05-01 to FH-05-03, FH-05-05                  |
 | `factory-guide.md` is gone, the `rg` search finds nothing, the tests pass, the changelog      | FH-07-04, FH-08-04, FH-11-01, FH-11-02          |
 | Every section heading of the guide maps to a user handbook page                               | FH-08-02, FH-08-03                              |
 | No tracked Markdown file links to the three deleted files                                     | FH-10-01 to FH-10-07                            |
@@ -59,7 +59,7 @@ None. Every Rule has at least one Scenario.
 Two completion criteria describe work steps, not behaviour, so no Scenario states them:
 
 - The lector agent reads the migrated user handbook once before release, and its fixes are applied.
-- The migration story records the migration map. FH-08-02 reads the map from that story, so the story must exist before the Scenario can run.
+- The migration writes the migration map to `docs/spec/work/factory-handbooks-migration-map.md`. FH-08-02 and FH-08-03 read that file, so it must exist before the two Scenarios can run.
 
 The `type` table of the proposal also sets what each page type contains. No script checks page content, so the lector and the reviewer own that table.
 
@@ -78,8 +78,18 @@ The `type` table of the proposal also sets what each page type contains. No scri
 ## Resolved questions
 
 1. **Order and heading of the type groups.** Case: `getting-started/index.md` lists a `tutorial` page "Run your first session" and a `reference` page "Session menu options". The run lead's answer: the groups follow the type table, so the tutorial group comes first. The headings are "Tutorials", "Concepts", "How-to guides", "Reference", and "Learning". A group with no listed page has no heading. FH-01-02 and FH-01-11 to FH-01-13 state it.
+
 2. **Chapters with the same `order`.** Case: `research/` and `usage-capture/` both keep the default 100. The run lead's answer: ties sort by `title`, as pages do, so "Research" comes before "Usage capture". FH-02-04 states it.
+
 3. **A folder inside a chapter.** Case: a contributor creates `cli-integrations/opencode/`. The run lead's answer: the first release has no folder inside a chapter, so `handbook-lint` exits non-zero and reports the path `cli-integrations/opencode/`. FH-04-13 states it.
+
+4. **Values of `order`.** Case: a page has `order: -5`, another `order: 2.5`. The run lead's answer: any integer is valid, including 0 and negative integers, so `-5` passes. A decimal or a value that is not a number is a `handbook-lint` error that names the file, so `2.5` fails. FH-04-03 and FH-04-14 state it.
+
+5. **Repeated or reversed markers.** Case: `cli-integrations/index.md` holds the end marker before the start marker. The run lead's answer: each `index.md` holds each marker exactly once, the start marker first. A missing, repeated, or reversed marker is an error of `handbook-index`, of `handbook-index --check`, and of `handbook-lint`. FH-01-10, FH-03-03, and FH-04-05 state it.
+
+6. **Titles that differ only in case.** Case: "Add a CLI integration" and "add a CLI Integration" in one chapter. The run lead's answer: they are duplicates, so `handbook-lint` fails. FH-04-06 states it.
+
+7. **A commit that only deletes a page.** Case: a contributor deletes `remove-an-integration.md` and stages only the deletion. The run lead's answer: the hook runs `handbook-lint` on every commit (`always_run`), so the out-of-date page list fails the commit. FH-05-03 and FH-05-05 state it.
 
 ## Review findings that touch the specification
 

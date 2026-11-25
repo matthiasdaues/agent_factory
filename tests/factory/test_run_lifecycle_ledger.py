@@ -1,6 +1,6 @@
 """The ledger fields of the run lifecycle (docs/spec/features/run-lifecycle.feature).
 
-Rule: Factory maintainer finds in the dispatch contract exactly the fields
+Rule: Contributor finds in the dispatch contract exactly the fields
 the ledger holds.
 """
 

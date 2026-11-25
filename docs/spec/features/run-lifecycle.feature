@@ -1379,8 +1379,8 @@ Feature: Run Lifecycle
         | execSync("git push origin dev")         |
         | execSync("dispatch close --drop")       |
 
-  Rule: Factory maintainer finds in the dispatch contract exactly the fields the ledger holds
-    # actor: Factory maintainer
+  Rule: Contributor finds in the dispatch contract exactly the fields the ledger holds
+    # actor: Contributor
     # @packages/factory/scripts/dispatch_lib.py::Ledger
     # @packages/factory/scripts/dispatch_lib.py::StoryEntry
 
@@ -1409,7 +1409,7 @@ Feature: Run Lifecycle
       And .current-work/feature/login/dispatch-ledger.yaml is gone
 
     Scenario: The dispatch contract lists exactly the fields the code writes
-      When the Factory maintainer compares dispatch-contract.md with the fields that Ledger and StoryEntry write
+      When the Contributor compares dispatch-contract.md with the fields that Ledger and StoryEntry write
       Then each written field is listed, under the name the code uses
       And no listed field is missing from the code
 
@@ -1424,8 +1424,8 @@ Feature: Run Lifecycle
       Then dispatch reads the ledger and the branch state before it acts
       And the run continues from where it stopped
 
-  Rule: Factory maintainer runs the tests against the source, not the installed copy
-    # actor: Factory maintainer
+  Rule: Contributor runs the tests against the source, not the installed copy
+    # actor: Contributor
     # @packages/factory/scripts/dispatch::cmd_merge_story
 
     Scenario: merge-story copies nothing into the installed copy
@@ -1442,14 +1442,14 @@ Feature: Run Lifecycle
     Scenario: A link to this repository's .agent-factory for scope-lint is no read of the installed copy
       Given tests/factory/test_core_layout_gates.py links this repository's .agent-factory into a baseline copy
       And scope-lint reads .agent-factory/workstreams through that link
-      When the Factory maintainer checks the test suite for reads of the installed copy
+      When the Contributor checks the test suite for reads of the installed copy
       Then the check does not count that link as a read of .agent-factory/factory
 
-  Rule: Factory maintainer reads one vocabulary in every Factory document
-    # actor: Factory maintainer
+  Rule: Contributor reads one vocabulary in every Factory document
+    # actor: Contributor
 
     Scenario: No living Factory document uses a replaced term
-      When the Factory maintainer searches every Markdown file under packages/factory/ and under docs/spec/ outside docs/spec/work/, and every .feature file under docs/spec/features/
+      When the Contributor searches every Markdown file under packages/factory/ and under docs/spec/ outside docs/spec/work/, and every .feature file under docs/spec/features/
       Then no file uses the terms automated mode, manual mode, mechanized dispatch, invocation branch, gate-check loop, drift report, or main checkout
       And accepted ADRs, superseded proposals, and file names keep their terms
       And a sentence that names a replaced term only to forbid it keeps the term, as this Scenario does
@@ -1460,5 +1460,5 @@ Feature: Run Lifecycle
       Then the message does not say "invocation branch" or "main checkout"
 
     Scenario: The index of the Factory stays consistent
-      When the Factory maintainer runs index-lint --check
+      When the Contributor runs index-lint --check
       Then index-lint exits 0

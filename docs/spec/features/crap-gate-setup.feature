@@ -453,7 +453,7 @@ Feature: CRAP Gate Setup
       Then /tmp/rows.json holds the rows of the measure python
 
     Scenario: crap-score holds no language-specific code
-      When the Factory maintainer reads packages/factory/scripts/crap-score
+      When the Contributor reads packages/factory/scripts/crap-score
       Then it has no language-specific import and no file pattern of a language
       # @packages/factory/scripts/crap-score::iter_python_files
       # @packages/factory/scripts/crap-score::load_coverage
@@ -1482,14 +1482,14 @@ Feature: CRAP Gate Setup
       # DEC-41
 
     Scenario: The story template and the implementation agent name no default gate
-      When the Factory maintainer reads packages/factory/rulebooks/templates/story.md and packages/factory/agents/implementation-agent.md
+      When the Contributor reads packages/factory/rulebooks/templates/story.md and packages/factory/agents/implementation-agent.md
       Then neither file names a default that runs crap-score alone
 
-  Rule: Factory maintainer reads one CRAP gate contract in every Factory document
-    # actor: Factory maintainer
+  Rule: Contributor reads one CRAP gate contract in every Factory document
+    # actor: Contributor
 
     Scenario: The skill crap-score describes the gate and names no tool and no threshold
-      When the Factory maintainer reads packages/factory/skills/crap-score/SKILL.md
+      When the Contributor reads packages/factory/skills/crap-score/SKILL.md
       Then the skill describes the measurement format, the formula, the exit codes, the exceptions register, and where the gate runs
       And the skill names no default threshold and no tool
       # DEC-01
@@ -1500,24 +1500,24 @@ Feature: CRAP Gate Setup
       And the generated index lists setup-crap-score
 
     Scenario: The test-strategy agent runs the setup and no gate on a story
-      When the Factory maintainer reads packages/factory/agents/test-strategy-agent.md
+      When the Contributor reads packages/factory/agents/test-strategy-agent.md
       Then the agent definition calls setup-crap-score
       And it says that the agent runs gate-setup-proof and the whole-project measurement during setup
       And it says that the agent runs no gate on a story
       And its completion criteria do not say that no gate ran
 
     Scenario: The implementation agent runs crap-score as a background job
-      When the Factory maintainer reads packages/factory/agents/implementation-agent.md
+      When the Contributor reads packages/factory/agents/implementation-agent.md
       Then it says that the gate-check step runs crap-score as a background job and waits for its exit
 
     Scenario: The architecture names exit code 2 of crap-score
-      When the Factory maintainer reads docs/adr/0003-test-execution-via-hooks.md and docs/arc42/05_building_block_view.md
+      When the Contributor reads docs/adr/0003-test-execution-via-hooks.md and docs/arc42/05_building_block_view.md
       Then ADR-0003 carries the amendment of decision 5 that names crap-score as the exception to the exit-code-only contract
       And arc42 § 5 lists exit code 2 for crap-score
       # DEC-02
 
     Scenario Outline: The business rules state the gate's behaviour
-      When the Factory maintainer reads <rule> in docs/spec/validation-rules.md
+      When the Contributor reads <rule> in docs/spec/validation-rules.md
       Then <rule> states that <content>
 
       Examples:
@@ -1529,21 +1529,21 @@ Feature: CRAP Gate Setup
         | BR-124 | merge-story turns exit 3 of premerge-check into blocked |
 
     Scenario: T-0402 names both proposals
-      When the Factory maintainer reads T-0402 in docs/spec/work/todo.md
+      When the Contributor reads T-0402 in docs/spec/work/todo.md
       Then T-0402 names docs/proposals/crap-gate-setup.md for the CRAP part
       And T-0402 names docs/proposals/mutation-gate.md for the mutation part
 
-  Rule: Factory maintainer runs the CRAP gate on this repository for Python and TypeScript
-    # actor: Factory maintainer
+  Rule: Contributor runs the CRAP gate on this repository for Python and TypeScript
+    # actor: Contributor
 
     Scenario: The gate is enabled with a measure for Python and one for TypeScript
-      When the Factory maintainer reads docs/testing.yaml of this repository
+      When the Contributor reads docs/testing.yaml of this repository
       Then the entry gates.crap-score has enabled true
       And it has one measure for Python and one for TypeScript
       And gate-setup-proof passes for each measure
 
     Scenario: The TypeScript measure uses the test runner of node
-      When the Factory maintainer reads the measuring command of the TypeScript measure
+      When the Contributor reads the measuring command of the TypeScript measure
       Then the command runs node --test --experimental-test-coverage
 
     Scenario: The TypeScript measure installs ESLint from a committed lock without install scripts
@@ -1570,7 +1570,7 @@ Feature: CRAP Gate Setup
 
     Scenario Outline: The measure python excludes a script that no test runs, by name with a reason
       Given packages/factory/scripts/<script> starts with #!/usr/bin/env python3 and no test runs it
-      When the Factory maintainer reads the exclusions of the measure python in docs/testing.yaml
+      When the Contributor reads the exclusions of the measure python in docs/testing.yaml
       Then the measure python excludes packages/factory/scripts/<script> by its name
       And the exclusion has the reason that no test reaches the script yet
       And the script does not start with uv run
@@ -1589,13 +1589,13 @@ Feature: CRAP Gate Setup
 
     Scenario: The scripts that tests run and that start with python3 switch to uv run
       Given trigger and validate start with #!/usr/bin/env python3 and tests run them
-      When the Factory maintainer reads the first line of trigger and validate
+      When the Contributor reads the first line of trigger and validate
       Then each starts with the uv run --script form
       And the measure python excludes neither
       # DEC-86
 
     Scenario: The time limit covers the measured run time
-      When the Factory maintainer reads the entry gates.crap-score in docs/testing.yaml of this repository
+      When the Contributor reads the entry gates.crap-score in docs/testing.yaml of this repository
       Then the entry has measured_minutes from setup step 6
       And timeout_minutes is at least measured_minutes
       # DEC-19

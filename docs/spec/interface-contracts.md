@@ -1817,26 +1817,26 @@ These contracts hold the two scripts of [factory-handbooks.feature](features/fac
 
 ### `packages/factory/scripts/handbook-index`
 
-| Property  | Contract                                                                                                                                                 |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `handbook-index [--check]`                                                                                                                               |
-| Reads     | The frontmatter of every page of both handbooks, and every `index.md` (BR-140, BR-143)                                                                   |
-| Writes    | Without `--check`, the text between the markers of each `index.md`: the page list of a chapter (BR-144) or of a handbook's top-level `index.md` (BR-145) |
-| `--check` | Writes nothing. Compares each page list with what the script would write (BR-146)                                                                        |
-| Refuses   | An `index.md` that lacks one of the markers. The script adds no marker (BR-143)                                                                          |
-| Messages  | The path of each `index.md` that lacks a marker, and with `--check` the path of each `index.md` whose page list differs                                  |
-| Exit code | `0` when every page list is written or, with `--check`, current. Non-zero on a missing marker, and with `--check` on a page list that differs            |
-| Run by    | A contributor after adding, changing, or removing a page, and `handbook-lint` with `--check`                                                             |
+| Property  | Contract                                                                                                                                                             |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `handbook-index [--check]`                                                                                                                                           |
+| Reads     | The frontmatter of every page of both handbooks, and every `index.md` (BR-140, BR-143)                                                                               |
+| Writes    | Without `--check`, the text between the markers of each `index.md`: the page list of a chapter (BR-144) or of a handbook's top-level `index.md` (BR-145)             |
+| `--check` | Writes nothing. Compares each page list with what the script would write (BR-146)                                                                                    |
+| Refuses   | An `index.md` with a missing, repeated, or reversed marker. The script adds no marker (BR-143)                                                                       |
+| Messages  | The path of each `index.md` with a missing, repeated, or reversed marker, and with `--check` the path of each `index.md` whose page list differs                     |
+| Exit code | `0` when every page list is written or, with `--check`, current. Non-zero on a missing, repeated, or reversed marker, and with `--check` on a page list that differs |
+| Run by    | A contributor after adding, changing, or removing a page, and `handbook-lint` with `--check`                                                                         |
 
 ### `packages/factory/scripts/handbook-lint`
 
-| Property  | Contract                                                                                                                                                                              |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `handbook-lint`                                                                                                                                                                       |
-| Reads     | Every page and every folder of both handbooks                                                                                                                                         |
-| Writes    | Nothing                                                                                                                                                                               |
-| Checks    | BR-140 to BR-143, and BR-146 through `handbook-index --check`. No link and no rule word (BR-147, DEC-12)                                                                              |
-| Messages  | One report per failure, for every failure in both handbooks. It names the path of the page or folder, and the field or the shared title where BR-140 or BR-142 fails                  |
-| Exit code | `0` when it finds no failure, non-zero otherwise                                                                                                                                      |
-| Run by    | A contributor, and the pre-commit hook of this repository                                                                                                                             |
-| Hook      | `.pre-commit-config.yaml` of this repository runs it when a commit stages a file under either handbook (BR-148). `init-factory` installs neither script as a hook into a user project |
+| Property  | Contract                                                                                                                                                                                                                          |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `handbook-lint`                                                                                                                                                                                                                   |
+| Reads     | Every page and every folder of both handbooks                                                                                                                                                                                     |
+| Writes    | Nothing                                                                                                                                                                                                                           |
+| Checks    | BR-140 to BR-143, and BR-146 through `handbook-index --check`. No link and no rule word (BR-147, DEC-12)                                                                                                                          |
+| Messages  | One report per failure, for every failure in both handbooks. It names the path of the page or folder, and the field or the shared title where BR-140 or BR-142 fails                                                              |
+| Exit code | `0` when it finds no failure, non-zero otherwise                                                                                                                                                                                  |
+| Run by    | A contributor, and the pre-commit hook of this repository                                                                                                                                                                         |
+| Hook      | `.pre-commit-config.yaml` of this repository runs it on every commit, with `always_run: true`, so a commit that only deletes a page is checked too (BR-148). `init-factory` installs neither script as a hook into a user project |

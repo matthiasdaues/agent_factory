@@ -1,6 +1,6 @@
 """Producer and review contract test for the core list (ST-0347).
 
-Rule: Factory maintainer finds exactly one producer for every core and seam
+Rule: Contributor finds exactly one producer for every core and seam
 artifact (BR-056, BR-057, BR-058, BR-060). Each entry of
 `rulebooks/core-artifacts.yaml` needs exactly one output declaration that
 matches its sample path, and that declaration needs a non-empty

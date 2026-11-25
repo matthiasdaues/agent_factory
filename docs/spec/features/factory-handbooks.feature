@@ -12,8 +12,8 @@ Feature: Factory Handbooks
   A page starts with frontmatter. The fields title, type, and status are
   required. type is one of tutorial, concept, how-to, reference, and
   learn. status is implemented or stub (DEC-05). description is optional
-  and holds one sentence. order is an optional number with the default
-  100. A stub is a page for behaviour that does not exist yet. It carries
+  and holds one sentence. order is an optional integer with the default
+  100. Zero and negative integers are valid. A stub is a page for behaviour that does not exist yet. It carries
   status stub, one sentence of scope, and links to its sources.
 
   Every folder has an index.md, the chapter page. A chapter folder holds
@@ -21,14 +21,17 @@ Feature: Factory Handbooks
   the same frontmatter rules apply to it. The script handbook-index
   writes the folder's page list into index.md, between the markers
   <!-- handbook-index:start --> and <!-- handbook-index:end --> (DEC-06).
+  Each index.md holds each marker exactly once, the start marker before
+  the end marker.
   The script handbook-lint checks both handbooks. It runs
   handbook-index --check and does not check links, because link-check
   owns links.
 
   The migration deletes three files: packages/factory/docs/factory-guide.md,
   docs/arc42/concepts.md, and docs/arc42/beginner-intro.md (DEC-07,
-  DEC-10, DEC-13). The migration map assigns each section of the three
-  files to the handbook page that now holds it. A live document is every
+  DEC-10, DEC-13). The migration map docs/spec/work/factory-handbooks-migration-map.md
+  assigns each section of the three files to the handbook page that now
+  holds it. A live document is every
   tracked Markdown file outside poc/ and outside the record folders. The
   record folders are backlog/, docs/handoffs/, docs/findings/,
   docs/reviews/, docs/transcripts/, docs/research/, docs/spec/work/,
@@ -141,13 +144,21 @@ Feature: Factory Handbooks
       When the contributor runs handbook-index
       Then the introduction and the note are unchanged byte for byte
 
-    Scenario: An index.md without the marker pair stops handbook-index
+    Scenario Outline: An index.md with a broken marker pair stops handbook-index
       # trace: FH-01-10
-      Given cli-integrations/index.md holds no end marker
+      Given cli-integrations/index.md <defect>
       When the contributor runs handbook-index
       Then handbook-index exits non-zero
       And it reports the path of cli-integrations/index.md
-      And it adds no marker to cli-integrations/index.md
+      And it changes no marker in cli-integrations/index.md
+
+      Examples:
+        | defect                                       |
+        | holds no start marker                        |
+        | holds no end marker                          |
+        | holds the start marker twice                 |
+        | holds the end marker twice                   |
+        | holds the end marker before the start marker |
 
   Rule: Contributor sees every chapter in the top-level index of a handbook
     # actor: Contributor
@@ -198,12 +209,20 @@ Feature: Factory Handbooks
       And it reports the path of cli-integrations/index.md
       And it changes no file
 
-    Scenario: An index.md without the marker pair fails the check
+    Scenario Outline: An index.md with a broken marker pair fails the check
       # trace: FH-03-03
-      Given cli-integrations/index.md holds no start marker
+      Given cli-integrations/index.md <defect>
       When the contributor runs handbook-index --check
       Then handbook-index exits non-zero
       And it reports the path of cli-integrations/index.md
+
+      Examples:
+        | defect                                       |
+        | holds no start marker                        |
+        | holds no end marker                          |
+        | holds the start marker twice                 |
+        | holds the end marker twice                   |
+        | holds the end marker before the start marker |
 
   Rule: Contributor learns from handbook-lint which page breaks the page format
     # actor: Contributor
@@ -242,6 +261,7 @@ Feature: Factory Handbooks
         | status | planned   |
         | status | specified |
         | order  | first     |
+        | order  | 2.5       |
 
     Scenario: A folder with pages but no index.md fails
       # trace: FH-04-04
@@ -250,19 +270,33 @@ Feature: Factory Handbooks
       Then handbook-lint exits non-zero
       And it reports the folder docs/handbook/testing/
 
-    Scenario: An index.md without the marker pair fails
+    Scenario Outline: An index.md with a broken marker pair fails
       # trace: FH-04-05
-      Given cli-integrations/index.md holds no marker pair
+      Given cli-integrations/index.md <defect>
       When the contributor runs handbook-lint
       Then handbook-lint exits non-zero
       And it reports the path of cli-integrations/index.md
 
-    Scenario: Two implemented pages with one title in one chapter fail
+      Examples:
+        | defect                                       |
+        | holds no start marker                        |
+        | holds no end marker                          |
+        | holds the start marker twice                 |
+        | holds the end marker twice                   |
+        | holds the end marker before the start marker |
+
+    Scenario Outline: Two implemented pages with one title in one chapter fail
       # trace: FH-04-06
-      Given add-an-integration.md and add-cli.md in cli-integrations/ both have the title "Add a CLI integration" and status implemented
+      Given add-an-integration.md in cli-integrations/ has the title "<first title>" and status implemented
+      And add-cli.md in cli-integrations/ has the title "<second title>" and status implemented
       When the contributor runs handbook-lint
       Then handbook-lint exits non-zero
-      And it reports both paths and the title "Add a CLI integration"
+      And it reports both paths and the title "<second title>"
+
+      Examples:
+        | first title           | second title          |
+        | Add a CLI integration | Add a CLI integration |
+        | Add a CLI integration | add a CLI Integration |
 
     Scenario: A stub may share a title with an implemented page
       # trace: FH-04-07
@@ -314,6 +348,19 @@ Feature: Factory Handbooks
       Then handbook-lint exits non-zero
       And it reports the path of cli-integrations/opencode/
 
+    Scenario Outline: Any integer is a valid order
+      # trace: FH-04-14
+      Given remove-an-integration.md has order set to <value>
+      And the handbook is otherwise in the page format
+      When the contributor runs handbook-lint
+      Then handbook-lint exits 0
+
+      Examples:
+        | value |
+        | 0     |
+        | -5    |
+        | 20    |
+
   Rule: Contributor cannot commit a handbook page that breaks the page format
     # actor: Contributor
     # trace: FH-05
@@ -334,11 +381,18 @@ Feature: Factory Handbooks
       When the contributor commits
       Then the pre-commit hook handbook-lint passes
 
-    Scenario: A commit that changes no handbook file does not run handbook-lint
+    Scenario: handbook-lint runs on a commit that changes no handbook file
       # trace: FH-05-03
       Given the contributor stages only packages/factory/scripts/link-check
       When the contributor commits
-      Then the pre-commit hook handbook-lint does not run
+      Then the pre-commit hook handbook-lint runs
+
+    Scenario: A commit that only deletes a page is checked
+      # trace: FH-05-05
+      Given the contributor deletes remove-an-integration.md and stages only the deletion
+      When the contributor commits
+      Then the pre-commit hook handbook-lint fails, because the page list of cli-integrations/index.md is out of date
+      And the commit is not created
 
     Scenario: init-factory installs no handbook hook into a user project
       # trace: FH-05-04
@@ -396,14 +450,14 @@ Feature: Factory Handbooks
 
     Scenario: Every section of the guide has a user handbook page
       # trace: FH-08-02
-      Given the migration map of the migration story
+      Given the migration map docs/spec/work/factory-handbooks-migration-map.md
       Then every section heading of factory-guide.md at commit 4ebf5101f70c1540a0d53dcfb3d00cfa977d361a has a row in the map
       And each row names a user handbook page that exists
 
     Scenario: The Getting Started section becomes the getting-started tutorial
       # trace: FH-08-03
       Then packages/factory/docs/handbook/getting-started/ holds a page with type tutorial and status implemented
-      And the migration map assigns the guide's section "Getting Started" to that page
+      And docs/spec/work/factory-handbooks-migration-map.md assigns the guide's section "Getting Started" to that page
 
     Scenario: The guide no longer exists in the source
       # trace: FH-08-04

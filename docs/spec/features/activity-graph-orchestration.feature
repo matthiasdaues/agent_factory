@@ -520,7 +520,7 @@ Feature: Activity-graph orchestration
       And checksums.json exists instead of factory-checksums.json
 
   Rule: Orchestrator package is dormant
-    # actor: Factory maintainer
+    # actor: Contributor
     # @packages/orchestrator/
 
     Scenario: packages/orchestrator/ exists but is not active
@@ -531,7 +531,7 @@ Feature: Activity-graph orchestration
       And the orchestrator may be revisited in a future iteration
 
   Rule: Cycle-based orchestration proposal is superseded
-    # actor: Factory maintainer
+    # actor: Contributor
     # @docs/proposals/superseded/cycle-based-orchestration.md
 
     Scenario: Superseded proposal carries status superseded
