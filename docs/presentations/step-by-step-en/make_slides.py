@@ -465,7 +465,38 @@ text(c, 4, 20, "follows from the artefacts that already exist.")
 text(c, 4, 22, "Not sure? Choose P in the menu. VIRGIL asks and suggests the recipe.", "~~")
 slides.append(slide(c))
 
-# 15. Three habits -----------------------------------------------------------------------------------------
+# 15. Extending the factory --------------------------------------------------------------------------------
+c = Canvas(99, 25)
+title(c, "EXTENDING THE FACTORY", "fit it to your project, and add what only your project needs")
+c.box(3, 4, 44, 9, [])
+text(c, 5, 4, " FIT IT TO YOUR PROJECT ", "**")
+fit = [("model matrix", "which model for what"),
+       ("agent context", "where knowledge lives"),
+       ("test regime", "how the project tests"),
+       ("hooks", "which checks run on commit"),
+       ("conventions", "yours override the defaults")]
+for i, (k, d) in enumerate(fit):
+    c.put(5, 6 + i, f"{k:<14}{d}")
+c.box(50, 4, 46, 9, [])
+text(c, 52, 4, " ADD YOUR OWN PARTS ", "**")
+own = [("skills", "a procedure only you need"),
+       ("agents", "a job only your project has"),
+       ("templates", "the shape of your documents")]
+for i, (k, d) in enumerate(own):
+    c.put(52, 6 + i, f"{k:<11}{d}")
+c.put(52, 10, "Ask the agent to add the part and to")
+c.put(52, 11, "refresh INDEX.yaml and the Copilot agents.")
+text(c, 4, 14, "EXAMPLE: A CAMUNDA TEAM", "**")
+c.put(4, 15, "\"Add a skill bpmn-model-review that checks our BPMN models, and refresh INDEX.yaml.\"")
+c.put(4, 16, "Copilot writes the skill into .agent-factory/factory/skills/ and runs index-lint.")
+text(c, 4, 18, "An update saves your parts, but does not put them back.", "**")
+c.put(4, 19, "update-factory stops and names each file you added. With --force, it copies the files")
+c.put(4, 20, "to .agent-factory/user-changes/ and installs the new release. Ask the agent to copy them back.")
+text(c, 4, 21, "Git ignores .agent-factory/, so your parts stay on your machine. Share them by hand.", "~~")
+text(c, 4, 23, "Useful for every project? Propose it for the factory core.", "**")
+slides.append(slide(c))
+
+# 16. Three habits -----------------------------------------------------------------------------------------
 c = Canvas(62, 14)
 text(c, 3, 1, "THREE HABITS", "**")
 habits = [("Read before you approve.", "Your yes is the last gate. It matters most."),

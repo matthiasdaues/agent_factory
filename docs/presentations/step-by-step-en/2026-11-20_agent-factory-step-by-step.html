@@ -506,6 +506,35 @@ svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
 ```
 @footer agent factory · step by step
 ---
+```grid 99x25
+
+    **EXTENDING THE FACTORY**
+    %%fit it to your project, and add what only your project needs%%
+
+   ┌─** FIT IT TO YOUR PROJECT **─────────────────┐   ┌─** ADD YOUR OWN PARTS **───────────────────────┐
+   │                                          │   │                                            │
+   │ model matrix  which model for what       │   │ skills     a procedure only you need       │
+   │ agent context where knowledge lives      │   │ agents     a job only your project has     │
+   │ test regime   how the project tests      │   │ templates  the shape of your documents     │
+   │ hooks         which checks run on commit │   │                                            │
+   │ conventions   yours override the defaults│   │ Ask the agent to add the part and to       │
+   │                                          │   │ refresh INDEX.yaml and the Copilot agents. │
+   └──────────────────────────────────────────┘   └────────────────────────────────────────────┘
+
+    **EXAMPLE: A CAMUNDA TEAM**
+    "Add a skill bpmn-model-review that checks our BPMN models, and refresh INDEX.yaml."
+    Copilot writes the skill into .agent-factory/factory/skills/ and runs index-lint.
+
+    **An update saves your parts, but does not put them back.**
+    update-factory stops and names each file you added. With --force, it copies the files
+    to .agent-factory/user-changes/ and installs the new release. Ask the agent to copy them back.
+    ~~Git ignores .agent-factory/, so your parts stay on your machine. Share them by hand.~~
+
+    **Useful for every project? Propose it for the factory core.**
+
+```
+@footer agent factory · step by step
+---
 ```grid 62x14
 
    **THREE HABITS**
