@@ -160,6 +160,22 @@ Feature: Factory Handbooks
         | holds the end marker twice                   |
         | holds the end marker before the start marker |
 
+    Scenario: A page that breaks the page format stops handbook-index
+      # trace: FH-01-14
+      Given add-an-integration.md has no type field
+      And cli-differences.md has status set to planned
+      When the contributor runs handbook-index
+      Then handbook-index exits non-zero
+      And it writes no file
+      And it reports the path of add-an-integration.md and the field type
+      And it reports the path of cli-differences.md and the field status
+
+    Scenario: Pages with the same order and title sort by the path of their file
+      # trace: FH-01-15
+      Given add-an-integration.md and add-cli.md in cli-integrations/ are implemented how-to pages with the title "Add a CLI integration" and no order
+      When the contributor runs handbook-index
+      Then the how-to group of cli-integrations/index.md lists add-an-integration.md before add-cli.md
+
   Rule: Contributor sees every chapter in the top-level index of a handbook
     # actor: Contributor
     # trace: FH-02
@@ -189,6 +205,12 @@ Feature: Factory Handbooks
       Given the contributor creates the folder troubleshooting/ with an index.md that holds the marker pair
       When the contributor runs handbook-index
       Then the top-level index.md lists the chapter troubleshooting/
+
+    Scenario: Chapters with the same order and title sort by the path of their folder
+      # trace: FH-02-05
+      Given the index.md of research/ and the index.md of usage-capture/ both have the title "Research" and no order
+      When the contributor runs handbook-index
+      Then the top-level index.md lists research/ before usage-capture/
 
   Rule: Contributor learns from handbook-index --check that a page list is out of date
     # actor: Contributor
@@ -224,6 +246,14 @@ Feature: Factory Handbooks
         | holds the end marker twice                   |
         | holds the end marker before the start marker |
 
+    Scenario: A page that breaks the page format stops the check
+      # trace: FH-03-04
+      Given add-an-integration.md has no type field
+      When the contributor runs handbook-index --check
+      Then handbook-index exits non-zero
+      And it writes no file
+      And it reports the path of add-an-integration.md and the field type
+
   Rule: Contributor learns from handbook-lint which page breaks the page format
     # actor: Contributor
     # trace: FH-04
@@ -257,6 +287,9 @@ Feature: Factory Handbooks
 
       Examples:
         | field  | value     |
+        | title  | 42        |
+        | title  | ""        |
+        | title  | null      |
         | type   | guide     |
         | status | planned   |
         | status | specified |
@@ -361,6 +394,17 @@ Feature: Factory Handbooks
         | -5    |
         | 20    |
 
+    Scenario: handbook-lint reports page-format failures and goes on with its other checks
+      # trace: FH-04-15
+      Given add-an-integration.md in the user handbook has no type field
+      And a page of the contributor handbook has status set to planned
+      And the folder docs/handbook/testing/ holds the page layers.md and no index.md
+      When the contributor runs handbook-lint
+      Then handbook-lint exits non-zero
+      And it reports the path of add-an-integration.md and the field type
+      And it reports the path of the contributor page and the field status
+      And it reports the folder docs/handbook/testing/
+
   Rule: Contributor cannot commit a handbook page that breaks the page format
     # actor: Contributor
     # trace: FH-05
@@ -410,10 +454,11 @@ Feature: Factory Handbooks
       And the Source line links to packages/factory/rulebooks/rules.md or to a file under packages/factory/rulebooks/
       # DEC-02
 
-  Rule: User reads the installed user handbook after update-factory
+  Rule: User reads the installed user handbook after init-factory or update-factory
     # actor: User
     # trace: FH-07
     # @packages/factory/scripts/update-factory::_run_init
+    # @packages/factory/scripts/init-factory::main
 
     Scenario: The installed handbook lists every user handbook chapter
       # trace: FH-07-01
@@ -422,10 +467,26 @@ Feature: Factory Handbooks
       Then .agent-factory/factory/docs/handbook/index.md exists
       And its page list names each of the twelve chapters of the user handbook
 
-    Scenario: The installed handbook matches the source handbook
+    Scenario: The installed handbook matches the source handbook file for file
       # trace: FH-07-02
       When the user runs update-factory
-      Then every file under .agent-factory/factory/docs/handbook/ equals its file under packages/factory/docs/handbook/
+      Then the set of relative paths under .agent-factory/factory/docs/handbook/ equals the set under packages/factory/docs/handbook/
+      And every installed file has the same bytes as its source file
+
+    Scenario: The update removes a handbook page that the source no longer holds
+      # trace: FH-07-05
+      Given the project holds .agent-factory/factory/docs/handbook/cli-integrations/old-page.md from the earlier installation
+      And packages/factory/docs/handbook/cli-integrations/ holds no old-page.md
+      When the user runs update-factory
+      Then .agent-factory/factory/docs/handbook/cli-integrations/old-page.md does not exist
+
+    Scenario: A fresh installation holds the user handbook and no contributor handbook
+      # trace: FH-07-06
+      Given a project has no factory installation
+      When the user runs init-factory
+      Then the set of relative paths under .agent-factory/factory/docs/handbook/ equals the set under packages/factory/docs/handbook/
+      And no file of the contributor handbook docs/handbook/ is copied into the project
+      # DEC-04
 
     Scenario: The update removes the installed guide
       # trace: FH-07-03
@@ -462,7 +523,8 @@ Feature: Factory Handbooks
     Scenario: The guide no longer exists in the source
       # trace: FH-08-04
       Then packages/factory/docs/factory-guide.md does not exist
-      And rg factory-guide packages/ tests/ docs/spec/ README.md --glob '!CHANGELOG.md' --glob '!docs/spec/work/**' finds no match
+      And rg factory-guide packages/ tests/ README.md docs/spec/features/ --glob '!CHANGELOG.md' --glob '!docs/spec/features/factory-handbooks.feature' finds no match
+      # The handbook specification names its migration inputs by design, so the search leaves it out.
 
   Rule: User and contributor find the content of concepts.md and beginner-intro.md in the handbooks
     # actor: User, Contributor
@@ -561,7 +623,8 @@ Feature: Factory Handbooks
     Scenario: The tests read handbook pages instead of the guide
       # trace: FH-11-01
       Then no file under tests/ names factory-guide.md
-      And the checks of test_brownfield_order.py, test_hook_missing_factory.py, and test_core_layout_references.py read the user handbook pages that hold the checked text
+      And test_core_layout_references.py keeps its scan of every spec-writer file, with the handbook path in place of docs/factory-guide.md
+      And test_brownfield_order.py and test_hook_missing_factory.py keep their content assertions and read the user handbook page that now holds the checked text
 
     Scenario: The full test suite passes after the move
       # trace: FH-11-02

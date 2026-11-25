@@ -20,5 +20,5 @@
   },
   "why_this_severity": "The glossary and the resolved list provide the answers (no to fails_purpose), but the summary makes readers look in the wrong place and recount the decisions.",
   "commit": "a39f9b6d5242b51fb5de51a1b789b2a646eae1f1",
-  "status": "open"
+  "status": "resolved"
 }

@@ -3,11 +3,11 @@
 Generated: 2026-11-25
 Source: [factory-handbooks.md](../../proposals/factory-handbooks.md), accepted at commit `4ebf5101f70c1540a0d53dcfb3d00cfa977d361a` on `dev`
 
-The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 76 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. No question is open. [Resolved questions](#resolved-questions) records the three answers of the run lead.
+The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 83 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. No question is open. [Resolved questions](#resolved-questions) records the seven answers of the run lead.
 
 ## Actor-Goal Matrix
 
-The User is the person who runs the factory in a project, as the [glossary](../glossary.md) defines. The Contributor is a person who changes the factory itself, as the proposal's Primer defines. [term-candidates.md](term-candidates.md) records Contributor and the other handbook terms for the domain-modeling agent.
+The User is the person who runs the factory in a project, as the [glossary](../glossary.md) defines. The Contributor is a person who changes the factory itself, as the proposal's Primer defines. The [glossary](../glossary.md) holds Contributor and the other handbook terms as confirmed entries.
 
 | ID    | Actor             | Goal                                                                 | Rule                                                                                              | Status    |
 | ----- | ----------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | --------- |
@@ -17,7 +17,7 @@ The User is the person who runs the factory in a project, as the [glossary](../g
 | FH-04 | Contributor       | Learn which page breaks the page format                              | Rule: Contributor learns from handbook-lint which page breaks the page format                     | specified |
 | FH-05 | Contributor       | Keep a broken page out of a commit                                   | Rule: Contributor cannot commit a handbook page that breaks the page format                       | specified |
 | FH-06 | Contributor       | Keep each binding rule in one home                                   | Rule: Contributor repeats a binding rule only in a rule summary that links to its home            | specified |
-| FH-07 | User              | Read the user handbook that matches the installed code               | Rule: User reads the installed user handbook after update-factory                                 | specified |
+| FH-07 | User              | Read the user handbook that matches the installed code               | Rule: User reads the installed user handbook after init-factory or update-factory                 | specified |
 | FH-08 | User              | Find the content of the factory guide                                | Rule: User finds the content of the factory guide on user handbook pages                          | specified |
 | FH-09 | User, Contributor | Find the content of `concepts.md` and `beginner-intro.md`            | Rule: User and contributor find the content of concepts.md and beginner-intro.md in the handbooks | specified |
 | FH-10 | User, Contributor | Follow an old link to the new home of its information                | Rule: User and contributor follow every old link to the new home of its information               | specified |
@@ -30,7 +30,7 @@ The User is the person who runs the factory in a project, as the [glossary](../g
 
 | Completion criterion of the proposal                                                          | Scenario                                        |
 | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `handbook-lint` exits 0 on both handbooks and non-zero on a test page for each failure        | FH-04-01 to FH-04-14                            |
+| `handbook-lint` exits 0 on both handbooks and non-zero on a test page for each failure        | FH-04-01 to FH-04-15                            |
 | `handbook-index --check` exits 0 on both handbooks                                            | FH-03-01                                        |
 | `link-check` over every live document exits 0                                                 | FH-10-08                                        |
 | `handbook-index` and `handbook-lint` fail on an `index.md` without markers, no self-listing   | FH-01-08, FH-01-10, FH-03-03, FH-04-05          |
@@ -39,7 +39,7 @@ The User is the person who runs the factory in a project, as the [glossary](../g
 | Every section heading of the guide maps to a user handbook page                               | FH-08-02, FH-08-03                              |
 | No tracked Markdown file links to the three deleted files                                     | FH-10-01 to FH-10-07                            |
 | `concepts.md` and `beginner-intro.md` are gone, their content is on the two new pages         | FH-09-01 to FH-09-04                            |
-| After `update-factory`, the installed `index.md` lists every user handbook chapter            | FH-07-01                                        |
+| After `update-factory`, the installed `index.md` lists every user handbook chapter            | FH-07-01, FH-07-02, FH-07-05, FH-07-06          |
 | Session menu H as a new user starts the `getting-started/` tutorial                           | FH-12-01, FH-12-02, newcomer-onboarding Rule    |
 | The contributor tutorial goes from `git clone` to a passing test run                          | FH-14-02                                        |
 | The `contributing/` chapter is written, every other chapter has an index and a stub           | FH-14-01, FH-14-03 to FH-14-05                  |
