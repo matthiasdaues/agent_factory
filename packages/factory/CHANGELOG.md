@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.16.0 — 2026-11-25
+
+This release adds the `quiz` skill and aligns the playbooks with the current
+scripts. Run `update-factory` to receive it.
+
+### Changes
+
+- **The `quiz` skill tests your picture of a codebase.** It asks one open
+  question at a time about the code, tests and in-repo docs, and grades each
+  answer against the code with `file:line` references. It runs only when you
+  invoke it. Arguments pick areas, a question count, open or closed book,
+  and a quick round.
+- **The refactoring playbook plans work as a backlog story.** It no longer
+  writes a `REFACTOR-*` finding. The story records the affected paths, the
+  structural improvement and the behavior that must stay the same, and
+  commits reference its `ST-NNNN` ID.
+- **The bug fix playbook claims its ID with `next-id BUG`.** It classifies
+  the report with the finding classification and uses the finding template
+  or the register format instead of an inline file.
+- **The architecture review playbook checks the DSL first.** It no longer
+  lists twelve fixed arc42 files. It records deferred decisions in
+  `docs/spec/work/todo.md` with IDs from `next-id T`.
+- **Review loops send findings to their owners.** The feature, greenfield,
+  documentation update and architecture review playbooks send each blocking
+  finding to its owner and repeat the review, instead of listing manual
+  fixes.
+- **Research playbooks name their arguments.** `source-record-check` and
+  `concept-history-check` now show the topic folder they run on.
+
+### Fixes
+
+- **Playbooks name `docs/spec/work/todo.md`.** Several playbooks named
+  `todos.md`, a file the factory does not use.
+- **The proof-of-concept playbooks no longer promise skipped gates.** They
+  said the gates skip `poc/`. Repository checks follow the project's own hook
+  and test configuration.
+
 ## 1.15.0 — 2026-11-24
 
 This release lets the CRAP gate measure only the files a story changed, and
