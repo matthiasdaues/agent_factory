@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0160",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "untraced",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:111",
+  "story": null,
+  "finding": "FH-07-IT-02 still quotes the old FH-07-02 title after adding path-set equality. Use the current title ending in \"file for file\".",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "The trace ID and both assertions identify the scenario, so a test author can recover the correct title (no to fails_purpose).",
+  "commit": "8ad7ceeeb3d57d358f94d74ad90606ae236eb849",
+  "status": "resolved"
+}

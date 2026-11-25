@@ -414,6 +414,13 @@ Feature: Factory Handbooks
       And it reports the path of add-an-integration.md and the field type
       And it reports the path of docs/handbook/contributing/index.md as out of date
 
+    Scenario: handbook-lint fails when a handbook has no top-level index.md
+      # trace: FH-04-17
+      Given docs/handbook/ holds chapter folders and no index.md
+      When the contributor runs handbook-lint
+      Then handbook-lint exits non-zero
+      And it reports the folder docs/handbook/
+
   Rule: Contributor cannot commit a handbook page that breaks the page format
     # actor: Contributor
     # trace: FH-05

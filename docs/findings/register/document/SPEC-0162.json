@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0162",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:658",
+  "story": null,
+  "finding": "BR-146 leaves the inputs of an independently comparable list implicit. Define the input pages for each list and state that a broken marker pair prevents comparing that list.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "BR-143 to BR-145 give the test author the marker requirement and the inputs needed to derive the comparison (no to fails_purpose).",
+  "commit": "8ad7ceeeb3d57d358f94d74ad90606ae236eb849",
+  "status": "resolved"
+}

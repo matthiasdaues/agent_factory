@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0161",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:240",
+  "story": null,
+  "finding": "The retention policy still omits the spec-writer scan and its replacement target. Name the unchanged scan and replacement input separately from the two tests that read handbook pages, in both the owner row and the retention policy.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "FH-11-01 and the existing tests give the test author the division of work (no to fails_purpose).",
+  "commit": "8ad7ceeeb3d57d358f94d74ad90606ae236eb849",
+  "status": "resolved"
+}
