@@ -639,3 +639,12 @@ The grid of `remark-deck` has no link markup, so the guided tour shows repositor
 BR-128 says that an `exclude` of a measure on the integration branch that is no list makes `crap-score` exit `2`. `crap-score` reads `item.get("exclude") or []`, so an `exclude` of `""`, `{}`, `0` or `false` on the branch counts as an empty list and passes. The minor findings IMPL-0095 and IMPL-0097 of the ST-0450 review lie in the same reader.
 
 **Action:** cut one story that makes the reader exit `2` for an `exclude` that is no list, and folds in IMPL-0095, IMPL-0097 and IMPL-0099 (twelve exit-2 causes without a test). The same story adds the `spec` markers of CG-14-IT-11 to CG-14-IT-15 in `tests/factory/test_crap_gate_premerge.py`, and renames `test_cg_05_only_a_remote_branch_dev_gives_no_register` in `tests/factory/test_crap_gate_score.py`, whose name and docstring no longer match DEC-81. It also makes `premerge-check` treat two setup faults on `dev` as "cannot measure" instead of "not enabled": invalid UTF-8 inside a value of `docs/testing.yaml`, and an `enabled` that is no boolean (code review of BUG-0137). Last, `premerge-check` parses `docs/testing.yaml` once in `main` and passes the values down, so a story command that rewrites the file during the run cannot end the merge in a traceback (IMPL-0100). The story also makes `crap-score` print the warning of BR-055 when `docs/testing.yaml` on the integration branch holds both `crap_score` and `crap-score`; `_gate_entry` now takes the old key there without a word (feature code review).
+
+## T-0431 — Rethink the playbook concept
+
+- status: open
+- source: grilling of [docs/proposals/factory-handbooks.md](../../proposals/factory-handbooks.md) (DEC-11), 2026-11-25
+
+The product owner holds that the whole playbook concept must be rethought. The handbook proposal documents the playbooks as they exist today and leaves the concept unchanged.
+
+**Action:** write a proposal that rethinks the playbook concept. It lists `packages/factory/docs/handbook/playbooks/` in its boundaries and rewrites that chapter in the same change as the playbooks. It also decides how a playbook page stays in step with its playbook file.
