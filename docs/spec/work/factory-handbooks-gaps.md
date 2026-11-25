@@ -3,7 +3,7 @@
 Generated: 2026-11-25
 Source: [factory-handbooks.md](../../proposals/factory-handbooks.md), accepted at commit `4ebf5101f70c1540a0d53dcfb3d00cfa977d361a` on `dev`
 
-The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 69 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. Three questions stay open, because the proposal does not settle them. [Open questions](#open-questions) lists them with a case each.
+The feature file [factory-handbooks.feature](../features/factory-handbooks.feature) has 14 Rules and 74 Scenarios. Each Rule carries a trace comment `FH-NN`, and each Scenario carries a trace comment `FH-NN-NN`, so a test can name the Scenario it checks. No question is open. [Resolved questions](#resolved-questions) records the three answers of the run lead.
 
 ## Actor-Goal Matrix
 
@@ -30,7 +30,7 @@ The User is the person who runs the factory in a project, as the [glossary](../g
 
 | Completion criterion of the proposal                                                          | Scenario                                        |
 | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `handbook-lint` exits 0 on both handbooks and non-zero on a test page for each failure        | FH-04-01 to FH-04-10                            |
+| `handbook-lint` exits 0 on both handbooks and non-zero on a test page for each failure        | FH-04-01 to FH-04-13                            |
 | `handbook-index --check` exits 0 on both handbooks                                            | FH-03-01                                        |
 | `link-check` over every live document exits 0                                                 | FH-10-08                                        |
 | `handbook-index` and `handbook-lint` fail on an `index.md` without markers, no self-listing   | FH-01-08, FH-01-10, FH-03-03, FH-04-05          |
@@ -71,20 +71,18 @@ The `type` table of the proposal also sets what each page type contains. No scri
 
 ## Ambiguous Wording
 
-| Location | Step Text                                              | Issue                                                                                                 | Suggested Fix                                                          |
-| -------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| FH-01-02 | "each group starts with a heading that names its type" | The proposal does not fix the heading text or the order of the groups.                                | Settle [question 1](#open-questions), then name the order in FH-01-02. |
-| FH-02-01 | "lists getting-started/ before cli-integrations/"      | The proposal sorts chapters by `order` only. Two chapters with the same `order` have no fixed order.  | Settle [question 2](#open-questions).                                  |
-| FH-14-02 | "every script and path that the tutorial names exists" | A test can check that each named path exists. Whether the commands run in order needs a manual check. | Keep the Scenario. The QA strategy decides which part is manual.       |
+| Location | Step Text                                              | Issue                                                                                                 | Suggested Fix                                                    |
+| -------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| FH-14-02 | "every script and path that the tutorial names exists" | A test can check that each named path exists. Whether the commands run in order needs a manual check. | Keep the Scenario. The QA strategy decides which part is manual. |
 
-## Open questions
+## Resolved questions
 
-1. **Order and heading of the type groups.** Case: `getting-started/index.md` lists a `tutorial` page "Run your first session" and a `reference` page "Session menu options". If the groups follow the proposal's type table, the tutorial group comes first. If the groups sort by type name, the reference group comes first. Recommendation: follow the type table (tutorial, concept, how-to, reference, learn) and use the type value as the heading, because a newcomer meets the tutorial first. The answer settles FH-01-02.
-2. **Chapters with the same `order`.** Case: `research/` and `usage-capture/` both keep the default 100. If ties sort by the chapter title, "Research" comes before "Usage capture" on every run. If the proposal's rule stands alone, the order can change between runs and `handbook-index --check` can fail without a change. Recommendation: sort ties by title, as pages do. The answer settles FH-02-01.
-3. **A folder inside a chapter.** Case: a contributor creates `cli-integrations/opencode/` with its own `index.md`. If the chapter list names the subfolder, the reader finds it from the chapter. If it does not, only the subfolder's own index lists its pages. The first release needs no subfolder. Recommendation: leave it unspecified until a chapter needs one (YAGNI). The answer would add a Scenario to FH-01.
+1. **Order and heading of the type groups.** Case: `getting-started/index.md` lists a `tutorial` page "Run your first session" and a `reference` page "Session menu options". The run lead's answer: the groups follow the type table, so the tutorial group comes first. The headings are "Tutorials", "Concepts", "How-to guides", "Reference", and "Learning". A group with no listed page has no heading. FH-01-02 and FH-01-11 to FH-01-13 state it.
+2. **Chapters with the same `order`.** Case: `research/` and `usage-capture/` both keep the default 100. The run lead's answer: ties sort by `title`, as pages do, so "Research" comes before "Usage capture". FH-02-04 states it.
+3. **A folder inside a chapter.** Case: a contributor creates `cli-integrations/opencode/`. The run lead's answer: the first release has no folder inside a chapter, so `handbook-lint` exits non-zero and reports the path `cli-integrations/opencode/`. FH-04-13 states it.
 
-## Open review findings that touch the specification
+## Review findings that touch the specification
 
-- PROP-07: FH-07 checks the installed index but not the links of the installed pages. A user handbook link to a file outside `packages/factory/` breaks in a user project. No Scenario covers it.
-- PROP-08: FH-10-01 to FH-10-03 need a section-by-section rewrite. `_link_rewrite.py` maps one old path to one new path and keeps the old anchor, so the migration must extend it.
-- PROP-09: [core-artifact-layout.feature](../features/core-artifact-layout.feature) names `docs/arc42/concepts.md` in an example step. That file is outside this run's ownership, and the `rg factory-guide` search does not find it. The run lead decides who changes it.
+- PROP-07: FH-07 checks the installed index but not the links of the installed pages. A user handbook link to a file outside `packages/factory/` breaks in a user project. No Scenario covers it. The product owner keeps PROP-07 open as a minor, so no Scenario covers it.
+- PROP-08: FH-10-01 to FH-10-03 need a section-by-section rewrite. `_link_rewrite.py` maps one old path to one new path and keeps the old anchor, so the migration must extend it. The product owner keeps PROP-08 open as a minor, so no Scenario covers it.
+- PROP-09: [core-artifact-layout.feature](../features/core-artifact-layout.feature) names `docs/arc42/concepts.md` in an example step. The step describes an example project, not this repository's file, so it needs no change.

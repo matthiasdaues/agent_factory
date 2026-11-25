@@ -16,7 +16,8 @@ Feature: Factory Handbooks
   100. A stub is a page for behaviour that does not exist yet. It carries
   status stub, one sentence of scope, and links to its sources.
 
-  Every folder has an index.md, the chapter page. index.md is a page, so
+  Every folder has an index.md, the chapter page. A chapter folder holds
+  pages and no folder. index.md is a page, so
   the same frontmatter rules apply to it. The script handbook-index
   writes the folder's page list into index.md, between the markers
   <!-- handbook-index:start --> and <!-- handbook-index:end --> (DEC-06).
@@ -64,12 +65,39 @@ Feature: Factory Handbooks
       Then the text between the markers of cli-integrations/index.md lists every page of the chapter that is not a stub
       And handbook-index exits 0
 
-    Scenario: The page list groups pages by type
+    Scenario: The page list groups pages by type in the order of the type table
       # trace: FH-01-02
-      Given the chapter holds pages of the types how-to and concept
+      Given cli-integrations/ holds implemented pages of the types how-to and concept
       When the contributor runs handbook-index
-      Then the page list has one group for how-to and one group for concept
-      And each group starts with a heading that names its type
+      Then the page list of cli-integrations/index.md has the group heading "Concepts" followed by the group heading "How-to guides"
+      And "How the CLIs differ" is listed under "Concepts"
+      And "Remove a CLI integration" and "Add a CLI integration" are listed under "How-to guides"
+
+    Scenario Outline: Each type has a fixed group heading
+      # trace: FH-01-11
+      Given getting-started/ holds an implemented page of the type <type>
+      When the contributor runs handbook-index
+      Then the page list of getting-started/index.md has the group heading "<heading>"
+
+      Examples:
+        | type      | heading       |
+        | tutorial  | Tutorials     |
+        | concept   | Concepts      |
+        | how-to    | How-to guides |
+        | reference | Reference     |
+        | learn     | Learning      |
+
+    Scenario: The groups follow the order tutorial, concept, how-to, reference, learn
+      # trace: FH-01-12
+      Given getting-started/ holds one implemented page of each of the five types
+      When the contributor runs handbook-index
+      Then the group headings of getting-started/index.md appear in the order "Tutorials", "Concepts", "How-to guides", "Reference", "Learning"
+
+    Scenario: A type with no listed page has no group heading
+      # trace: FH-01-13
+      Given the only reference page of cli-integrations/ is a stub
+      When the contributor runs handbook-index
+      Then the page list of cli-integrations/index.md has no group heading "Reference"
 
     Scenario: Pages in a group sort by order and then by title
       # trace: FH-01-03
@@ -131,6 +159,13 @@ Feature: Factory Handbooks
       When the contributor runs handbook-index
       Then the page list of the handbook's top-level index.md lists getting-started/ before cli-integrations/
       And each entry links to the index.md of its chapter with the chapter's title
+
+    Scenario: Chapters with the same order sort by title
+      # trace: FH-02-04
+      Given the index.md of research/ has the title "Research" and the index.md of usage-capture/ has the title "Usage capture"
+      And neither index.md has an order field
+      When the contributor runs handbook-index
+      Then the top-level index.md lists research/ before usage-capture/
 
     Scenario: A chapter of stubs stays in the top-level index
       # trace: FH-02-02
@@ -271,6 +306,13 @@ Feature: Factory Handbooks
       When the contributor runs handbook-lint
       Then handbook-lint exits 0
       # DEC-12
+
+    Scenario: A folder inside a chapter folder fails
+      # trace: FH-04-13
+      Given the chapter cli-integrations/ holds the folder cli-integrations/opencode/
+      When the contributor runs handbook-lint
+      Then handbook-lint exits non-zero
+      And it reports the path of cli-integrations/opencode/
 
   Rule: Contributor cannot commit a handbook page that breaks the page format
     # actor: Contributor
