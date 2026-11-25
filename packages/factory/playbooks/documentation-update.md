@@ -60,14 +60,19 @@ Look for:
 
 ## Decision Point 1.3
 
-Read the findings named by the reconciliation report. If it identifies a
-blocking code defect, follow Step 1.4. If it identifies documentation drift,
-follow Step 1.5.
+Read the findings named by the reconciliation report. List the open findings:
+
+```bash
+grep -l "^status: open" docs/findings/*.md
+```
+
+**If a blocking code defect** → Go to Step 1.4
+**If only doc drift** → Go to Step 1.5
 
 ### Step 1.4 — Fix Code Defects (If Found)
 
-Use the [bug fix playbook](bug-fix.md) for each blocking code defect.
-The finding's `owner:` field names the agent that fixes it. Repeat
+Send each open finding to the agent in its `owner:` field. Use the
+[bug fix playbook](bug-fix.md) for each blocking code defect. Repeat
 reconciliation after the reviewer verifies the fix.
 
 ### Step 1.5 — Bring Each Row Back To Its Owner

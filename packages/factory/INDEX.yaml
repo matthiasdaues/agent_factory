@@ -1006,6 +1006,11 @@ skills:
     description: Give first-time Agent Factory users a short, interactive orientation when they choose option H or ask to be shown around
     path: skills/newcomer-tour/SKILL.md
     tokens: 750
+  - name: quiz
+    category: onboarding
+    description: Quiz me about the current codebase, one open question at a time, graded against the actual code.
+    path: skills/quiz/SKILL.md
+    tokens: 1910
   - name: refutation-design
     category: research
     description: Define refuting evidence, conditions for refutation, and severe tests to expose them.
@@ -1069,8 +1074,8 @@ playbooks:
     agents:
       - developer-agent
       - qa-agent
-    tokens: 841
-    total_tokens: 20023
+    tokens: 872
+    total_tokens: 20054
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1080,8 +1085,8 @@ playbooks:
       - reconciliation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 1662
-    total_tokens: 36867
+    tokens: 1689
+    total_tokens: 36894
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1097,8 +1102,8 @@ playbooks:
       - code-review-agent
       - qa-agent
       - reconciliation-agent
-    tokens: 5388
-    total_tokens: 118659
+    tokens: 5397
+    total_tokens: 118668
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1115,8 +1120,8 @@ playbooks:
       - qa-agent
       - reconciliation-agent
       - coaching-agent
-    tokens: 3194
-    total_tokens: 117950
+    tokens: 3203
+    total_tokens: 117959
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

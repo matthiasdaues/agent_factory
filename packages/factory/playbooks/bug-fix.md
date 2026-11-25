@@ -20,7 +20,7 @@ Operational procedure for **fixing defects** in production or development.
 
 For a new finding, run `.agent-factory/factory/scripts/next-id BUG`.
 Read the ID from standard output. If the command fails, stop and report its
-message.
+message. Never pick a number by hand.
 
 Classify the report using the
 [finding classification](../rulebooks/conventions/finding-classification.md).
@@ -64,6 +64,12 @@ Run the regression test and the project's configured test suite. Look for
 **Focus**: Regression testing, verify fix doesn't break other functionality
 
 ### Decision Point 3.2
+
+List the open findings:
+
+```bash
+grep -l "^status: open" docs/findings/*.md
+```
 
 Check the QA report for blocking findings from this review. Send any
 blocking findings to their owners, then repeat the review.

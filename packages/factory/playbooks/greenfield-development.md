@@ -232,7 +232,7 @@ feature, then QA, then the merge into `dev`, then reconciliation on `dev`.
 ```
 
 **Agent**: `code-review-agent`
-**Expected outputs**: `docs/reviews/code-review-<feature-branch-with-hyphens>-YYYY-MM-DD.md`, `docs/findings/IMPL-*.md`
+**Expected outputs**: `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`, with the slash of the branch name replaced by a hyphen, and `docs/findings/IMPL-*.md`
 
 ### Decision Point 4.3
 

@@ -1,5 +1,6 @@
 ---
 name: quiz
+category: onboarding
 description: Quiz me about the current codebase, one open question at a time, graded against the actual code.
 argument-hint: "[area...] [N] [with code] [quick]"
 disable-model-invocation: true
@@ -53,7 +54,7 @@ The quick round asks short questions that have short answers. The question count
 2. **Write** the question for the chosen quiz type. Across a round, mostly scenarios ("What happens when …?") and flow or design questions ("How does X come about, why is it built so?"). In open book, add one exact value ("What does `f` return for …?"); in closed book, add none. The question is **spoiler-free**: open wording, no answer options, no hint at which case is special. Check every premise of the question against the code before asking.
 3. **Ask** exactly one question in its own message, headed "Question n of N" in the user's language. Then wait for the answer.
 4. **Resolve**: verdict ✔ / ½ / ✗, what the code actually does with `file:line` references, and what the answer missed. Verify every fact in the resolution by reading the code. For exact values, run the function only when its purity and dependencies are evident from the code and it can be called without project imports that may have side effects. Do not run scripts, tests, or code that reads or writes data, files, or the network. If the value cannot be verified safely at runtime, say so instead of inventing it.
-If a resolution needs tool calls, do them first and write the resolution and the next question together in the final message, never in text between tool calls, so the user always sees them. In closed book, grade the mental model: a code detail the question did not need is added as extra information, not counted as a miss.
+   If a resolution needs tool calls, do them first and write the resolution and the next question together in the final message, never in text between tool calls, so the user always sees them. In closed book, grade the mental model: a code detail the question did not need is added as extra information, not counted as a miss.
 5. **Divergence**: when the user says how it *should* behave and the code behaves otherwise, mark the resolution as a **divergence** on top of the verdict, then carry on.
 6. **Own errors**: when a question or an earlier resolution of yours was wrong, say so plainly and give the correct fact.
 
