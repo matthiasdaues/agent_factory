@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0151",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md:221",
+  "story": null,
+  "finding": "The glossary places the map in the migration story, while BR-151 and L-24 give it a standalone work-file path. Describe the standalone file in the glossary and link to the rule that defines its path.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "BR-151 and the QA strategy identify the map file (no to fails_purpose), but the glossary sends readers to the story first.",
+  "commit": "a39f9b6d5242b51fb5de51a1b789b2a646eae1f1",
+  "status": "open"
+}
