@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0166",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "untraced",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-gaps.md:33",
+  "story": null,
+  "finding": "The lint completion trace stops at FH-04-15. Include FH-04-16 for stale-list reporting alongside invalid metadata and FH-04-17 for a missing root index.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "The scenarios and their integration-test owner rows already state both cases (no to fails_purpose).",
+  "commit": "1e83f92d16ef69b54d01a7ef917ef705818ba202",
+  "status": "open"
+}

@@ -20,5 +20,5 @@
   },
   "why_this_severity": "The scenario gives the correct division of work (no to fails_purpose). The test author can recover it from the scenario and existing tests.",
   "commit": "67863a45b3e3bb9ca043e4253ed9f8d555189829",
-  "status": "resolved"
+  "status": "open"
 }

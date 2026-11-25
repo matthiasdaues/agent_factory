@@ -20,5 +20,5 @@
   },
   "why_this_severity": "FH-11-01 and the existing tests give the test author the division of work (no to fails_purpose).",
   "commit": "8ad7ceeeb3d57d358f94d74ad90606ae236eb849",
-  "status": "resolved"
+  "status": "open"
 }
