@@ -76,20 +76,33 @@ class PreflightResult:
 # ---------------------------------------------------------------------------
 
 
+
+
 def _parse_lines(paths: list[Path]) -> list[dict[str, Any]]:
     """Read every JSONL line from *paths*, annotating with source metadata."""
     records: list[dict[str, Any]] = []
     for path in paths:
-        with open(path, encoding="utf-8") as fh:
-            for line_no, raw in enumerate(fh, start=1):
-                stripped = raw.strip()
-                if not stripped:
-                    continue
-                rec = json.loads(stripped)
-                rec["_source_file"] = str(path)
-                rec["_line_number"] = line_no
-                records.append(rec)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line_no, raw in enumerate(fh, start=1):
+                    stripped = raw.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        rec = json.loads(stripped)
+                        rec["_source_file"] = str(path)
+                        rec["_line_number"] = line_no
+                        records.append(rec)
+                    except (ValueError, json.JSONDecodeError) as e:
+                        # Handle the error, e.g., log, return error response, etc.
+                        print(f"Error parsing JSON in {path} at line {line_no}: {e}")
+                        # Keep processing the rest of the lines
+                        continue
+        except FileNotFoundError:
+            print(f"Error: The file {path} was not found.")
+            continue
     return records
+
 
 
 _NULLABLE_CASTS: dict[str, str] = {

@@ -1,0 +1,27 @@
+# Location: <your-repo-root>/.wiz/config.yaml
+version: 1
+
+sast:
+  ignore:
+    - ruleId: "WS-I013-PYTHON-00148"
+      paths:
+        - "**/*"                
+      reason: "RISK_ACCEPTED"     
+      description: "Globally skipping Python SQL injection alerts. Database queries are handled via custom internal ORM framework abstractions."
+    - ruleId: "WS-I013-PYTHON-00074"
+      paths:
+        - "**/*"                
+      reason: "RISK_ACCEPTED"     
+      description: "Globally skipping Python SQL injection alerts. Database queries are handled via custom internal ORM framework abstractions."
+
+  iac:
+
+    # this UUID equals "CI-Workflow008" - Workflow should not use version pinning for third-party actions
+    cf2b27e6-100c-4cce-80cc-cbcc15fb842f:
+      .github/workflows/**:
+        reason: RISK_ACCEPTED
+
+    # this UUID equals  "CI-Workflow009" - "Workflow should not use branch-pinned third-party actions"
+    d0698364-2f9c-4524-86b6-a74c6228414b:
+      .github/workflows/**:
+        reason: RISK_ACCEPTED
