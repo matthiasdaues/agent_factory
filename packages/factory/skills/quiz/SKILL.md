@@ -1,7 +1,7 @@
 ---
 name: quiz
 description: Quiz me about the current codebase, one open question at a time, graded against the actual code.
-argument-hint: "[area...] [N] [with code]"
+argument-hint: "[area...] [N] [with code] [quick]"
 disable-model-invocation: true
 ---
 
@@ -19,6 +19,7 @@ Interpret the arguments as follows:
 
 - One positive integer token sets the number of questions `N`; if it is absent, use 5. If it is below 3, use 3 so the round can include the required question types.
 - Any expression equivalent to `with code` in the language of the conversation, such as `mit Code` in German, selects **open book**.
+- Any expression equivalent to `quick` in the language of the conversation, such as `schnell` in German, selects the **quick round**. It combines with either quiz type.
 - All remaining text names the area or areas; if it is absent, use the whole repo.
 - Treat the repository as source files, tests, and in-repo documentation. Exclude dependencies, generated artifacts, build outputs, and external fixtures unless the selected area requires them.
 - Ignore unrecognized tokens only when they are part of an area name; do not invent another setting from them.
@@ -35,6 +36,16 @@ The quiz has one of two types. Name it in the first message, in the user's langu
 Before asking, apply this test to each closed-book question: "Could a developer who understands the design, but has not memorised the file, answer this correctly?" If not, rewrite the question or replace it.
 
 Quiz questions test the user's understanding of the codebase. They do not ask the user to make a project decision, so the decision-question format does not apply.
+
+## Quick round
+
+The quick round asks short questions that have short answers. The question count, the area rules and the wrap-up stay as in a normal round. These rules replace the normal ones:
+
+- **Question length.** A question has at most 12 words and asks one thing. It expects one of three answers: yes or no, a single word, or one sentence.
+- **Question types.** Ask short forms of the normal types: a scenario as a yes/no question ("Is an invalid draft stored?"), a responsibility as a one-word question ("Which component calculates the tax?"), and, in open book only, one exact value. Ask no why-questions.
+- **Grading.** A word with the same meaning counts as ✔. A different component or fact is ✗. A yes/no answer is ✔ or ✗. ½ is for an answer that is too coarse, such as "the billing module" where the question asked for one component.
+- **Resolution.** One line: the verdict, the correct fact and one `file:line` reference. Verify the fact in the code as in a normal round. After ✗ and ½, offer to answer a follow-up question if the user wants one.
+- **Message format.** The resolution and the next question stand in one message. The question heading is short, in the form `4/5`.
 
 ## Each question
 
