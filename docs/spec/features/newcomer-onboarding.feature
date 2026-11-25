@@ -8,13 +8,13 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Newcomer walks through a guided tour before choosing a workflow
     # actor: Newcomer
-    # @.agent-factory/factory/docs/factory-guide.md
+    # @.agent-factory/factory/docs/handbook/getting-started/
     # @.agent-factory/factory/config/AGENTS.md
 
     Scenario: Newcomer selects the guided tour from the session entrypoint
       Given the session entrypoint presents lane H "Help: I'm new here or need orientation"
       When the newcomer selects lane H
-      Then the CLI invokes the newcomer-tour skill which reads .agent-factory/factory/docs/factory-guide.md
+      Then the CLI invokes the newcomer-tour skill which reads the tutorial page of .agent-factory/factory/docs/handbook/getting-started/
       And walks the user through it conversationally, one section at a time
       And pauses for questions after each section
 
