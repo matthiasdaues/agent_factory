@@ -29,6 +29,12 @@ impact:
     - docs/README.md
     - docs/arc42/concepts.md
     - docs/arc42/beginner-intro.md
+    - docs/spec/scope-map.md
+    - docs/spec/features/newcomer-onboarding.feature
+    - docs/spec/features/opencode-cli-integration.feature
+    - tests/factory/test_core_layout_references.py
+    - tests/factory/test_brownfield_order.py
+    - tests/factory/test_hook_missing_factory.py
     - .pre-commit-config.yaml
 
 governance:
@@ -221,6 +227,16 @@ outside the markers. The script writes everything between them. So a person
 who opens `index.md` in an editor and an agent that reads the file see the same
 list (DEC-06).
 
+Three rules fix the edges of the lists:
+
+- An `index.md` never appears in its own list. It is the chapter page, and the
+  top-level list links to it.
+- A chapter appears in the top-level list as long as its `index.md` exists,
+  even when every other page in it is a stub. So the stub chapters of the
+  contributor handbook stay visible.
+- An `index.md` without the marker pair is an error. The script does not add
+  the markers by itself.
+
 `handbook-index --check` exits non-zero when a list between the markers differs
 from what the script would write.
 
@@ -231,12 +247,16 @@ from what the script would write.
 - a page without `title`, `type`, or `status`, or with a value outside the
   tables above;
 - a folder with pages but no `index.md`;
+- an `index.md` without the marker pair;
 - two pages in one chapter that are not stubs and have the same `title`;
 - an `index.md` whose generated list is out of date (it runs
   `handbook-index --check`).
 
-`link-check` already checks local links and anchors in every Markdown file, so
-`handbook-lint` does not check links. Both scripts live in
+`link-check` already checks local links and anchors, so `handbook-lint` does
+not check links. The pre-commit hook passes `link-check` only the files that
+change. A file that links to a deleted page does not change, so the hook never
+sees its broken link. That is why the migration runs `link-check` over every
+live document, as "Links after the move" describes. Both scripts live in
 `packages/factory/scripts/`. This repository's `.pre-commit-config.yaml` runs
 them on changed handbook files. `init-factory` does not install them as hooks
 in user projects, because user projects do not write factory handbook pages.
@@ -268,8 +288,17 @@ in user projects, because user projects do not write factory handbook pages.
   `packages/factory/` as the source and becomes a `reference` page in the
   contributor handbook's `architecture/` chapter. `concepts.md` is then
   deleted, and `docs/README.md` links to the two new pages.
+- Every link to the three deleted files, in live documents and in records,
+  points to the new home of its information.
 - `docs/arc42/beginner-intro.md` is deleted. It holds only a redirect to
   `factory-guide.md`, and only backlog stories link to it (DEC-10).
+- The tests and specifications that name the guide move to the new pages:
+  `tests/factory/test_core_layout_references.py`,
+  `tests/factory/test_brownfield_order.py`,
+  `tests/factory/test_hook_missing_factory.py`,
+  `docs/spec/features/newcomer-onboarding.feature`,
+  `docs/spec/features/opencode-cli-integration.feature`, and
+  `docs/spec/scope-map.md`.
 - Every entry point listed under "Entry points to the handbook" points to the
   new pages.
 - The contributor handbook with `getting-started/` and `contributing/` written
@@ -287,7 +316,8 @@ in user projects, because user projects do not write factory handbook pages.
 - Handbook mechanics for user projects, so that a project can keep its own
   handbook the way gigacron does. No user project has asked for it.
 - Filling the contributor chapters beyond the stubs. Each chapter fills when a
-  contributor needs it.
+  contributor needs it. The one exception is the directory-tree `reference`
+  page in `architecture/`, which the first release writes in full.
 - Changing the playbook concept, and keeping playbook pages in step with the
   playbook files. The `playbooks/` chapter documents the playbooks that exist
   today (DEC-11). A separate proposal rethinks the playbook concept. It lists
@@ -302,8 +332,30 @@ in user projects, because user projects do not write factory handbook pages.
   `.agent-factory/factory/docs/factory-guide.md` breaks after the update. The
   `CHANGELOG.md` entry names the move and the new path
   (`.agent-factory/factory/docs/handbook/`) (DEC-07).
-- **Records outside the move.** Handoffs, findings, reviews, and implemented
-  proposals that mention `factory-guide.md` are records. They keep their text.
+- **Links after the move.** A live document is every tracked Markdown file
+  outside `poc/` and outside the record folders listed in the next item.
+  `poc/` holds throwaway spikes. After the move, `link-check` runs over every
+  live document and exits 0. So no live link points to `factory-guide.md`,
+  `concepts.md`, or `beginner-intro.md`.
+- **Records outside the move.** The record folders are `backlog/`,
+  `docs/handoffs/`, `docs/findings/`, `docs/reviews/`, `docs/transcripts/`,
+  `docs/research/`, `docs/spec/work/`, `docs/proposals/implemented/`,
+  `docs/proposals/superseded/`, and `~archive/`. Their files keep their wording.
+  Only the targets of links to the three deleted files change.
+- **Deleted, not archived.** `factory-guide.md`, `concepts.md`, and
+  `beginner-intro.md` are deleted, not moved under `~archive/`. Their content
+  lives on in the handbooks, and git history keeps the old text (DEC-13).
+  Every link to one of the three files moves to the new home of its
+  information, in live documents and in records alike (DEC-14).
+- **Repointing links.** The migration map assigns each section of the three
+  files to the handbook page that now holds it. A link with an anchor points
+  to the page, and the anchor if one exists, that holds its section. A link
+  without an anchor points to the page that holds the file's opening: the user
+  handbook's top-level `index.md` for `factory-guide.md`, the `concept` page
+  for `concepts.md`, and the `getting-started/` tutorial for
+  `beginner-intro.md`. The rewrite reuses `_link_rewrite.py`, the module of
+  `move-docs`. At the reviewed commit, 86 links in 36 files point to the three
+  files.
 - **Voice.** Every handbook page follows
   [factory-voice.md](../../packages/factory/rulebooks/conventions/factory-voice.md).
   `handbook-lint` does not check prose. The lector agent reads the migrated
@@ -318,13 +370,22 @@ No open questions remain.
 - `handbook-lint` exits 0 on both handbooks, and exits non-zero on a test page
   for each failure the lint section lists.
 - `handbook-index --check` exits 0 on both handbooks.
+- `link-check` over every live document, as "Links after the move" defines it,
+  exits 0.
+- `handbook-index` and `handbook-lint` exit non-zero on an `index.md` without
+  the marker pair, and no `index.md` lists itself.
 - This repository's `.pre-commit-config.yaml` runs `handbook-lint` on changed
   handbook files, and a commit with a page that lacks `type` fails.
 - `packages/factory/docs/factory-guide.md` does not exist, and
-  `rg factory-guide packages/ --glob '!CHANGELOG.md'` finds no match. The
+  `rg factory-guide packages/ tests/ docs/spec/ README.md --glob '!CHANGELOG.md' --glob '!docs/spec/work/**'`
+  finds no match, and the full test suite passes. The
   `CHANGELOG.md` entry of the release names the new path.
 - Every section heading of the deleted guide maps to a user handbook page, and
   the migration story records that map.
+- No tracked Markdown file outside `.agent-factory/` holds a link to
+  `factory-guide.md`, `docs/arc42/concepts.md`, or
+  `docs/arc42/beginner-intro.md`. `link-check` reports no problem for any
+  rewritten link, in live documents and in records.
 - `docs/arc42/concepts.md` and `docs/arc42/beginner-intro.md` do not exist.
   The phase chain and the key ideas are on a user handbook `concept` page.
   The corrected directory tree is on a contributor handbook `reference` page.
@@ -353,27 +414,36 @@ the task the title names.
 
 ## Decisions
 
-| ID     | Date       | Kind     | Decided by    | Decision                                                                                                                                     | Raised by                       |
-| ------ | ---------- | -------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| DEC-01 | 2026-11-25 | decision | product owner | The handbooks stay plain Markdown. A VitePress site is a later addition, kept for its better rendering of diagrams.                          | session, rendering question     |
-| DEC-02 | 2026-11-25 | decision | product owner | Binding factory rules stay in `rules.md` and the rulebooks. Handbook pages link to them and do not hold rules of their own.                  | session, rules question         |
-| DEC-03 | 2026-11-25 | decision | product owner | One proposal covers both handbooks, because they share the page format, the index generator, and the lint check.                             | session, proposal question      |
-| DEC-04 | 2026-11-25 | decision | product owner | There are two handbooks, one per audience: the user handbook ships with the package, the contributor handbook stays in this repository.      | session, initial request        |
-| DEC-05 | 2026-11-25 | decision | product owner | The `status` field has two values, `implemented` and `stub`. Gigacron's `specified` and `planned` exist only on its older pages.             | gigacron comparison             |
-| DEC-06 | 2026-11-25 | decision | product owner | Generated page lists are written into each `index.md` between markers, so the file reads correctly without a renderer.                       | DEC-01                          |
-| DEC-07 | 2026-11-25 | decision | product owner | `factory-guide.md` is deleted, not kept as a redirect, because `update-factory` replaces every factory file that links to it.                | Breakage Test                   |
-| DEC-08 | 2026-11-25 | decision | product owner | The first release writes the contributor chapters `getting-started/` and `contributing/` in full and leaves the other chapters as stubs.     | scope                           |
-| DEC-09 | 2026-11-25 | decision | product owner | `docs/arc42/concepts.md` splits: the phase chain and key ideas go to the user handbook, the directory tree goes to the contributor handbook. | grilling, question 1            |
-| DEC-10 | 2026-11-25 | decision | product owner | `docs/arc42/beginner-intro.md` is deleted, because it holds only a redirect to the deleted guide and only records link to it.                | grilling, question 1            |
-| DEC-11 | 2026-11-25 | decision | product owner | The `playbooks/` chapter documents today's playbooks. The rethink of the playbook concept is a separate proposal that rewrites the chapter.  | grilling, question 6            |
-| DEC-12 | 2026-11-25 | decision | product owner | `handbook-lint` does not check for rule words such as "must" in any form. Rules stay out of the pages by authoring and review.               | lector structural pass, item 16 |
+| ID     | Date       | Kind     | Decided by    | Decision                                                                                                                                                                                                      | Raised by                       |
+| ------ | ---------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| DEC-01 | 2026-11-25 | decision | product owner | The handbooks stay plain Markdown. A VitePress site is a later addition, kept for its better rendering of diagrams.                                                                                           | session, rendering question     |
+| DEC-02 | 2026-11-25 | decision | product owner | Binding factory rules stay in `rules.md` and the rulebooks. Handbook pages link to them and do not hold rules of their own.                                                                                   | session, rules question         |
+| DEC-03 | 2026-11-25 | decision | product owner | One proposal covers both handbooks, because they share the page format, the index generator, and the lint check.                                                                                              | session, proposal question      |
+| DEC-04 | 2026-11-25 | decision | product owner | There are two handbooks, one per audience: the user handbook ships with the package, the contributor handbook stays in this repository.                                                                       | session, initial request        |
+| DEC-05 | 2026-11-25 | decision | product owner | The `status` field has two values, `implemented` and `stub`. Gigacron's `specified` and `planned` exist only on its older pages.                                                                              | gigacron comparison             |
+| DEC-06 | 2026-11-25 | decision | product owner | Generated page lists are written into each `index.md` between markers, so the file reads correctly without a renderer.                                                                                        | DEC-01                          |
+| DEC-07 | 2026-11-25 | decision | product owner | `factory-guide.md` is deleted, not kept as a redirect, because `update-factory` replaces every factory file that links to it.                                                                                 | Breakage Test                   |
+| DEC-08 | 2026-11-25 | decision | product owner | The first release writes the contributor chapters `getting-started/` and `contributing/` in full and leaves the other chapters as stubs.                                                                      | scope                           |
+| DEC-09 | 2026-11-25 | decision | product owner | `docs/arc42/concepts.md` splits: the phase chain and key ideas go to the user handbook, the directory tree goes to the contributor handbook.                                                                  | grilling, question 1            |
+| DEC-10 | 2026-11-25 | decision | product owner | `docs/arc42/beginner-intro.md` is deleted, because it holds only a redirect to the deleted guide and only records link to it.                                                                                 | grilling, question 1            |
+| DEC-11 | 2026-11-25 | decision | product owner | The `playbooks/` chapter documents today's playbooks. The rethink of the playbook concept is a separate proposal that rewrites the chapter.                                                                   | grilling, question 6            |
+| DEC-12 | 2026-11-25 | decision | product owner | `handbook-lint` does not check for rule words such as "must" in any form. Rules stay out of the pages by authoring and review.                                                                                | lector structural pass, item 16 |
+| DEC-13 | 2026-11-25 | decision | product owner | The three replaced files are deleted, not archived under `~archive/`. Their content moves into the handbooks and git history keeps the old text, so the archive rule of `rules.md` § Handoffs does not apply. | review pass 1, PROP-01          |
+| DEC-14 | 2026-11-25 | decision | product owner | Every link to the three deleted files, records included, is repointed to the new home of its information. Records change only in link targets.                                                                | review pass 1, PROP-01          |
 
 ## Review findings
 
-| ID  | Pass | Severity | Check | Status | Finding | Resolution |
-| --- | ---- | -------- | ----- | ------ | ------- | ---------- |
+| ID      | Pass | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                               | Resolution                                                                                                                                                                                                                                                                                                |
+| ------- | ---- | -------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | 1    | major    | 01    | fixed  | Lines 238–242 and 316–345 rely on `link-check`, but the hook receives changed Markdown files. Unchanged links to the deleted guide can survive the proposed checks. Add a link check for both handbooks in their intended locations and account for inbound links from live documents and historical records. Severity: major, because the proposed checks can pass while a live link is broken (`fails_purpose`).                    | Design Details "Links after the move" defines a live document and requires `link-check` over all live documents to exit 0; the Lint check section says why the hook alone misses these links; a completion criterion checks it. Baseline at the reviewed commit: `link-check` over live documents passes. |
+| PROP-02 | 1    | major    | 02    | fixed  | Lines 265–277 require a finished reference page in `architecture/`, while lines 289–290 defer all contributor content beyond the stubs. Name the directory reference as an explicit first-release exception and say whether `architecture/` still needs a stub. Severity: major, because a planner can defer a page required for release (`fails_purpose`).                                                                           | The deferral "Filling the contributor chapters beyond the stubs" names the directory-tree `reference` page in `architecture/` as its one exception.                                                                                                                                                       |
+| PROP-03 | 1    | major    | 03    | fixed  | Lines 262–264 and 323–327 delete the guide without assigning its consumers outside `packages/` to the migration. Three factory tests read it directly, and the newcomer and OpenCode feature files name it. Add those tests and live specifications to the migration, with their checks and references moved to the new pages. Severity: major, because the proposed migration leaves tests reading a deleted file (`fails_purpose`). | The three tests, the two feature files, and `docs/spec/scope-map.md` are in Scope and in `impact.boundaries`; the completion criterion searches `packages/`, `tests/`, `docs/spec/` and `README.md` and requires the full test suite to pass.                                                             |
+| PROP-04 | 1    | major    | 03    | fixed  | Lines 166–174 and 206–235 leave the status and placement of chapter indexes unclear. A stub-only chapter may disappear from the root list or include its own `index.md` in its page list. Define which indexes appear in each list, which fields apply to them, and what the generator does with a missing marker pair. Severity: major, because a planner has to choose the navigation and lint behavior (`fails_purpose`).          | "Generated page lists" adds three rules: an `index.md` never lists itself, a chapter with an `index.md` stays in the top-level list, and an `index.md` without the marker pair is an error. The lint list and a completion criterion cover the third rule.                                                |
+| PROP-05 | 1    | minor    | 03    | open   | Line 142 names `user-changes/`, while the existing update guide and package README identify `.agent-factory/factory-user-changes/<timestamp>/`. Use the current path in the chapter brief. Severity: minor, because the migration has the correct source text but the brief sends the reader to the wrong directory (`raises_cost`).                                                                                                  |                                                                                                                                                                                                                                                                                                           |
+| PROP-06 | 1    | minor    | 05    | open   | Lines 16–17 list two handbook directories that are absent at the reviewed commit. Keep the new directories in Scope and use tracked paths for the review boundaries. Severity: minor, because the handbook locations are clear but a reviewer cannot inspect the paths as existing boundaries (`raises_cost`).                                                                                                                        |                                                                                                                                                                                                                                                                                                           |
 
 ## Review passes
 
-| Pass | Date | Reviewed commit | Disposition | Failed checks | Summary |
-| ---- | ---- | --------------- | ----------- | ------------- | ------- |
+| Pass | Date       | Reviewed commit                          | Disposition | Failed checks  | Summary                                                                                                                                                                          |
+| ---- | ---------- | ---------------------------------------- | ----------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | 2026-11-25 | d777b6ecec30bdbdfadb47f3a95fa8f423c7e045 | findings    | 01, 02, 03, 05 | The impact classification, open questions, motivation, and estimate pass. Define the migration checks, contributor scope, and index behavior, and use tracked review boundaries. |
