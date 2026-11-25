@@ -109,7 +109,7 @@ svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
    ~~an introduction~~
 
 ```
-@footer 20 November 2026
+@footer 25 November 2026
 ---
 ```grid 62x14
 
@@ -508,6 +508,325 @@ svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
 ---
 ```grid 99x25
 
+    **WHICH WORKSTEPS EACH PLAYBOOK COMBINES**
+    %%proposed composition of the eleven playbooks%%
+
+    **PLAYBOOK**                 **WORKSTEPS**                **SPECIALISED ACTIVITY OR VARIATION**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    poc-spike                —                        Build and demonstrate a throwaway spike
+    technical-poc            —                        Compare prototypes and record a decision
+    bug-fix                  6~  7~                   Reproduce the bug and verify the fix
+    documentation-update     8  6~*                   Route any code defect through bug fix
+    greenfield-development   1  3  4  5  6  7  8      Start from the project vision
+    brownfield-onboarding    1*  3~  4~  8*           Reverse-map the code and architecture
+    feature-addition         1* 2 3* 4* 5 6 7 8       Route by the proposal’s declared impact
+    refactoring              5~  6~  7~               Check that behaviour stays the same
+    architecture-review      4~                       Review an existing design with ATAM
+    research-survey          —                        Gather sources and review the synthesis
+    research-topic           —                        Try to refute claims and review the result
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    1  Update agent context       2  Prepare the proposal        3  Specify the behaviour
+    4  Design the change          5  Plan delivery               6  Deliver one story
+    7  Check the whole feature    8  Reconcile docs with code    9  Extend the factory
+
+    * When needed    ~ Adapted workstep    — Playbook uses its own activities
+    9 runs on demand, including after an update.
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **CHARTER DOCUMENTS**
+    %%Where the project tells the factory how to work here%%
+
+    **PROJECT FILE**                            **WHAT THE FACTORY READS FROM IT**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+
+    docs/agent-context.md                   Which guidance and source files to read for a task
+    docs/testing.yaml                       Test commands, enabled gates, and their settings
+    .agent-factory/config/model.conf        Which model each CLI uses for an agent tier
+    .pre-commit-config.yaml                 Which checks run at commit time in this project
+
+
+    **EXAMPLE FROM THIS PROJECT**
+    In docs/agent-context.md, the Testing discipline concern says where to look.
+
+      Read: docs/testing.yaml,
+            .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+
+    The factory rulebook defines test ownership. The project YAML gives the commands.
+
+    For a story merge here, premerge-check uses test_changed_command from that YAML.
+    That command calls tests/select_tests.py to select tests for the changed files.
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **1  UPDATE AGENT CONTEXT**
+    %%Keep the project facts that agents use current%%
+
+    **PROJECT INPUTS**
+    The team’s testing setup and the files agents should read to understand it.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    The capture-context procedure asks the team which guidance applies here.
+
+    **AUTHOR**
+    The author links the Testing discipline concern to docs/testing.yaml and the rulebook.
+
+    **REVIEWER**
+    The stakeholder confirms that the updated facts reflect the project.
+
+    **GATE**
+    Run concern-lint to check the structure and references.
+
+
+    **OUTPUT / HANDOVER**
+    Checked project context for fitting, onboarding, or feature delivery.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **2  PREPARE THE PROPOSAL**
+    %%An idea needs a decision%%
+
+    **PROJECT INPUTS**
+    A project goal and the questions the team must settle.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    Virgil interviews the stakeholder about scope, trade-offs, and assumptions.
+
+    **AUTHOR**
+    The proposal author records the decisions and revises the draft.
+
+    **REVIEWER**
+    An independent reviewer checks that the proposal is ready for a decision.
+
+    **GATE**
+    Check the proposal against its template and required fields.
+
+
+    **OUTPUT / HANDOVER**
+    The stakeholder accepts the proposal or sends it back with reasons.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **3  SPECIFY THE BEHAVIOUR**
+    %%Turn an accepted proposal into examples of what the system must do%%
+
+    **PROJECT INPUTS**
+    An accepted proposal and the current specification.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    The orchestrator gives the requirements agent the accepted scope.
+
+    **AUTHOR**
+    The requirements agent writes acceptance scenarios and updates the scope map.
+
+    **REVIEWER**
+    The spec-review agent checks the scenarios and domain model for gaps.
+
+    **GATE**
+    Run spec-lint before the independent review.
+
+
+    **OUTPUT / HANDOVER**
+    Reviewed acceptance scenarios, scope map, and relevant domain model changes.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **4  DESIGN THE CHANGE**
+    %%Record the decisions that will shape the implementation%%
+
+    **PROJECT INPUTS**
+    Reviewed requirements, quality goals, and the current architecture.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    The orchestrator brings unresolved trade-offs to the stakeholder.
+
+    **AUTHOR**
+    The architecture agent updates the C4 model and records the decisions.
+
+    **REVIEWER**
+    The architecture-review agent checks the design against its quality goals.
+
+    **GATE**
+    Validate the Structurizr model and run arch-lint.
+
+
+    **OUTPUT / HANDOVER**
+    A reviewed architecture model and the relevant decision records.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **5  PLAN DELIVERY**
+    %%Turn the accepted scope into stories the team can deliver%%
+
+    **PROJECT INPUTS**
+    An accepted proposal and the applicable specification and design.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    The chat facilitator presents the slices and asks the stakeholder to decide.
+
+    **AUTHOR**
+    The planning agent writes stories, dependencies, and test ownership.
+
+    **REVIEWER**
+    The stakeholder checks that the slices deliver the agreed outcome.
+
+    **GATE**
+    Run backlog-lint and check coverage against the accepted proposal.
+
+
+    **OUTPUT / HANDOVER**
+    An approved backlog with stories ready for dispatch.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **6  DELIVER ONE STORY**
+    %%Work on one story from dispatch to merge%%
+
+    **PROJECT INPUTS**
+    The project’s story and changed paths, plus the gate settings in docs/testing.yaml.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    The implementation orchestrator dispatches the story and tracks the result.
+
+    **AUTHOR**
+    The developer writes the tests and implements the story.
+
+    **REVIEWER**
+    An independent code reviewer checks the story branch and verifies fixes.
+
+    **GATE**
+    Run the configured story gates. Fix the setup if a gate cannot measure.
+
+
+    **OUTPUT / HANDOVER**
+    dispatch merge-story runs premerge-check and merges a passing branch.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **7  CHECK THE WHOLE FEATURE**
+    %%Review the combined change after the last wave closes%%
+
+    **PROJECT INPUTS**
+    The feature branch with its stories merged.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    The orchestrator routes blocking findings through Deliver One Story.
+
+    **AUTHOR**
+    The story authors supply the combined change and implement any fixes.
+
+    **REVIEWER**
+    Code review and QA check the feature. Repeat the check that found a defect.
+
+    **GATE**
+    Run premerge-check for the feature, including the configured test suite.
+
+
+    **OUTPUT / HANDOVER**
+    The stakeholder merges the checked feature into dev.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **8  RECONCILE DOCS WITH CODE**
+    %%Bring the specification and architecture into line with the code on dev%%
+
+    **PROJECT INPUTS**
+    The merged code and the documentation it implements.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    The orchestrator uses the reconciliation report to route each discrepancy.
+
+    **AUTHOR**
+    The artifact owner fixes the drift. Route code defects through bug fix.
+
+    **REVIEWER**
+    The reviewer declared for the artifact checks the fix.
+
+    **GATE**
+    Run the checks for each changed artifact, such as spec-lint or arch-lint.
+
+
+    **OUTPUT / HANDOVER**
+    A reconciliation report with each discrepancy handled.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
+    **9  EXTEND THE FACTORY**
+    %%Add project-specific capabilities and carry them through updates%%
+
+    **PROJECT INPUTS**
+    A project task and an example that shows when the extension works.
+
+    **FACTORY PROCEDURE / FACILITATOR**
+    Virgil interviews the team about the job and agrees on a check.
+
+    **AUTHOR**
+    The author adds the skill, agent, or playbook and refreshes the catalogue.
+
+    **REVIEWER**
+    An independent reviewer checks the instructions with the example task.
+
+    **GATE**
+    Run index-lint, then check discovery and execution in the project CLI.
+
+
+    **OUTPUT / HANDOVER**
+    After an update, restore from user-changes, resolve conflicts, and rerun the checks.
+
+
+
+```
+@footer agent factory · worksteps
+---
+```grid 99x25
+
     **EXTENDING THE FACTORY**
     %%fit it to your project, and add what only your project needs%%
 
@@ -531,6 +850,35 @@ svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
     ~~Git ignores .agent-factory/, so your parts stay on your machine. Share them by hand.~~
 
     **Useful for every project? Propose it for the factory core.**
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **ADD A PROJECT PLAYBOOK**
+    %%Make the runbook available to your team and keep it through updates%%
+
+    **1  WRITE THE RUNBOOK**
+    Commit the team’s master copy as poc/playbooks/release-readiness.md.
+    For each step, name the factory procedure, project inputs, and who approves.
+
+    **2  INSTALL AND REGISTER**
+    From the project root, run these commands.
+      cp poc/playbooks/release-readiness.md .agent-factory/factory/playbooks/
+      .agent-factory/factory/scripts/index-lint
+
+    **3  TRY IT ON A REAL CHANGE**
+    Choose Run an agent or playbook directly. Select release-readiness.
+    Check that the handovers and gates work on a representative change.
+
+    **4  RESTORE AFTER AN UPDATE**
+    The updater stops when it sees local additions. With --force, it saves them
+    under .agent-factory/user-changes/<timestamp>/ before installing the update.
+
+    Repeat step 2 from the tracked master, then check that the playbook still runs.
+
+
 
 ```
 @footer agent factory · step by step

@@ -465,7 +465,177 @@ text(c, 4, 20, "follows from the artefacts that already exist.")
 text(c, 4, 22, "Not sure? Choose P in the menu. VIRGIL asks and suggests the recipe.", "~~")
 slides.append(slide(c))
 
-# 15. Extending the factory --------------------------------------------------------------------------------
+# Playbook composition --------------------------------------------------------
+c = Canvas(99, 25)
+title(c, "WHICH WORKSTEPS EACH PLAYBOOK COMBINES", "proposed composition of the eleven playbooks")
+text(c, 4, 4, "PLAYBOOK", "**")
+text(c, 29, 4, "WORKSTEPS", "**")
+text(c, 54, 4, "SPECIALISED ACTIVITY OR VARIATION", "**")
+c.put(4, 5, "─" * 91)
+composition = [
+    ("poc-spike", "—", "Build and demonstrate a throwaway spike"),
+    ("technical-poc", "—", "Compare prototypes and record a decision"),
+    ("bug-fix", "6~  7~", "Reproduce the bug and verify the fix"),
+    ("documentation-update", "8  6~*", "Route any code defect through bug fix"),
+    ("greenfield-development", "1  3  4  5  6  7  8", "Start from the project vision"),
+    ("brownfield-onboarding", "1*  3~  4~  8*", "Reverse-map the code and architecture"),
+    ("feature-addition", "1* 2 3* 4* 5 6 7 8", "Route by the proposal’s declared impact"),
+    ("refactoring", "5~  6~  7~", "Check that behaviour stays the same"),
+    ("architecture-review", "4~", "Review an existing design with ATAM"),
+    ("research-survey", "—", "Gather sources and review the synthesis"),
+    ("research-topic", "—", "Try to refute claims and review the result"),
+]
+for row, (playbook, steps, variation) in enumerate(composition, start=6):
+    c.put(4, row, playbook)
+    c.put(29, row, steps)
+    c.put(54, row, variation)
+c.put(4, 17, "─" * 91)
+for row, labels in enumerate([
+    ("1  Update agent context", "2  Prepare the proposal", "3  Specify the behaviour"),
+    ("4  Design the change", "5  Plan delivery", "6  Deliver one story"),
+    ("7  Check the whole feature", "8  Reconcile docs with code", "9  Extend the factory"),
+], start=18):
+    for column, label in zip((4, 34, 65), labels):
+        c.put(column, row, label)
+c.put(4, 22, "* When needed    ~ Adapted workstep    — Playbook uses its own activities")
+c.put(4, 23, "9 runs on demand, including after an update.")
+slides.append(slide(c))
+
+# Charter documents ------------------------------------------------------------
+c = Canvas(99, 25)
+title(c, "CHARTER DOCUMENTS", "Where the project tells the factory how to work here")
+text(c, 4, 4, "PROJECT FILE", "**")
+text(c, 44, 4, "WHAT THE FACTORY READS FROM IT", "**")
+c.put(4, 5, "─" * 91)
+for row, (file, purpose) in enumerate([
+    ("docs/agent-context.md", "Which guidance and source files to read for a task"),
+    ("docs/testing.yaml", "Test commands, enabled gates, and their settings"),
+    (".agent-factory/config/model.conf", "Which model each CLI uses for an agent tier"),
+    (".pre-commit-config.yaml", "Which checks run at commit time in this project"),
+], start=7):
+    c.put(4, row, file)
+    c.put(44, row, purpose)
+text(c, 4, 13, "EXAMPLE FROM THIS PROJECT", "**")
+c.put(4, 14, "In docs/agent-context.md, the Testing discipline concern says where to look.")
+c.put(6, 16, "Read: docs/testing.yaml,")
+c.put(12, 17, ".agent-factory/factory/rulebooks/conventions/testing-strategy.md")
+c.put(4, 19, "The factory rulebook defines test ownership. The project YAML gives the commands.")
+c.put(4, 21, "For a story merge here, premerge-check uses test_changed_command from that YAML.")
+c.put(4, 22, "That command calls tests/select_tests.py to select tests for the changed files.")
+slides.append(slide(c))
+
+# Worksteps --------------------------------------------------------------------
+# Each slide shows what enters the workstep, who does the work, and what leaves it.
+worksteps = [
+    (
+        "UPDATE AGENT CONTEXT",
+        "Keep the project facts that agents use current",
+        "The team’s testing setup and the files agents should read to understand it.",
+        "The capture-context procedure asks the team which guidance applies here.",
+        "The author links the Testing discipline concern to docs/testing.yaml and the rulebook.",
+        "The stakeholder confirms that the updated facts reflect the project.",
+        "Run concern-lint to check the structure and references.",
+        "Checked project context for fitting, onboarding, or feature delivery.",
+    ),
+    (
+        "PREPARE THE PROPOSAL",
+        "An idea needs a decision",
+        "A project goal and the questions the team must settle.",
+        "Virgil interviews the stakeholder about scope, trade-offs, and assumptions.",
+        "The proposal author records the decisions and revises the draft.",
+        "An independent reviewer checks that the proposal is ready for a decision.",
+        "Check the proposal against its template and required fields.",
+        "The stakeholder accepts the proposal or sends it back with reasons.",
+    ),
+    (
+        "SPECIFY THE BEHAVIOUR",
+        "Turn an accepted proposal into examples of what the system must do",
+        "An accepted proposal and the current specification.",
+        "The orchestrator gives the requirements agent the accepted scope.",
+        "The requirements agent writes acceptance scenarios and updates the scope map.",
+        "The spec-review agent checks the scenarios and domain model for gaps.",
+        "Run spec-lint before the independent review.",
+        "Reviewed acceptance scenarios, scope map, and relevant domain model changes.",
+    ),
+    (
+        "DESIGN THE CHANGE",
+        "Record the decisions that will shape the implementation",
+        "Reviewed requirements, quality goals, and the current architecture.",
+        "The orchestrator brings unresolved trade-offs to the stakeholder.",
+        "The architecture agent updates the C4 model and records the decisions.",
+        "The architecture-review agent checks the design against its quality goals.",
+        "Validate the Structurizr model and run arch-lint.",
+        "A reviewed architecture model and the relevant decision records.",
+    ),
+    (
+        "PLAN DELIVERY",
+        "Turn the accepted scope into stories the team can deliver",
+        "An accepted proposal and the applicable specification and design.",
+        "The chat facilitator presents the slices and asks the stakeholder to decide.",
+        "The planning agent writes stories, dependencies, and test ownership.",
+        "The stakeholder checks that the slices deliver the agreed outcome.",
+        "Run backlog-lint and check coverage against the accepted proposal.",
+        "An approved backlog with stories ready for dispatch.",
+    ),
+    (
+        "DELIVER ONE STORY",
+        "Work on one story from dispatch to merge",
+        "The project’s story and changed paths, plus the gate settings in docs/testing.yaml.",
+        "The implementation orchestrator dispatches the story and tracks the result.",
+        "The developer writes the tests and implements the story.",
+        "An independent code reviewer checks the story branch and verifies fixes.",
+        "Run the configured story gates. Fix the setup if a gate cannot measure.",
+        "dispatch merge-story runs premerge-check and merges a passing branch.",
+    ),
+    (
+        "CHECK THE WHOLE FEATURE",
+        "Review the combined change after the last wave closes",
+        "The feature branch with its stories merged.",
+        "The orchestrator routes blocking findings through Deliver One Story.",
+        "The story authors supply the combined change and implement any fixes.",
+        "Code review and QA check the feature. Repeat the check that found a defect.",
+        "Run premerge-check for the feature, including the configured test suite.",
+        "The stakeholder merges the checked feature into dev.",
+    ),
+    (
+        "RECONCILE DOCS WITH CODE",
+        "Bring the specification and architecture into line with the code on dev",
+        "The merged code and the documentation it implements.",
+        "The orchestrator uses the reconciliation report to route each discrepancy.",
+        "The artifact owner fixes the drift. Route code defects through bug fix.",
+        "The reviewer declared for the artifact checks the fix.",
+        "Run the checks for each changed artifact, such as spec-lint or arch-lint.",
+        "A reconciliation report with each discrepancy handled.",
+    ),
+    (
+        "EXTEND THE FACTORY",
+        "Add project-specific capabilities and carry them through updates",
+        "A project task and an example that shows when the extension works.",
+        "Virgil interviews the team about the job and agrees on a check.",
+        "The author adds the skill, agent, or playbook and refreshes the catalogue.",
+        "An independent reviewer checks the instructions with the example task.",
+        "Run index-lint, then check discovery and execution in the project CLI.",
+        "After an update, restore from user-changes, resolve conflicts, and rerun the checks.",
+    ),
+]
+
+for number, workstep in enumerate(worksteps, start=1):
+    heading, subtitle, entry, facilitator, author, reviewer, gate, outcome = workstep
+    c = Canvas(99, 25)
+    title(c, f"{number}  {heading}", subtitle)
+    for row, label, detail in [
+        (4, "PROJECT INPUTS", entry),
+        (7, "FACTORY PROCEDURE / FACILITATOR", facilitator),
+        (10, "AUTHOR", author),
+        (13, "REVIEWER", reviewer),
+        (16, "GATE", gate),
+        (20, "OUTPUT / HANDOVER", outcome),
+    ]:
+        text(c, 4, row, label, "**")
+        c.put(4, row + 1, detail)
+    slides.append(slide(c, "agent factory · worksteps"))
+
+# Extending the factory --------------------------------------------------------------------------------
 c = Canvas(99, 25)
 title(c, "EXTENDING THE FACTORY", "fit it to your project, and add what only your project needs")
 c.box(3, 4, 44, 9, [])
@@ -496,7 +666,26 @@ text(c, 4, 21, "Git ignores .agent-factory/, so your parts stay on your machine.
 text(c, 4, 23, "Useful for every project? Propose it for the factory core.", "**")
 slides.append(slide(c))
 
-# 16. Three habits -----------------------------------------------------------------------------------------
+# Add a project playbook -------------------------------------------------------
+c = Canvas(99, 25)
+title(c, "ADD A PROJECT PLAYBOOK", "Make the runbook available to your team and keep it through updates")
+text(c, 4, 4, "1  WRITE THE RUNBOOK", "**")
+c.put(4, 5, "Commit the team’s master copy as poc/playbooks/release-readiness.md.")
+c.put(4, 6, "For each step, name the factory procedure, project inputs, and who approves.")
+text(c, 4, 8, "2  INSTALL AND REGISTER", "**")
+c.put(4, 9, "From the project root, run these commands.")
+c.put(6, 10, "cp poc/playbooks/release-readiness.md .agent-factory/factory/playbooks/")
+c.put(6, 11, ".agent-factory/factory/scripts/index-lint")
+text(c, 4, 13, "3  TRY IT ON A REAL CHANGE", "**")
+c.put(4, 14, "Choose Run an agent or playbook directly. Select release-readiness.")
+c.put(4, 15, "Check that the handovers and gates work on a representative change.")
+text(c, 4, 17, "4  RESTORE AFTER AN UPDATE", "**")
+c.put(4, 18, "The updater stops when it sees local additions. With --force, it saves them")
+c.put(4, 19, "under .agent-factory/user-changes/<timestamp>/ before installing the update.")
+c.put(4, 21, "Repeat step 2 from the tracked master, then check that the playbook still runs.")
+slides.append(slide(c))
+
+# Closing slide. Three habits -----------------------------------------------------------------------------------------
 c = Canvas(62, 14)
 text(c, 3, 1, "THREE HABITS", "**")
 habits = [("Read before you approve.", "Your yes is the last gate. It matters most."),
