@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The root orientation rule still covers the symlink (no to fails_purpose). A maintainer must consult the installer to explain why setup changed the target.",
   "commit": "173914482a2ada672358e7724a433cea10e9ec90",
-  "status": "open"
+  "status": "resolved"
 }
