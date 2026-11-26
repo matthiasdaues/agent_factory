@@ -59,6 +59,21 @@ Read: README.md, packages/factory/README.md, pyproject.toml
 Project licensing terms.
 Read: LICENSE
 
+### Write a skill or agent
+
+How to write an agent, a skill, or a playbook in the factory source.
+Read: docs/handbook/agents-and-skills/index.md
+
+### Add a gate
+
+How to add a lint script or a hook that works in every supported CLI.
+Read: docs/handbook/gates-and-hooks/index.md
+
+### Release
+
+Versioning, the changelog, and tags of a factory release.
+Read: docs/handbook/release/index.md
+
 ## Domain concerns
 
 ### Factory
