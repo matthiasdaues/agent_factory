@@ -158,6 +158,7 @@ def test_fh_02_01_check_names_the_stale_index(model):
     assert snapshot(model) == before
 
 
+@pytest.mark.spec("FH-CT-01")
 def test_rerun_changes_nothing_and_check_passes(model):
     run_script("handbook-index", model)
     written = snapshot(model)
@@ -167,6 +168,7 @@ def test_rerun_changes_nothing_and_check_passes(model):
     assert run_script("handbook-index", model, "--check").returncode == 0
 
 
+@pytest.mark.spec("FH-CT-01")
 def test_a_stub_that_becomes_implemented_joins_the_list(model):
     write(model, f"{USER}/cli-integrations/opencode-desktop.md",
           page_text("OpenCode Desktop", "how-to", "implemented"))
@@ -177,6 +179,7 @@ def test_a_stub_that_becomes_implemented_joins_the_list(model):
     assert "[OpenCode Desktop](opencode-desktop.md)" in text
 
 
+@pytest.mark.spec("FH-CT-01")
 def test_an_image_in_a_chapter_is_listed_by_no_list(model):
     (model / USER / "cli-integrations/diagram.png").write_bytes(b"\x89PNG")
 
@@ -194,6 +197,7 @@ def _chapter(pages):
     return hi.Folder("ch", {p.path: p for p in pages}, "", None, [], [], [])
 
 
+@pytest.mark.spec("FH-CT-01")
 class TestChapterBody:
     def test_group_headings_follow_the_type_order(self):
         pages = [_page(f"ch/{t}.md", type_=t) for t in reversed(hi.TYPES)]
@@ -237,6 +241,7 @@ class TestChapterBody:
         assert hi.chapter_body(_chapter([stub])) == ""
 
 
+@pytest.mark.spec("FH-CT-01")
 class TestTopBody:
     def _chapters(self, rows):
         chapters = []
@@ -258,6 +263,7 @@ class TestTopBody:
         assert "[Only stubs](s/index.md)" in hi.top_body(self._chapters([("s", 1, "Only stubs")]))
 
 
+@pytest.mark.spec("FH-CT-01")
 class TestSplice:
     def test_text_outside_the_markers_keeps_its_bytes(self):
         text = f"head \r\n{START}old{END}\ttail\n"
@@ -268,6 +274,7 @@ class TestSplice:
         assert hi.splice(f"{START}\n{END}\n", "- x") == f"{START}\n\n- x\n\n{END}\n"
 
 
+@pytest.mark.spec("FH-CT-02")
 class TestMarkers:
     @pytest.mark.parametrize(
         "text",
@@ -306,6 +313,7 @@ class TestMarkers:
         assert snapshot(model) == before
 
 
+@pytest.mark.spec("FH-CT-03")
 class TestFrontmatter:
     def _parse(self, text):
         return hi.parse_page("p.md", text)
@@ -335,3 +343,115 @@ class TestFrontmatter:
     def test_no_frontmatter_and_unparsable_frontmatter_fail(self):
         assert self._parse("# Heading\n")[0] is None
         assert self._parse("---\ntitle: [\n---\n")[0] is None
+
+
+@pytest.mark.spec("FH-CT-06")
+class TestPagesAtEveryDepth:
+    """IMPL-0118: a hidden page and a page in a nested folder face BR-140 too."""
+
+    @pytest.mark.parametrize(
+        "rel", ["cli-integrations/.draft.md", "cli-integrations/nested/bad.md", "cli-integrations/a/b/.bad.md"]
+    )
+    @pytest.mark.parametrize("mode", [[], ["--check"]], ids=["write", "check"])
+    def test_a_page_without_frontmatter_refuses(self, model, rel, mode):
+        write(model, f"{USER}/{rel}", "# No frontmatter\n")
+        before = snapshot(model)
+
+        result = run_script("handbook-index", model, *mode)
+
+        assert result.returncode != 0
+        assert f"{USER}/{rel}: field frontmatter" in result.stdout
+        assert snapshot(model) == before
+
+    def test_a_marker_in_a_nested_index_is_checked(self, model):
+        write(model, f"{USER}/cli-integrations/nested/index.md", page_text("Nested") + f"{START}\n")
+
+        result = run_script("handbook-index", model)
+
+        assert result.returncode != 0
+        assert f"{USER}/cli-integrations/nested/index.md: markers" in result.stdout
+
+    def test_a_nested_page_joins_no_list(self, model):
+        write(model, f"{USER}/cli-integrations/nested/ok.md", page_text("Nested ok", "how-to"))
+
+        assert run_script("handbook-index", model).returncode == 0
+        assert "Nested ok" not in (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.spec("FH-CT-07")
+class TestUnparsableDates:
+    """IMPL-0119: a YAML scalar that cannot convert is a diagnostic, not a traceback."""
+
+    def test_an_invalid_date_is_a_frontmatter_failure(self):
+        page, failures = hi.parse_page("p.md", "---\ntitle: 2000-01-99\ntype: concept\nstatus: implemented\n---\n")
+
+        assert page is None
+        assert [str(f) for f in failures] == ["p.md: field frontmatter: the frontmatter does not parse as YAML"]
+
+    def test_the_run_goes_on_to_the_other_handbook(self, model):
+        write(model, f"{USER}/cli-integrations/add-an-integration.md",
+              "---\ntitle: 2000-01-99\ntype: how-to\nstatus: implemented\n---\n")
+        write(model, f"{CONTRIBUTOR}/release/ship.md", page_text("Ship a release", type_=None))
+
+        result = run_script("handbook-index", model, "--check")
+
+        assert "Traceback" not in result.stderr
+        assert f"{USER}/cli-integrations/add-an-integration.md: field frontmatter" in result.stdout
+        assert f"{CONTRIBUTOR}/release/ship.md: field type" in result.stdout
+
+
+@pytest.mark.spec("FH-CT-08")
+class TestSymlinks:
+    """IMPL-0120: a link never leads the reader or the writer out of a handbook."""
+
+    def test_a_chapter_link_to_a_sibling_folder_refuses(self, model):
+        outside = model / "elsewhere"
+        write(model, "elsewhere/index.md", index_text("Elsewhere"))
+        (model / USER / "linked").symlink_to(outside, target_is_directory=True)
+        before = snapshot(model)
+
+        result = run_script("handbook-index", model)
+
+        assert result.returncode != 0
+        assert f"{USER}/linked: symlink" in result.stdout
+        assert snapshot(model) == before
+
+    def test_a_page_link_to_a_file_outside_refuses(self, model):
+        write(model, "outside.md", page_text("Outside"))
+        (model / USER / "cli-integrations/outside.md").symlink_to(model / "outside.md")
+
+        result = run_script("handbook-index", model, "--check")
+
+        assert result.returncode != 0
+        assert f"{USER}/cli-integrations/outside.md: symlink" in result.stdout
+
+
+@pytest.mark.spec("FH-CT-09")
+class TestLinkTargets:
+    """IMPL-0121: a hash in a name stays part of the path."""
+
+    def test_a_hash_in_a_page_name_is_encoded(self):
+        body = hi.chapter_body(_chapter([_page("ch/changes#2.md", title="Example")]))
+
+        assert "- [Example](changes%232.md)" in body
+
+    def test_a_hash_in_a_chapter_name_is_encoded(self):
+        page = _page("c#1/index.md", title="C")
+        chapter = hi.Folder("h/c#1", {}, "", page, [], [], [])
+
+        assert "- [C](c%231/index.md)" in hi.top_body([chapter])
+
+
+@pytest.mark.spec("FH-CT-10")
+class TestMarkerLiteralsInMetadata:
+    """IMPL-0122: page metadata never adds a marker to a generated list."""
+
+    def test_a_marker_in_a_description_or_title_is_encoded(self, model):
+        chapter = f"{USER}/cli-integrations"
+        write(model, f"{chapter}/add-an-integration.md",
+              page_text(f"Write {START} first", "how-to", description=f"Write {START} then {END} last."))
+
+        assert run_script("handbook-index", model).returncode == 0
+        text = (model / chapter / "index.md").read_text(encoding="utf-8")
+        assert text.count(START) == 1 and text.count(END) == 1
+        assert run_script("handbook-index", model, "--check").returncode == 0

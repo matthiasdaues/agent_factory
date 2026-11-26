@@ -680,6 +680,7 @@ def _repo_hooks() -> dict[str, dict]:
     return {hook["id"]: hook for repo in config["repos"] for hook in repo["hooks"]}
 
 
+@pytest.mark.spec("FH-CT-05")
 def test_st_0452_hook_runs_on_every_commit_without_a_file_list():
     hook = _repo_hooks()["handbook-lint"]
 
@@ -690,6 +691,7 @@ def test_st_0452_hook_runs_on_every_commit_without_a_file_list():
     assert "files" not in hook
 
 
+@pytest.mark.spec("FH-CT-05")
 def test_st_0452_hook_sits_outside_the_block_that_init_factory_copies():
     ids = list(_repo_hooks())
     consumer = [i for i in ids if i.startswith("agent_factory_hook-")]
@@ -697,6 +699,7 @@ def test_st_0452_hook_sits_outside_the_block_that_init_factory_copies():
     assert ids.index("handbook-lint") > ids.index(consumer[-1])
 
 
+@pytest.mark.spec("FH-CT-05")
 def test_st_0452_init_factory_writes_no_handbook_hook_into_a_user_project():
     template = yaml_ids(PRE_COMMIT_PATH)
 

@@ -8,6 +8,8 @@ the model of test_handbook_index.py. The contract tests call its functions.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -42,6 +44,7 @@ def report_lines(result) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
+@pytest.mark.spec("FH-CT-04")
 def test_the_model_passes(model):
     result = run_script("handbook-lint", model)
 
@@ -123,6 +126,7 @@ def test_fh_02_03_one_run_reports_a_page_a_folder_and_a_stale_list(model):
     assert snapshot(model) == before
 
 
+@pytest.mark.spec("FH-CT-03")
 class TestPageRules:
     @pytest.mark.parametrize(
         "kwargs,field",
@@ -175,6 +179,7 @@ class TestPageRules:
         assert f"{CHAPTER}/add-an-integration.md: field frontmatter" in result.stdout
 
 
+@pytest.mark.spec("FH-CT-04")
 class TestTitles:
     def test_titles_that_differ_only_in_case_fail(self, model):
         write(model, f"{CHAPTER}/add-cli.md", page_text("Add a CLI Integration", "how-to", order=30))
@@ -200,6 +205,7 @@ class TestTitles:
         assert run_script("handbook-lint", model).returncode == 0
 
 
+@pytest.mark.spec("FH-CT-04")
 class TestOutOfScope:
     def test_a_broken_link_and_the_word_must_do_not_fail(self, model):
         write(model, f"{CHAPTER}/how-the-clis-differ.md",
@@ -208,6 +214,7 @@ class TestOutOfScope:
         assert run_script("handbook-lint", model).returncode == 0
 
 
+@pytest.mark.spec("FH-CT-04")
 class TestFunctions:
     def test_duplicate_failures_group_by_casefolded_title(self):
         def page(path, title, status="implemented"):
@@ -227,3 +234,65 @@ class TestFunctions:
         failures = lint.lint(tmp_path)
 
         assert {f.path for f in failures} == {f"{USER}/", f"{CONTRIBUTOR}/"}
+
+
+@pytest.mark.spec("FH-CT-06")
+class TestEveryDepth:
+    def test_a_hidden_page_fails_lint(self, model):
+        write(model, f"{CHAPTER}/.draft.md", "# No frontmatter\n")
+
+        result = run_script("handbook-lint", model)
+
+        assert result.returncode != 0
+        assert f"{CHAPTER}/.draft.md: field frontmatter" in result.stdout
+
+    def test_a_nested_folder_and_its_bad_page_are_both_named(self, model):
+        write(model, f"{CHAPTER}/nested/bad.md", "# No frontmatter\n")
+
+        out = run_script("handbook-lint", model).stdout
+
+        assert f"{CHAPTER}/nested/: a chapter folder holds no folder" in out
+        assert f"{CHAPTER}/nested/bad.md: field frontmatter" in out
+
+
+@pytest.mark.spec("FH-CT-07")
+def test_an_invalid_date_is_reported_next_to_a_failure_of_the_other_handbook(model):
+    write(model, f"{CHAPTER}/add-an-integration.md", "---\ntitle: 2000-01-99\ntype: how-to\nstatus: implemented\n---\n")
+    write(model, f"{CONTRIBUTOR}/release/ship.md", page_text("Ship a release", type_=None))
+
+    result = run_script("handbook-lint", model)
+
+    assert "Traceback" not in result.stderr
+    assert f"{CHAPTER}/add-an-integration.md: field frontmatter" in result.stdout
+    assert f"{CONTRIBUTOR}/release/ship.md: field type" in result.stdout
+
+
+@pytest.mark.spec("FH-CT-08")
+def test_a_linked_chapter_fails_lint(model):
+    write(model, "elsewhere/index.md", index_text("Elsewhere"))
+    (model / USER / "linked").symlink_to(model / "elsewhere", target_is_directory=True)
+
+    result = run_script("handbook-lint", model)
+
+    assert result.returncode != 0
+    assert f"{USER}/linked: symlink" in result.stdout
+
+
+@pytest.mark.spec("FH-CT-11")
+def test_the_cli_writes_no_bytecode_beside_the_scripts(model, tmp_path_factory):
+    import os
+    import shutil
+
+    from conftest import SOURCE_SCRIPTS_DIR
+
+    scripts = tmp_path_factory.mktemp("scripts")
+    for name in ("handbook-index", "handbook-lint"):
+        shutil.copy(SOURCE_SCRIPTS_DIR / name, scripts / name)
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONDONTWRITEBYTECODE"}
+
+    result = subprocess.run(
+        [sys.executable, str(scripts / "handbook-lint")], cwd=model, capture_output=True, text=True, env=env,
+    )
+
+    assert result.returncode == 0, result.stdout
+    assert sorted(p.name for p in scripts.iterdir()) == ["handbook-index", "handbook-lint"]

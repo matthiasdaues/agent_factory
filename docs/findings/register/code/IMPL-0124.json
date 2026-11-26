@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The assertions still run (no to fails_purpose). Reviewers must match the contract cases to the assertions by hand.",
   "commit": "b3636e992233482d9ddc787ee53d1348f8398ed7",
-  "status": "open"
+  "status": "resolved"
 }

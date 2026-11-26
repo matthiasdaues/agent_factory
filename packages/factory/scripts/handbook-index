@@ -31,7 +31,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
 
@@ -83,7 +83,7 @@ def parse_page(path: str, text: str) -> tuple[Page | None, list[Failure]]:
         return None, [Failure(path, "field frontmatter: the page has no frontmatter block")]
     try:
         data = yaml.safe_load(match.group(1))
-    except yaml.YAMLError:
+    except (yaml.YAMLError, ValueError):
         return None, [Failure(path, "field frontmatter: the frontmatter does not parse as YAML")]
     if data is None:
         data = {}
@@ -94,10 +94,10 @@ def parse_page(path: str, text: str) -> tuple[Page | None, list[Failure]]:
     title = data.get("title")
     if not isinstance(title, str) or not title.strip():
         failures.append(Failure(path, "field title: required, a non-empty string"))
-    for field, allowed in (("type", TYPES), ("status", STATUSES)):
-        value = data.get(field)
+    for name, allowed in (("type", TYPES), ("status", STATUSES)):
+        value = data.get(name)
         if not isinstance(value, str) or value not in allowed:
-            failures.append(Failure(path, f"field {field}: required, one of {', '.join(allowed)}"))
+            failures.append(Failure(path, f"field {name}: required, one of {', '.join(allowed)}"))
     order = data.get("order", DEFAULT_ORDER)
     if isinstance(order, bool) or not isinstance(order, int):
         failures.append(Failure(path, "field order: an integer when present"))
@@ -128,6 +128,7 @@ class Folder:
     page_failures: list[Failure]
     marker_failures: list[Failure]
     nested: list[str]
+    deep_failures: list[Failure] = field(default_factory=list)
 
     @property
     def has_index(self) -> bool:
@@ -146,23 +147,48 @@ def _rel(base: Path, path: Path) -> str:
     return path.relative_to(base).as_posix()
 
 
-def _read_folder(base: Path, folder: Path) -> Folder:
-    """Read the Markdown files directly inside one folder."""
-    rel = _rel(base, folder)
-    result = Folder(rel, {}, None, None, [], [], [])
+def _inside(root: Path, target: Path) -> bool:
+    return target == root or root in target.parents
+
+
+def _read_page(base: Path, root: Path, entry: Path) -> tuple[str, str | None, list[Failure]]:
+    """Read one Markdown file: its path, its text, and its BR-140 failures.
+
+    A symlink to a folder, or to a file outside the handbook root, is refused
+    and never read, so no command reads or writes beyond the two roots.
+    """
+    path = _rel(base, entry)
+    if entry.is_symlink() and not _inside(root, entry.resolve()):
+        return path, None, [Failure(path, "symlink: the link points outside the handbook")]
+    try:
+        text = entry.read_bytes().decode("utf-8")
+    except UnicodeDecodeError:
+        return path, None, [Failure(path, "field frontmatter: the file is not valid UTF-8")]
+    return path, text, []
+
+
+def _read_folder(base: Path, root: Path, folder: Path, deep: bool = False) -> Folder:
+    """Read the Markdown files directly inside one folder.
+
+    With deep, also check every Markdown file and index.md marker pair of the
+    folders below it, and name each of those folders in nested.
+    """
+    result = Folder(_rel(base, folder), {}, None, None, [], [], [])
     for entry in sorted(folder.iterdir(), key=lambda item: item.name):
-        if entry.name.startswith("."):
+        path = _rel(base, entry)
+        if entry.is_symlink() and entry.is_dir():
+            result.page_failures.append(Failure(path, "symlink: a linked folder is not followed"))
             continue
         if entry.is_dir():
-            result.nested.append(_rel(base, entry))
+            result.nested.append(path)
+            if deep:
+                _check_below(base, root, entry, result)
             continue
         if entry.suffix != ".md":
             continue
-        path = _rel(base, entry)
-        try:
-            text = entry.read_bytes().decode("utf-8")
-        except UnicodeDecodeError:
-            result.page_failures.append(Failure(path, "field frontmatter: the file is not valid UTF-8"))
+        path, text, failures = _read_page(base, root, entry)
+        result.page_failures.extend(failures)
+        if text is None:
             continue
         page, failures = parse_page(path, text)
         result.page_failures.extend(failures)
@@ -173,6 +199,26 @@ def _read_folder(base: Path, folder: Path) -> Folder:
         elif page is not None:
             result.pages[path] = page
     return result
+
+
+def _check_below(base: Path, root: Path, folder: Path, result: Folder) -> None:
+    """Check each Markdown file below a chapter folder, hidden ones included."""
+    for entry in sorted(folder.iterdir(), key=lambda item: item.name):
+        path = _rel(base, entry)
+        if entry.is_symlink() and entry.is_dir():
+            result.deep_failures.append(Failure(path, "symlink: a linked folder is not followed"))
+        elif entry.is_dir():
+            result.nested.append(path)
+            _check_below(base, root, entry, result)
+        elif entry.suffix == ".md":
+            path, text, failures = _read_page(base, root, entry)
+            result.deep_failures.extend(failures)
+            if text is None:
+                continue
+            _, failures = parse_page(path, text)
+            result.deep_failures.extend(failures)
+            if entry.name == "index.md":
+                result.deep_failures.extend(marker_failures(path, text))
 
 
 def marker_failures(path: str, text: str) -> list[Failure]:
@@ -194,10 +240,11 @@ def read_handbook(base: Path, root: str) -> Handbook:
     root_path = base / root
     if not root_path.is_dir():
         return Handbook(root, False, None, [])
-    top = _read_folder(base, root_path)
-    chapters = [_read_folder(base, base / nested) for nested in top.nested]
-    # A page directly in a chapter folder is a page of that chapter. A folder
-    # inside a chapter is reported by handbook-lint and read no further.
+    real_root = root_path.resolve()
+    top = _read_folder(base, real_root, root_path)
+    # A page directly in a chapter folder is a page of that chapter. Pages in
+    # folders below a chapter are checked but listed by no page list.
+    chapters = [_read_folder(base, real_root, base / nested, deep=True) for nested in top.nested]
     return Handbook(root, True, top, chapters)
 
 
@@ -207,7 +254,7 @@ def read_handbooks(base: Path) -> list[Handbook]:
 
 def folder_failures(folder: Folder) -> list[Failure]:
     """BR-140 and BR-143 failures of one folder."""
-    return [*folder.page_failures, *folder.marker_failures]
+    return [*folder.page_failures, *folder.deep_failures, *folder.marker_failures]
 
 
 def rule_failures(handbooks: list[Handbook]) -> list[Failure]:
@@ -221,12 +268,17 @@ def rule_failures(handbooks: list[Handbook]) -> list[Failure]:
     return failures
 
 
+def _literal(text: str) -> str:
+    """Encode the start of an HTML comment, so page metadata never forms a marker."""
+    return text.replace("<!--", "&lt;!--")
+
+
 def _escape(text: str) -> str:
-    return re.sub(r"([\\\[\]])", r"\\\1", text)
+    return _literal(re.sub(r"([\\\[\]])", r"\\\1", text))
 
 
 def _link(label: str, target: str) -> str:
-    return f"[{_escape(label)}]({quote(target, safe='/#-._~')})"
+    return f"[{_escape(label)}]({quote(target, safe='/-._~')})"
 
 
 def chapter_body(folder: Folder) -> str:
@@ -243,7 +295,7 @@ def chapter_body(folder: Folder) -> str:
         lines = [f"## {TYPE_HEADINGS[page_type]}", ""]
         for page in group:
             entry = f"- {_link(page.title, Path(page.path).name)}"
-            lines.append(f"{entry}: {page.description}" if page.description else entry)
+            lines.append(f"{entry}: {_literal(page.description)}" if page.description else entry)
         sections.append("\n".join(lines))
     return "\n\n".join(sections)
 
