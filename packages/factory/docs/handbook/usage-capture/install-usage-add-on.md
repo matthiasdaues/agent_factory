@@ -21,8 +21,10 @@ You want to query the token use that capture recorded. Install the add-on first.
 1. Install the add-on into the project. On a project that is already set up, run:
 
    ```bash
-   .agent-factory/factory/scripts/init-factory --add usage
+   .agent-factory/factory/scripts/init-factory --source /path/to/agent_factory --add usage
    ```
+
+   Replace `/path/to/agent_factory` with the path to your clone of the factory source; the installed script takes the add-on from that clone.
 
    On a new project, add the option `--with-usage` to the first `init-factory` call instead.
 
@@ -43,6 +45,6 @@ You want to query the token use that capture recorded. Install the add-on first.
    .agent-factory/factory/scripts/usage-query capture_health --diagnostic
    ```
 
-   The command prints a JSON object with `total_records`, `valid_count`, and `failure_count`. If it prints `directory not found`, confirm that `.agent-factory/usage/` exists and holds `.jsonl` files.
+   The command prints a JSON object with `total_lines`, `valid_count`, and `failure_count`. If it prints `directory not found`, confirm that `.agent-factory/usage/` exists and holds `.jsonl` files.
 
 Next, [query the views](query-usage-views.md).

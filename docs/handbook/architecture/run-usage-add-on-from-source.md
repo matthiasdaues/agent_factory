@@ -22,7 +22,7 @@ You work in a checkout of the factory repository and want to run the add-on from
    uv run --directory packages/usage usage-query capture_health --diagnostic
    ```
 
-   The command prints a JSON object with `total_records`, `valid_count`, and `failure_count`. If it prints `directory not found`, confirm that `.agent-factory/usage/` exists and holds `.jsonl` files.
+   The command prints a JSON object with `total_lines`, `valid_count`, and `failure_count`. If it prints `directory not found`, confirm that `.agent-factory/usage/` exists and holds `.jsonl` files.
 
 3. Query a view and save the result:
 
