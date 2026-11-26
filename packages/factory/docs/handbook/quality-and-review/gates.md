@@ -30,4 +30,4 @@ Two of the four, `crap-score` and `mutation-testing`, are test guardrails. Which
 
 When neither source names a built-in gate, `premerge-check` runs none. It prints one line that names each built-in gate without an entry and the skill that sets it up: `setup-crap-score` for `crap-score`, and `mutation-testing` for `mutation-testing`.
 
-A gate that fails is retried, and [implementation-agent.md § Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation) sets the limits.
+[implementation-agent.md § Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation) describes what happens after a gate fails.
