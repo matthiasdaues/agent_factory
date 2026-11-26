@@ -66,7 +66,7 @@ The review covered the full specification diff against the [accepted proposal](.
 
 ## Traceability summary
 
-The [scope map](../spec/scope-map.md) traces all 14 handbook Rules. The feature contains 85 scenarios counting each outline once. The QA strategy assigns the full suite to the merge gate and the fresh-clone tutorial run to its author. The gaps report assigns the lector pass to the release process. The new lint cases have integration owners; the completion summary omits their traces. [QA strategy](../spec/work/factory-handbooks-qa-strategy.md#scenarios-without-a-test-of-their-own) · [Gaps report](../spec/work/factory-handbooks-gaps.md#completion-criteria-trace)
+The [scope map](../spec/scope-map.md) traces all 14 handbook Rules. The feature contains 85 scenarios counting each outline once. The QA strategy assigns the full suite to the merge gate and the fresh-clone tutorial run to its author. The gaps report assigns the lector pass to the release process. The new lint cases have integration owners; the completion summary omits their traces. [QA strategy](../spec/work/factory-handbooks-qa-strategy.md) · [Gaps report](../spec/work/factory-handbooks-gaps.md#completion-criteria-trace)
 
 ## Disposition
 
