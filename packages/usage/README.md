@@ -61,7 +61,7 @@ uv run --directory packages/usage usage-query capture_health --diagnostic
 ```
 
 In an installed project, use `--directory .agent-factory/usage/analysis`.
-You should see a JSON object with `total_records`, `valid_count`, and
+You should see a JSON object with `total_lines`, `valid_count`, and
 `failure_count`. If the command prints `directory not found`, confirm that
 `.agent-factory/usage/` exists and contains `.jsonl` files.
 
