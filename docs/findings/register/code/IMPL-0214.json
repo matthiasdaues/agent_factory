@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The resolver still uses the requested default (no to fails_purpose). The reader has to consult the linked reference and configure a model row to pass validation.",
   "commit": "136b82c0eb0eada1b9aa702ab08d34861fc96561",
-  "status": "open"
+  "status": "resolved"
 }
