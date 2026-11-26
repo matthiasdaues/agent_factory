@@ -296,10 +296,14 @@ def rule_failures(handbooks: list[Handbook]) -> list[Failure]:
 def _literal(text: str) -> str:
     """Encode the start of an HTML comment, so page metadata never forms a marker.
 
-    mdformat decodes one entity and then writes the opener as \\<!--, which still
-    holds the marker text. The encoding is therefore doubled, and mdformat keeps it.
+    Every comment opener is encoded once, so mdformat shows it as written. A reserved
+    marker is encoded twice: mdformat decodes one entity and then writes the opener
+    as \\<!--, which still holds the marker text, so only the doubled form survives.
     """
-    return text.replace("<!--", "&amp;lt;!--")
+    encoded = text.replace("<!--", "&lt;!--")
+    for marker in (START_MARKER, END_MARKER):
+        encoded = encoded.replace("&lt;" + marker[1:], "&amp;lt;" + marker[1:])
+    return encoded
 
 
 def _escape(text: str) -> str:
@@ -316,7 +320,7 @@ def _format(text: str) -> str:
 
 
 def _link(label: str, target: str) -> str:
-    return f"[{_escape(label)}]({quote(target, safe='/-._~')})"
+    return f"[{_escape(' '.join(label.split()))}]({quote(target, safe='/-._~')})"
 
 
 def chapter_body(folder: Folder) -> str:

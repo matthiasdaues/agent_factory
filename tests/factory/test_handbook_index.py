@@ -213,6 +213,24 @@ def test_inline_code_keeps_its_two_spaces_through_mdformat(model):
     assert '`printf "a  b"`' in text
 
 
+def test_a_blank_line_in_a_title_keeps_its_link_through_mdformat(model):
+    """IMPL-0205: a line break in a title does not split the generated link label."""
+    text = assert_index_survives_mdformat(model, "|-\n  Add a\n\n  CLI integration", "Add the files of one CLI.")
+
+    assert "[Add a CLI integration](add-an-integration.md)" in text
+
+
+def test_a_comment_opener_in_a_description_renders_as_written(model):
+    """IMPL-0206: an HTML comment opener in a description is shown as written, not as an entity.
+
+    mdformat writes the opener as \\<!--, a CommonMark escape that renders as <!--.
+    """
+    text = assert_index_survives_mdformat(model, "Add a CLI integration", "Use <!-- to start a comment.")
+
+    assert "Use \\<!-- to start a comment." in text
+    assert "&lt;" not in text
+
+
 def assert_index_survives_mdformat(model, title, description) -> str:
     """Generate the index of one page, format it as the hook does, and check it again; return the index text."""
     write(model, f"{USER}/cli-integrations/add-an-integration.md",
