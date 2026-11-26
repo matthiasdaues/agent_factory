@@ -99,7 +99,7 @@ Apply this wave only after Wave 1 behaviour is merged, so the prose describes te
 - Introduce manual, mechanized, and automated modes together in the guide.
 - Apply E-01 through E-09 from the [minor errata register](reconciliation-2026-11-03.md#minor-errata).
 
-Primary files: [README.md](../../README.md), [packages/factory/README.md](../../packages/factory/README.md), [packages/usage/README.md](../../packages/usage/README.md), [factory-guide.md](../../packages/factory/docs/factory-guide.md), and [ui-exploration.md](../../packages/usage/docs/ui-exploration.md).
+Primary files: [README.md](../../README.md), [packages/factory/README.md](../../packages/factory/README.md), [packages/usage/README.md](../../packages/usage/README.md), [factory-guide.md](../../packages/factory/docs/factory-guide.md), and [ui-exploration.md](../../packages/factory/docs/handbook/usage-capture/explore-usage-in-the-browser.md).
 
 Exit criterion: every shell command in user-facing docs succeeds in a clean temporary project, and the terminology/path sweep finds no obsolete live references.
 
