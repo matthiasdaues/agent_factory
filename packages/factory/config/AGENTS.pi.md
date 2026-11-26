@@ -4,6 +4,8 @@ Read and follow `.agent-factory/factory/rulebooks/rules.md` in full — every MU
 
 Read `.pi/INDEX.yaml`. All available agents, skills, and playbooks are listed there.
 
+Read `docs/agent-context.md` if it exists. It routes you to the project's own knowledge by concern. Keep its cross-cutting concerns in mind for the whole session. Follow a concern's `Read:` paths when the work touches that concern.
+
 ## CLI capabilities
 
 You are running in Stackblitz Pi. These are your capabilities and limits:

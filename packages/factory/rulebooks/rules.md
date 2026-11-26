@@ -69,15 +69,15 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [agent-context-composition.md](conventions/agent-context-composition.md)
 
-- **MUST** populate `docs/agent-context/` as the factory-facing interface to project knowledge.
-- **MUST** set `mode: primary` when the index files are the primary source of decisions.
-- **MUST** set `mode: index` when the index files are projections of existing documentation.
-- **MUST** include a `source:` pointer on every non-null, non-deferred leaf field when `mode: index`.
-- **MUST NOT** hand-edit an index file that carries `mode: index` (edit `docs/agent-context.md` directly).
-- **MUST NOT** write upstream — edits to `docs/agent-context/*.yaml` never propagate to source documents.
-- **MUST NOT** place `source:` pointers in `reading-guides.yaml`.
-- **MUST NOT** mix YAML agent-context and markdown charter formats in one project.
-- **MUST** point `source:` at the project-local convention when it exists, not at the factory rulebook default it overrides.
+- **MUST** keep `docs/agent-context.md` as the factory-facing interface to project knowledge.
+- **MUST** read `docs/agent-context.md` at session start when it exists, and keep its cross-cutting concerns active for the whole session.
+- **MUST** give the file the three category headings `## Always (cross-cutting)`, `## Technical concerns`, and `## Domain concerns`.
+- **MUST** give every concern a one-line description and at least one `Read:` line.
+- **MUST** make every `Read:` and `Boundary:` path resolve to an existing file or glob match.
+- **MUST** pick a story's `concerns:` from the registry. A missing concern goes to the user as a proposal, never as a silent new name.
+- **MUST** point a `Read:` line at the project-local convention when it exists, not at the factory rulebook default it overrides.
+- **MUST NOT** treat the agent context as the primary authority. It links to sources and never holds the decisions itself.
+- **MUST NOT** keep YAML files other than `testing.yaml` under `docs/agent-context/`, or a `docs/charter/` directory.
 
 ## Testing
 
