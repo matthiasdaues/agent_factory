@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0184",
+  "source": "lector-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/usage-capture/usage-capture-reference.md:22",
+  "story": "ST-0457",
+  "finding": "The reference page usage-capture-reference.md explains inside a page of type reference. The paragraph at l.22 says why capture reads agent_transcript_path for Claude Code and why a task text appears in two records. A reader who looks up a trigger or an accounting rule gets reasoning that belongs to a concept page. Move the paragraph to usage-capture.md, or cut it to the facts the table needs, in the structural pass of the lector.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "A reader still finds each trigger and each accounting rule in the table (no to fails_purpose). The explanation sits one page away from where a concept page would hold it.",
+  "commit": "5140238a782e598fa663585a675bdfa8d49c8271",
+  "status": "open"
+}

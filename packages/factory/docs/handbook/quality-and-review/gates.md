@@ -18,10 +18,16 @@ Each structural gate fires at the end of one kind of work: `spec-lint` after spe
 
 ## Semantic gates
 
-Four semantic gates fire between a developer's commit and the merge of the story branch. The implementation agent's gate-check step runs them. `premerge-check` blocks the merge when a gate that applies to the story has no passing result (BR-066).
+Four semantic gates fire between a developer's commit and the merge of the story branch. The implementation agent's gate-check step runs them. `premerge-check` refuses the merge when a gate that applies to the story has no passing result.
 
-Two of the four, `crap-score` and `mutation-testing`, are test guardrails. A test guardrail runs only when an enabled entry of the `gates` section of `docs/testing.yaml` or the story's `quality-gates` field names it. No default picks a gate. The planning agent fills each story's `quality-gates` field from the enabled entries of that section. `docs/charter/house-rules.md` is not a source of gates.
+> Rule summary: **MUST** run `premerge-check` before merging a branch; a non-zero exit blocks the merge until investigated.
+> Source: [rules.md § Branching](../../../rulebooks/rules.md#branching)
+
+Two of the four, `crap-score` and `mutation-testing`, are test guardrails. Which of them runs for a story is set before the story starts, so the developer never picks a gate.
+
+> Rule summary: The planning agent fills each story's `quality-gates` field from the enabled entries of the `gates` section of `docs/testing.yaml`. A test guardrail runs only when such an entry or the field names it. No default picks a gate, and `docs/charter/house-rules.md` is not a source of gates.
+> Source: [story-frontmatter-fields.md § quality-gates](../../../rulebooks/references/story-frontmatter-fields.md#quality-gates-filled-by-planner)
 
 When neither source names a built-in gate, `premerge-check` runs none. It prints one line that names each built-in gate without an entry and the skill that sets it up: `setup-crap-score` for `crap-score`, and `mutation-testing` for `mutation-testing`.
 
-`dispatch` counts the attempts of the gate-check step (BR-114). A story gets `gates.attempts` attempts on its tier, and then `gates.attempts_escalated` attempts on the next tier. Both values come from `docs/testing.yaml` and default to `3`. `gates.attempts_escalated: 0` turns the escalation off.
+[implementation-agent.md § Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation) describes what happens after a gate fails.

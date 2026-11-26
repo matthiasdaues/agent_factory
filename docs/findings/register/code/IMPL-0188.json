@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0188",
+  "source": "lector-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/concepts/author-and-reviewer.md:15",
+  "story": "ST-0457",
+  "finding": "Line 15 of author-and-reviewer.md repeats the pairing that l.11-13 state. The structural pass of the lector can cut l.15.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The page states the pairing correctly in both places (no to fails_purpose). A reader reads the same fact twice.",
+  "commit": "5140238a782e598fa663585a675bdfa8d49c8271",
+  "status": "open"
+}

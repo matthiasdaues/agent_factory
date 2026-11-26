@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0186",
+  "source": "lector-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/quality-and-review/pre-commit-hooks.md:38-43",
+  "story": "ST-0457",
+  "finding": "The last sentence of l.38 and the sentence at l.43 of pre-commit-hooks.md repeat the guard behavior that l.33-37 already state: a clone without the key stays silent and a clone with the key fails on a missing folder. The structural pass of the lector can cut both sentences.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The page stays correct and complete with the repeats (no to fails_purpose). A reader reads the same fact three times.",
+  "commit": "5140238a782e598fa663585a675bdfa8d49c8271",
+  "status": "open"
+}

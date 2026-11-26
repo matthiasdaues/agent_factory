@@ -27,7 +27,12 @@ The tier rubric in [dispatch-contract.md](../../../rulebooks/conventions/dispatc
 
 ## A run by hand
 
-A run by hand keeps the ledger, the story workflow, and the checks of an orchestrated run. It runs one story at a time in the primary checkout and adds no worktree. Each story is a wave of its own (BR-064). The implementation agent stops before each decision point and waits for your go. [Run dispatch by hand](run-dispatch-by-hand.md) shows the steps.
+A run by hand is the way to work through a backlog at your own pace, with the same ledger and checks as an orchestrated run. It works in the primary checkout, so it adds no worktree. The implementation agent stops before each decision point and waits for your go.
+
+> Rule summary: A run by hand takes one story at a time, and each story is a wave of its own. `dispatch prepare-story` serves it, and `dispatch prepare-wave` is not used.
+> Source: [dispatch-contract.md § Run By Hand](../../../rulebooks/conventions/dispatch-contract.md#run-by-hand)
+
+[Run dispatch by hand](run-dispatch-by-hand.md) shows the steps.
 
 ## Step boundaries
 

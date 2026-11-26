@@ -8,7 +8,7 @@ description: Choose whether usage capture stores transcript text or only the tok
 
 # Configure transcript retention
 
-Usage capture stores a copy of each transcript next to its record. To keep the token totals and the audit context but store no transcript text, set the retention to `omit`.
+Usage capture stores the text of each transcript next to its records. To keep the token totals and the audit context but store no transcript text, set the retention to `omit`.
 
 1. Set the retention at initialization:
 

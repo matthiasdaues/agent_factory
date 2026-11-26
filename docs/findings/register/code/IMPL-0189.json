@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0189",
+  "source": "lector-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/getting-started/first-session.md:57",
+  "story": "ST-0457",
+  "finding": "The rule summary on bypassing a failing pre-commit hook appears as a callout in three pages: first-session.md, gate-scripts.md, and pre-commit-hooks.md. BR-149 allows a rule summary on each page, but a reader meets the same callout three times. The structural pass of the lector can keep it where a reader meets the failure and link to it from the other two pages. The other two copies are at quality-and-review/gate-scripts.md:61 and quality-and-review/pre-commit-hooks.md:40.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Each copy links to the rule's home and agrees with it (no to fails_purpose). A reader meets the same callout three times.",
+  "commit": "5140238a782e598fa663585a675bdfa8d49c8271",
+  "status": "open"
+}

@@ -26,6 +26,7 @@ The implementation agent runs the dispatch commands of the list. It stops before
 
 > Rule summary: In a run by hand, every push stays with the human. The one exception is the claim push by `next-id`.
 > Source: [rules.md § Dispatch](../../../rulebooks/rules.md#dispatch)
-> [The agent definition](../../../agents/implementation-agent.md#workflow--run-by-hand) holds the details of each step.
+
+[The agent definition](../../../agents/implementation-agent.md#workflow--run-by-hand) holds the details of each step.
 
 [Dispatch runs](dispatch-runs.md) explains the ledger and the waves that a run by hand shares with an orchestrated run.
