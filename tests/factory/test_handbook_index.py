@@ -198,6 +198,23 @@ def test_an_image_in_a_chapter_is_listed_by_no_list(model):
 )
 def test_a_run_of_spaces_survives_mdformat(model, title, description):
     """IMPL-0197: the repository mdformat hook runs before handbook-lint and must not change the index."""
+    assert_index_survives_mdformat(model, title, description)
+
+
+def test_a_bracketed_title_survives_mdformat(model):
+    """IMPL-0202: a bracket in a title is escaped by the generator and kept by mdformat."""
+    assert_index_survives_mdformat(model, "Add [CLI] integration", "Add the files of one CLI.")
+
+
+def test_inline_code_keeps_its_two_spaces_through_mdformat(model):
+    """IMPL-0203: the generator leaves the spaces of inline code as the author wrote them."""
+    text = assert_index_survives_mdformat(model, "Add a CLI integration", 'Run `printf "a  b"`.')
+
+    assert '`printf "a  b"`' in text
+
+
+def assert_index_survives_mdformat(model, title, description) -> str:
+    """Generate the index of one page, format it as the hook does, and check it again; return the index text."""
     write(model, f"{USER}/cli-integrations/add-an-integration.md",
           page_text(title, "how-to", order=20, description=description))
     assert run_script("handbook-index", model).returncode == 0
@@ -209,6 +226,7 @@ def test_a_run_of_spaces_survives_mdformat(model, title, description):
 
     result = run_script("handbook-index", model, "--check")
     assert result.returncode == 0, result.stdout
+    return (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
 
 
 def _page(path, order=100, title="T", type_="concept", description=""):
