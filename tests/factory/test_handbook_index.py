@@ -1,0 +1,337 @@
+"""Checks of handbook-index (ST-0452).
+
+handbook-index writes the page list of every index.md of both handbooks
+between its markers (validation-rules.md BR-140, BR-143 to BR-146). The
+integration tests run the script as a subprocess on a temporary project that
+holds the model chapter `cli-integrations/` of the feature description. The
+contract tests call the functions of the script without files.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+from conftest import SOURCE_SCRIPTS_DIR, load_script
+
+hi = load_script("handbook-index")
+
+USER = "packages/factory/docs/handbook"
+CONTRIBUTOR = "docs/handbook"
+START, END = hi.START_MARKER, hi.END_MARKER
+INTRO = "# CLI integrations\n\nIntroduction above the list.\n\n"
+NOTE = "\nNote below the list.\n"
+
+
+def page_text(title, type_="concept", status="implemented", order=None, description=None, body=""):
+    """The text of a page; a None argument leaves its line out."""
+    lines = ["---"]
+    for key, value in (
+        ("title", title), ("type", type_), ("status", status), ("order", order), ("description", description),
+    ):
+        if value is not None:
+            lines.append(f"{key}: {value}")
+    lines += ["---", "", body]
+    return "\n".join(lines)
+
+
+def index_text(title, order=None, intro="", note="", with_markers=True):
+    text = page_text(title, order=order) + intro
+    if with_markers:
+        text += f"{START}\n{END}\n"
+    return text + note
+
+
+def write(base: Path, rel: str, text: str) -> Path:
+    path = base / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def build_model(base: Path) -> Path:
+    """The model of the feature description: both handbooks, no list written yet."""
+    write(base, f"{USER}/index.md", index_text("Factory handbook"))
+    write(base, f"{USER}/getting-started/index.md", index_text("Getting started", order=10))
+    chapter = f"{USER}/cli-integrations"
+    write(base, f"{chapter}/index.md", index_text("CLI integrations", order=80, intro=INTRO, note=NOTE))
+    write(base, f"{chapter}/add-an-integration.md",
+          page_text("Add a CLI integration", "how-to", order=20, description="Add the files of one CLI."))
+    write(base, f"{chapter}/remove-an-integration.md",
+          page_text("Remove a CLI integration", "how-to", order=10,
+                    description="Remove the files of one CLI from a project."))
+    write(base, f"{chapter}/how-the-clis-differ.md", page_text("How the CLIs differ", "concept"))
+    write(base, f"{chapter}/opencode-desktop.md", page_text("OpenCode Desktop", "how-to", "stub"))
+    write(base, f"{CONTRIBUTOR}/index.md", index_text("Contributor handbook"))
+    write(base, f"{CONTRIBUTOR}/release/index.md", index_text("Release", order=40))
+    write(base, f"{CONTRIBUTOR}/release/ship.md", page_text("Ship a release", "how-to", "stub"))
+    write(base, f"{CONTRIBUTOR}/contributing/index.md", index_text("Contributing", order=20))
+    return base
+
+
+def run_script(name: str, base: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(SOURCE_SCRIPTS_DIR / name), *args],
+        cwd=base, capture_output=True, text=True, check=False,
+    )
+
+
+def snapshot(base: Path) -> dict[str, bytes]:
+    return {p.relative_to(base).as_posix(): p.read_bytes() for p in sorted(base.rglob("*")) if p.is_file()}
+
+
+@pytest.fixture
+def model(tmp_path: Path) -> Path:
+    return build_model(tmp_path)
+
+
+@pytest.mark.spec("FH-01-IT-01")
+def test_fh_01_01_grouped_sorted_list_between_markers(model):
+    result = run_script("handbook-index", model)
+
+    assert result.returncode == 0, result.stdout
+    text = (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
+    assert text.index("## Concepts") < text.index("## How-to guides")
+    assert "- [How the CLIs differ](how-the-clis-differ.md)\n" in text
+    assert text.index("[Remove a CLI integration]") < text.index("[Add a CLI integration]")
+    assert (
+        "- [Remove a CLI integration](remove-an-integration.md): "
+        "Remove the files of one CLI from a project.\n"
+    ) in text
+
+
+@pytest.mark.spec("FH-01-IT-02")
+def test_fh_01_02_stub_and_outside_text(model):
+    path = model / USER / "cli-integrations/index.md"
+    before = path.read_text(encoding="utf-8")
+
+    result = run_script("handbook-index", model)
+
+    assert result.returncode == 0
+    after = path.read_text(encoding="utf-8")
+    assert "OpenCode Desktop" not in after
+    assert "index.md" not in after.partition(START)[2].partition(END)[0]
+    assert after.startswith(before.partition(START)[0] + START)
+    assert after.endswith(END + before.partition(END)[2])
+
+
+@pytest.mark.spec("FH-01-IT-03")
+def test_fh_01_03_page_without_type_writes_nothing(model):
+    write(model, f"{USER}/cli-integrations/add-an-integration.md",
+          page_text("Add a CLI integration", type_=None))
+    before = snapshot(model)
+
+    result = run_script("handbook-index", model)
+
+    assert result.returncode != 0
+    assert f"{USER}/cli-integrations/add-an-integration.md" in result.stdout
+    assert "field type" in result.stdout
+    assert snapshot(model) == before
+
+
+@pytest.mark.spec("FH-01-IT-04")
+def test_fh_01_04_top_level_lists_every_chapter(model):
+    result = run_script("handbook-index", model)
+
+    assert result.returncode == 0
+    user_top = (model / USER / "index.md").read_text(encoding="utf-8")
+    assert user_top.index("[Getting started](getting-started/index.md)") < user_top.index(
+        "[CLI integrations](cli-integrations/index.md)"
+    )
+    contributor_top = (model / CONTRIBUTOR / "index.md").read_text(encoding="utf-8")
+    assert "[Release](release/index.md)" in contributor_top
+    assert "[Contributing](contributing/index.md)" in contributor_top
+
+
+@pytest.mark.spec("FH-02-IT-01")
+def test_fh_02_01_check_names_the_stale_index(model):
+    run_script("handbook-index", model)
+    write(model, f"{USER}/cli-integrations/cli-differences.md", page_text("CLI differences"))
+    before = snapshot(model)
+
+    result = run_script("handbook-index", model, "--check")
+
+    assert result.returncode != 0
+    assert f"{USER}/cli-integrations/index.md" in result.stdout
+    assert snapshot(model) == before
+
+
+def test_rerun_changes_nothing_and_check_passes(model):
+    run_script("handbook-index", model)
+    written = snapshot(model)
+
+    assert run_script("handbook-index", model).returncode == 0
+    assert snapshot(model) == written
+    assert run_script("handbook-index", model, "--check").returncode == 0
+
+
+def test_a_stub_that_becomes_implemented_joins_the_list(model):
+    write(model, f"{USER}/cli-integrations/opencode-desktop.md",
+          page_text("OpenCode Desktop", "how-to", "implemented"))
+
+    run_script("handbook-index", model)
+
+    text = (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
+    assert "[OpenCode Desktop](opencode-desktop.md)" in text
+
+
+def test_an_image_in_a_chapter_is_listed_by_no_list(model):
+    (model / USER / "cli-integrations/diagram.png").write_bytes(b"\x89PNG")
+
+    result = run_script("handbook-index", model)
+
+    assert result.returncode == 0
+    assert "diagram" not in (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
+
+
+def _page(path, order=100, title="T", type_="concept", description=""):
+    return hi.Page(path, title, type_, "implemented", order, description)
+
+
+def _chapter(pages):
+    return hi.Folder("ch", {p.path: p for p in pages}, "", None, [], [], [])
+
+
+class TestChapterBody:
+    def test_group_headings_follow_the_type_order(self):
+        pages = [_page(f"ch/{t}.md", type_=t) for t in reversed(hi.TYPES)]
+
+        body = hi.chapter_body(_chapter(pages))
+
+        headings = [line for line in body.splitlines() if line.startswith("## ")]
+        assert headings == ["## Tutorials", "## Concepts", "## How-to guides", "## Reference", "## Learning"]
+
+    def test_a_type_without_a_page_gets_no_heading(self):
+        body = hi.chapter_body(_chapter([_page("ch/a.md", type_="reference")]))
+
+        assert "## Reference" in body
+        assert "Tutorials" not in body and "Concepts" not in body
+
+    def test_orders_sort_lower_first_with_negative_zero_and_default(self):
+        pages = [_page("ch/d.md", 100, "Default"), _page("ch/e.md", 20, "Twenty"), _page("ch/c.md", 1, "One"),
+                 _page("ch/b.md", 0, "Zero"), _page("ch/a.md", -5, "Minus")]
+
+        body = hi.chapter_body(_chapter(pages))
+
+        titles = [line.split("]")[0][3:] for line in body.splitlines() if line.startswith("- ")]
+        assert titles == ["Minus", "Zero", "One", "Twenty", "Default"]
+
+    def test_ties_sort_by_title_then_by_path(self):
+        pages = [_page("ch/z.md", 5, "Same"), _page("ch/y.md", 5, "Same"), _page("ch/x.md", 5, "Alpha")]
+
+        body = hi.chapter_body(_chapter(pages))
+
+        targets = [line.split("(")[1].rstrip(")") for line in body.splitlines() if line.startswith("- ")]
+        assert targets == ["x.md", "y.md", "z.md"]
+
+    def test_an_entry_without_a_description_has_no_colon(self):
+        body = hi.chapter_body(_chapter([_page("ch/a.md", title="Alone")]))
+
+        assert "- [Alone](a.md)" in body.splitlines()
+
+    def test_a_stub_is_not_listed(self):
+        stub = hi.Page("ch/s.md", "Stub", "concept", "stub", 100, "")
+
+        assert hi.chapter_body(_chapter([stub])) == ""
+
+
+class TestTopBody:
+    def _chapters(self, rows):
+        chapters = []
+        for path, order, title in rows:
+            page = hi.Page(f"{path}/index.md", title, "concept", "stub", order, "")
+            chapters.append(hi.Folder(path, {}, "", page, [], [], []))
+        return chapters
+
+    def test_chapters_sort_by_order_then_title_then_path(self):
+        chapters = self._chapters([("c", 5, "Same"), ("b", 5, "Same"), ("a", 5, "Alpha"), ("d", 1, "Zed")])
+
+        body = hi.top_body(chapters)
+
+        assert [line.split("(")[1].rstrip(")") for line in body.splitlines()] == [
+            "d/index.md", "a/index.md", "b/index.md", "c/index.md",
+        ]
+
+    def test_a_stub_chapter_stays_in_the_list(self):
+        assert "[Only stubs](s/index.md)" in hi.top_body(self._chapters([("s", 1, "Only stubs")]))
+
+
+class TestSplice:
+    def test_text_outside_the_markers_keeps_its_bytes(self):
+        text = f"head \r\n{START}old{END}\ttail\n"
+
+        assert hi.splice(text, "") == f"head \r\n{START}\n\n{END}\ttail\n"
+
+    def test_a_body_sits_between_blank_lines(self):
+        assert hi.splice(f"{START}\n{END}\n", "- x") == f"{START}\n\n- x\n\n{END}\n"
+
+
+class TestMarkers:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            f"{END}\n",
+            f"{START}\n",
+            f"{START}\n{START}\n{END}\n",
+            f"{START}\n{END}\n{END}\n",
+            f"{END}\n{START}\n",
+        ],
+        ids=["missing-start", "missing-end", "start-twice", "end-twice", "end-before-start"],
+    )
+    def test_each_broken_marker_case_fails(self, text):
+        assert hi.marker_failures("x/index.md", text)
+
+    def test_a_correct_pair_passes(self):
+        assert hi.marker_failures("x/index.md", f"{START}\n{END}\n") == []
+
+    @pytest.mark.parametrize(
+        "mode", [[], ["--check"]], ids=["write", "check"]
+    )
+    @pytest.mark.parametrize(
+        "text",
+        [f"{END}\n", f"{START}\n", f"{START}{START}{END}", f"{START}{END}{END}", f"{END}{START}"],
+        ids=["missing-start", "missing-end", "start-twice", "end-twice", "end-before-start"],
+    )
+    def test_a_broken_pair_refuses_in_both_modes(self, model, text, mode):
+        path = f"{USER}/cli-integrations/index.md"
+        write(model, path, page_text("CLI integrations", order=80) + text)
+        before = snapshot(model)
+
+        result = run_script("handbook-index", model, *mode)
+
+        assert result.returncode != 0
+        assert path in result.stdout
+        assert snapshot(model) == before
+
+
+class TestFrontmatter:
+    def _parse(self, text):
+        return hi.parse_page("p.md", text)
+
+    def test_a_full_page_parses(self):
+        page, failures = self._parse(page_text("A", "how-to", order=-5, description="One sentence."))
+
+        assert failures == [] and page.order == -5 and page.description == "One sentence."
+
+    def test_order_defaults_to_100(self):
+        assert self._parse(page_text("A"))[0].order == 100
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [("order", "2.5"), ("order", "first"), ("order", "null"), ("title", '""'), ("title", "42"),
+         ("title", "null"), ("type", "guide"), ("status", "planned")],
+    )
+    def test_a_bad_value_names_the_field(self, field, value):
+        fields = {"title": "A", "type": "concept", "status": "implemented", field: value}
+        text = "---\n" + "\n".join(f"{k}: {v}" for k, v in fields.items()) + "\n---\n"
+
+        page, failures = self._parse(text)
+
+        assert page is None
+        assert [str(failure) for failure in failures if f"field {field}" in str(failure)]
+
+    def test_no_frontmatter_and_unparsable_frontmatter_fail(self):
+        assert self._parse("# Heading\n")[0] is None
+        assert self._parse("---\ntitle: [\n---\n")[0] is None

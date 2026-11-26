@@ -1,0 +1,327 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyyaml"]
+# ///
+"""handbook-index - write the page list of every index.md of both handbooks.
+
+What: Reads the frontmatter of every page of the user handbook
+      (packages/factory/docs/handbook/) and the contributor handbook
+      (docs/handbook/), and writes the page list of each index.md between
+      its markers <!-- handbook-index:start --> and <!-- handbook-index:end -->.
+      A chapter's list groups its implemented pages by type and sorts them
+      by order, title, and path. A handbook's top-level list names each
+      chapter that holds an index.md. Text outside the markers never changes
+      (validation-rules.md BR-140, BR-143 to BR-146).
+      --check writes nothing. It names each index.md whose page list differs.
+      The script refuses and writes nothing when a page breaks BR-140 or an
+      index.md breaks the marker rule of BR-143.
+When: A contributor runs it after adding, changing, or removing a page.
+      handbook-lint runs the check of --check.
+By:   `packages/factory/scripts/handbook-index [--check]` from the repository
+      root.
+
+Exit code:
+  0  every page list is written or, with --check, current
+  1  a refusal, or with --check a page list that differs
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from urllib.parse import quote
+
+import yaml
+
+HANDBOOK_ROOTS = ("packages/factory/docs/handbook", "docs/handbook")
+START_MARKER = "<!-- handbook-index:start -->"
+END_MARKER = "<!-- handbook-index:end -->"
+TYPES = ("tutorial", "concept", "how-to", "reference", "learn")
+TYPE_HEADINGS = {
+    "tutorial": "Tutorials",
+    "concept": "Concepts",
+    "how-to": "How-to guides",
+    "reference": "Reference",
+    "learn": "Learning",
+}
+STATUSES = ("implemented", "stub")
+DEFAULT_ORDER = 100
+FRONTMATTER = re.compile(r"\A---[ \t]*\r?\n(.*?)^---[ \t]*\r?$", re.DOTALL | re.MULTILINE)
+
+
+@dataclass(frozen=True)
+class Failure:
+    """One broken rule: the path that breaks it and what is wrong."""
+
+    path: str
+    message: str
+
+    def __str__(self) -> str:
+        return f"{self.path}: {self.message}"
+
+
+@dataclass(frozen=True)
+class Page:
+    """A page that passes BR-140."""
+
+    path: str
+    title: str
+    type: str
+    status: str
+    order: int
+    description: str
+
+
+def parse_page(path: str, text: str) -> tuple[Page | None, list[Failure]]:
+    """Check the frontmatter of one page against BR-140."""
+    match = FRONTMATTER.match(text)
+    if match is None:
+        return None, [Failure(path, "field frontmatter: the page has no frontmatter block")]
+    try:
+        data = yaml.safe_load(match.group(1))
+    except yaml.YAMLError:
+        return None, [Failure(path, "field frontmatter: the frontmatter does not parse as YAML")]
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        return None, [Failure(path, "field frontmatter: the frontmatter is not a mapping")]
+
+    failures: list[Failure] = []
+    title = data.get("title")
+    if not isinstance(title, str) or not title.strip():
+        failures.append(Failure(path, "field title: required, a non-empty string"))
+    for field, allowed in (("type", TYPES), ("status", STATUSES)):
+        value = data.get(field)
+        if not isinstance(value, str) or value not in allowed:
+            failures.append(Failure(path, f"field {field}: required, one of {', '.join(allowed)}"))
+    order = data.get("order", DEFAULT_ORDER)
+    if isinstance(order, bool) or not isinstance(order, int):
+        failures.append(Failure(path, "field order: an integer when present"))
+    if failures:
+        return None, failures
+    description = data.get("description")
+    return (
+        Page(
+            path=path,
+            title=title,
+            type=data["type"],
+            status=data["status"],
+            order=order,
+            description=description.strip() if isinstance(description, str) else "",
+        ),
+        [],
+    )
+
+
+@dataclass
+class Folder:
+    """A chapter folder, or a handbook root read as one."""
+
+    path: str
+    pages: dict[str, Page]
+    index_text: str | None
+    index_page: Page | None
+    page_failures: list[Failure]
+    marker_failures: list[Failure]
+    nested: list[str]
+
+    @property
+    def has_index(self) -> bool:
+        return self.index_text is not None
+
+
+@dataclass
+class Handbook:
+    root: str
+    exists: bool
+    top: Folder | None
+    chapters: list[Folder]
+
+
+def _rel(base: Path, path: Path) -> str:
+    return path.relative_to(base).as_posix()
+
+
+def _read_folder(base: Path, folder: Path) -> Folder:
+    """Read the Markdown files directly inside one folder."""
+    rel = _rel(base, folder)
+    result = Folder(rel, {}, None, None, [], [], [])
+    for entry in sorted(folder.iterdir(), key=lambda item: item.name):
+        if entry.name.startswith("."):
+            continue
+        if entry.is_dir():
+            result.nested.append(_rel(base, entry))
+            continue
+        if entry.suffix != ".md":
+            continue
+        path = _rel(base, entry)
+        try:
+            text = entry.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            result.page_failures.append(Failure(path, "field frontmatter: the file is not valid UTF-8"))
+            continue
+        page, failures = parse_page(path, text)
+        result.page_failures.extend(failures)
+        if entry.name == "index.md":
+            result.index_text = text
+            result.index_page = page
+            result.marker_failures.extend(marker_failures(path, text))
+        elif page is not None:
+            result.pages[path] = page
+    return result
+
+
+def marker_failures(path: str, text: str) -> list[Failure]:
+    """Check the marker pair of one index.md against BR-143."""
+    starts, ends = text.count(START_MARKER), text.count(END_MARKER)
+    if starts == 1 and ends == 1 and text.index(START_MARKER) < text.index(END_MARKER):
+        return []
+    return [
+        Failure(
+            path,
+            f"markers: needs {START_MARKER} once before {END_MARKER} once "
+            f"(found {starts} start, {ends} end)",
+        )
+    ]
+
+
+def read_handbook(base: Path, root: str) -> Handbook:
+    """Read one handbook: its top level and each chapter folder."""
+    root_path = base / root
+    if not root_path.is_dir():
+        return Handbook(root, False, None, [])
+    top = _read_folder(base, root_path)
+    chapters = [_read_folder(base, base / nested) for nested in top.nested]
+    # A page directly in a chapter folder is a page of that chapter. A folder
+    # inside a chapter is reported by handbook-lint and read no further.
+    return Handbook(root, True, top, chapters)
+
+
+def read_handbooks(base: Path) -> list[Handbook]:
+    return [read_handbook(base, root) for root in HANDBOOK_ROOTS]
+
+
+def folder_failures(folder: Folder) -> list[Failure]:
+    """BR-140 and BR-143 failures of one folder."""
+    return [*folder.page_failures, *folder.marker_failures]
+
+
+def rule_failures(handbooks: list[Handbook]) -> list[Failure]:
+    """Every BR-140 and BR-143 failure of both handbooks."""
+    failures: list[Failure] = []
+    for handbook in handbooks:
+        if handbook.top is not None:
+            failures.extend(folder_failures(handbook.top))
+        for chapter in handbook.chapters:
+            failures.extend(folder_failures(chapter))
+    return failures
+
+
+def _escape(text: str) -> str:
+    return re.sub(r"([\\\[\]])", r"\\\1", text)
+
+
+def _link(label: str, target: str) -> str:
+    return f"[{_escape(label)}]({quote(target, safe='/#-._~')})"
+
+
+def chapter_body(folder: Folder) -> str:
+    """The page list of a chapter (BR-144), without markers."""
+    listed = [page for page in folder.pages.values() if page.status == "implemented"]
+    sections = []
+    for page_type in TYPES:
+        group = sorted(
+            (page for page in listed if page.type == page_type),
+            key=lambda page: (page.order, page.title, page.path),
+        )
+        if not group:
+            continue
+        lines = [f"## {TYPE_HEADINGS[page_type]}", ""]
+        for page in group:
+            entry = f"- {_link(page.title, Path(page.path).name)}"
+            lines.append(f"{entry}: {page.description}" if page.description else entry)
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def _chapter_target(chapter: Folder) -> str:
+    return f"{Path(chapter.path).name}/index.md"
+
+
+def top_body(chapters: list[Folder]) -> str:
+    """The page list of a handbook's top-level index.md (BR-145)."""
+    entries = sorted(
+        ((chapter.index_page, chapter) for chapter in chapters if chapter.index_page is not None),
+        key=lambda pair: (pair[0].order, pair[0].title, pair[1].path),
+    )
+    return "\n".join(f"- {_link(page.title, _chapter_target(chapter))}" for page, chapter in entries)
+
+
+def splice(text: str, body: str) -> str:
+    """Replace the text between the markers, leaving the rest as it is."""
+    head, _, rest = text.partition(START_MARKER)
+    _, _, tail = rest.partition(END_MARKER)
+    middle = f"\n\n{body}\n\n" if body else "\n\n"
+    return f"{head}{START_MARKER}{middle}{END_MARKER}{tail}"
+
+
+def planned_lists(handbooks: list[Handbook]) -> list[tuple[str, str, str]]:
+    """(path, current text, new text) for each page list that can be computed.
+
+    A list is skipped when its own index.md breaks the marker rule or when one
+    of its input pages breaks BR-140 (BR-146).
+    """
+    plans: list[tuple[str, str, str]] = []
+    for handbook in handbooks:
+        for chapter in handbook.chapters:
+            if chapter.has_index and not chapter.marker_failures and not chapter.page_failures:
+                path = f"{chapter.path}/index.md"
+                plans.append((path, chapter.index_text, splice(chapter.index_text, chapter_body(chapter))))
+        top = handbook.top
+        if top is not None and top.has_index and not top.marker_failures:
+            inputs_valid = all(
+                chapter.index_page is not None for chapter in handbook.chapters if chapter.has_index
+            )
+            if inputs_valid:
+                path = f"{top.path}/index.md"
+                plans.append((path, top.index_text, splice(top.index_text, top_body(handbook.chapters))))
+    return plans
+
+
+def stale_lists(handbooks: list[Handbook]) -> list[str]:
+    """The path of each index.md whose page list differs from the new one."""
+    return [path for path, current, new in planned_lists(handbooks) if current != new]
+
+
+def run(base: Path, check: bool) -> tuple[int, list[str]]:
+    handbooks = read_handbooks(base)
+    failures = rule_failures(handbooks)
+    messages = [str(failure) for failure in failures]
+    stale = stale_lists(handbooks)
+    if check:
+        messages.extend(f"{path}: page list is out of date" for path in stale)
+        return (1 if messages else 0), messages
+    if failures:
+        return 1, messages
+    for path, current, new in planned_lists(handbooks):
+        if current != new:
+            (base / path).write_bytes(new.encode("utf-8"))
+    return 0, messages
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Write the page lists of both handbooks.")
+    parser.add_argument("--check", action="store_true", help="write nothing; name each stale page list")
+    args = parser.parse_args(argv)
+    code, messages = run(Path.cwd(), args.check)
+    for message in messages:
+        print(message)
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
