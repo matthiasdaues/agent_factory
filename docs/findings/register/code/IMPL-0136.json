@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0136",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/concepts/proposals.md:24-24",
+  "story": "ST-0453",
+  "finding": "The proposal page describes review as an attack. The phrase “attacks an open proposal” leaves a newcomer to infer how the review differs from advice on a draft. Fix: Say that the reviewer challenges the design and checks whether the proposal is ready for planning.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The sentence still names the reviewer and lists the checks (no to fails_purpose). The verb obscures the purpose of the review and makes the reader infer what the reviewer does.",
+  "commit": "0c148850591dc6c85ac3f82fdc92111187c5eddb",
+  "status": "open"
+}
