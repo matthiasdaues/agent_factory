@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.17.0 — 2026-11-26
+
+This release replaces the factory guide with a user handbook. Run
+`update-factory` to receive it.
 
 ### Changes that need action
 
@@ -10,6 +13,20 @@
   `.agent-factory/factory/docs/handbook/index.md` lists the chapters. A
   link from your own documents to the old guide breaks after the update.
   Point it to the handbook page that now holds its section.
+
+### Changes
+
+- **The user handbook explains the factory by task.** Its 13 chapters run
+  from getting started and installation to playbooks, quality and review,
+  usage capture, and troubleshooting. Each page is a tutorial, a concept, a
+  how-to, or a reference. The `scripts/` chapter has one reference page per
+  factory script.
+- **The usage add-on is documented as optional.** The `usage-capture/`
+  chapter says how to install the add-on with `init-factory --add usage`,
+  query its views, and explore them in the browser.
+- **VIRGIL, the session menu, and the tour skills point to the handbook.**
+  `newcomer-tour`, `guided-tour`, and `explain-concept` link to the
+  handbook pages instead of the deleted guide.
 
 ## 1.16.1 — 2026-11-26
 
