@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0182",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/reference/local-configuration.md:31-34",
+  "story": "ST-0454",
+  "finding": "A maintainer who creates a symlink to a Factory orientation file may see setup change its target. Both handbook rows promise to keep a symlink the maintainer set up. The installer classifies the symlink by its target in _is_factory_orientation_link and can retarget it in _link_orientation. In a scratch project, setup retargeted a manually created AGENTS.md symlink from config/AGENTS.codex.md to config/AGENTS.md. Describe the distinction using the target that setup recognizes.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The root orientation rule still covers the symlink (no to fails_purpose). A maintainer must consult the installer to explain why setup changed the target.",
+  "commit": "173914482a2ada672358e7724a433cea10e9ec90",
+  "status": "open"
+}
