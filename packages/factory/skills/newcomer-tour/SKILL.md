@@ -20,12 +20,12 @@ Show newcomers around the factory, and keep the tour short.
 
 02. If yes, offer to skip ahead or start fresh. If no, begin the tour.
 
-03. Read the full Getting Started section of `.agent-factory/factory/docs/factory-guide.md`.
+03. Read the tutorial page of `.agent-factory/factory/docs/handbook/getting-started/`.
 
-04. Cover its concepts in order, combining adjacent material when one
-    explanation is enough.
+04. Walk its steps in order, one checkpoint at a time. Combine adjacent
+    steps when one explanation is enough.
 
-05. For each concept:
+05. For each step:
 
     - Lead with the key idea in plain language.
     - Use at most two short paragraphs or one small list.
@@ -34,10 +34,10 @@ Show newcomers around the factory, and keep the tour short.
     - Give an example only when useful or requested.
     - End with one brief invitation to continue or ask a question.
 
-06. Pause after each concept. When the user says `continue` or equivalent,
+06. Pause after each step. When the user says `continue` or equivalent,
     move on without a recap.
 
-07. After the Getting Started walkthrough, cover **what init-factory put
+07. After the tutorial walkthrough, cover **what init-factory put
     on their disk** — briefly explain the three configuration artifacts:
 
     - `.agent-factory/config/project.json` — project identity (UUID, name, test command).
@@ -59,7 +59,7 @@ Show newcomers around the factory, and keep the tour short.
     return to it later. The user does not need to do anything with this
     information now — just know it exists.
 
-09. Stay above the reference-material seam in the guide. Route advanced
+09. Stay inside the tutorial page. Route advanced
     questions to `explain-concept`.
 
 10. Finish by offering `poc-spike`, questions, or routing to a playbook
@@ -77,5 +77,5 @@ Show newcomers around the factory, and keep the tour short.
 
 ## References
 
-- [Factory Guide — Getting Started section](../../docs/factory-guide.md)
+- [User handbook — Getting started](../../docs/handbook/getting-started/index.md)
 - [Newcomer Tour Proposal](../../../../docs/proposals/implemented/newcomer-tour-as-portable-skill.md)

@@ -26,7 +26,7 @@ Present three things:
 
 No playbook-state marker exists. Present the session entrypoint options with explanations of what each leads to:
 
-- **H — Help: I'm new here or need orientation.** Adopts VIRGIL and loads the `newcomer-tour` skill, which walks through the Getting Started section of `.agent-factory/factory/docs/factory-guide.md` conversationally.
+- **H — Help: I'm new here or need orientation.** Adopts VIRGIL and loads the `newcomer-tour` skill, which walks through the tutorial in `.agent-factory/factory/docs/handbook/getting-started/` conversationally.
 - **K — Housekeeping: project setup and maintenance.** Check factory state, re-fit, update the factory, or refresh agent context.
 - **P — Project Work: start or continue a workstream.** Opens the intention tree: spike, PoC, greenfield, brownfield, feature, bug fix, refactoring, docs sync, review, or research.
 - **O — Open Stage: let's just talk.** Adopts VIRGIL for open-ended conversation.

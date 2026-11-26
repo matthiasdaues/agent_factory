@@ -39,7 +39,7 @@ git add -A && git commit -m "init: wire up Agent Factory"
 
 If the first commit reformats files, that is the pre-commit hooks auto-fixing — re-stage and commit again.
 
-Works the same against an existing repo with its own pre-commit config. Details in the [factory guide § Using this in an existing repo](docs/factory-guide.md#using-this-in-an-existing-repo).
+Works the same against an existing repo with its own pre-commit config. Details in [Install into an existing repository](docs/handbook/installation-and-updates/existing-repository.md).
 
 ### Update
 
@@ -68,45 +68,18 @@ Incrementally adds or removes CLI wiring — dot-directories, symlinks, guardrai
 
 Reads the install manifest and reverses everything. Your pre-commit hooks, orientation files, and workflows come back as they were.
 
-## What you configure
+## Everything else
 
-The installer creates two local config files (git-ignored) and one directory is created later during onboarding:
+The [user handbook](docs/handbook/index.md) covers every other topic. It lives at `.agent-factory/factory/docs/handbook/` in an installed project.
 
-- **`.agent-factory/config/project.json`** — project identity: a stable UUID, the human-readable name you gave at install time, your declared test command, and `safety_critical_paths` (file globs that route work to the strongest AI model tier). Every usage record carries the project id.
-- **`.agent-factory/config/model.conf`** — maps agent tiers (`economy`, `standard`, `strong`) to concrete AI model ids, per CLI. If a dispatch requests a tier with no mapping, `on_missing = halt` stops it — no silent fallback. Claude Code resolves models natively and has no entries here. See the [factory guide § Model matrix and tiers](docs/factory-guide.md#model-matrix-and-tiers).
-- **`docs/agent-context.md`** — a concern-structured Markdown file that tells agents where your project's knowledge lives, organized by cross-cutting, technical, and domain concerns. Created during your first real playbook run (greenfield or brownfield), when VIRGIL walks you through the `capture-context` interview. See the [factory guide § Agent Context](docs/factory-guide.md#agent-context).
-
-All three are local configuration, not project source. Edit them directly any time.
-
-## Runtime directories
-
-Two git-ignored directories appear as you work. You never create them by hand.
-
-- **`.agent-factory/`** — the factory's private runtime area. Holds the install manifest (`install.json`), the usage-capture runtime (tokenizer, adapters), and all recorded usage data (`usage/*.jsonl` and `usage/transcripts/`). Created by `init-factory`; removed cleanly by `remove-factory`. You read usage records here; you never edit them.
-- **`.current-work/`** — ephemeral working state for the active workstream. Holds per-story step manifests, the dispatch ledger, and session logs. Scoped to your local machine and the current piece of work — not portable, not meant to be committed. Disappears when the work is done.
-
-## First playbook
-
-Open your AI coding CLI in the project directory. **VIRGIL** — the built-in guide — greets you with four options: Help (H) for orientation, Housekeeping (K) for project setup and maintenance, Project Work (P) to start or continue a workstream, or Open Stage (O) for open conversation. If you have an existing codebase, VIRGIL first offers a short **fitting** — a few questions to confirm its guesses about your stack and wire up the right hooks. Skip it any time.
-
-To see things work before committing to a real project, pick [`poc-spike`](playbooks/poc-spike.md). One idea in, one runnable prototype out.
-
-For other situations — new project, existing codebase, bug, feature, research — see the [factory guide § Playbooks](docs/factory-guide.md#playbooks).
-
-## How it works
-
-Your AI assistant reads an orientation file that loads the factory's agents, skills, and rules. **VIRGIL** — the default session persona — greets you, helps you choose a playbook, and guides you through setup. On your first real project session, VIRGIL walks you through the `capture-context` skill, which creates `docs/agent-context.md` — a concern-structured routing file that tells agents where your project's knowledge lives without duplicating it.
-
-The [factory guide](docs/factory-guide.md) covers the full picture:
-
-- [Factory directory layout](docs/factory-guide.md#factory-directory-layout) — what each subdirectory of `.agent-factory/factory/` contains
-- [Agent context](docs/factory-guide.md#agent-context) — how the concern-based routing file connects agents to project knowledge, and when it gets created
-- [Model matrix and tiers](docs/factory-guide.md#model-matrix-and-tiers) — how `.agent-factory/config/model.conf` maps economy/standard/strong tiers to concrete AI models per CLI
-- What agents, skills, playbooks, and rulebooks are
-- How the check scripts and phase gates work
-- Test execution through hooks and gates
-- CLI-specific notes (Pi subagent support, Codex agent generation)
-- Troubleshooting
+- [Run your first session](docs/handbook/getting-started/first-session.md): meet VIRGIL and run a first `poc-spike`.
+- [Choose a playbook](docs/handbook/playbooks/choose-a-playbook.md): pick the playbook for a new project, an existing codebase, a bug, a feature, or research.
+- [Local configuration](docs/handbook/reference/local-configuration.md): the files `init-factory` creates and the ones you edit.
+- [Model matrix](docs/handbook/reference/model-matrix.md): how `.agent-factory/config/model.conf` maps tiers to models.
+- [What the agent context does](docs/handbook/agent-context/what-agent-context-does.md): the routing file `docs/agent-context.md`.
+- [Directory layout](docs/handbook/reference/directory-layout.md): what each directory of `.agent-factory/` and `.current-work/` holds.
+- [Gates](docs/handbook/quality-and-review/gates.md) and [pre-commit hooks](docs/handbook/quality-and-review/pre-commit-hooks.md): how tests run through hooks and gates.
+- [Install into an existing repository](docs/handbook/installation-and-updates/existing-repository.md): the same install against a repository with its own pre-commit config.
 
 ## Reference
 
@@ -132,45 +105,3 @@ The [factory guide](docs/factory-guide.md) covers the full picture:
 | `--source <dir>` | Agent Factory checkout (default: `factory_source` from install manifest)                                |
 | `--check`        | Report user modifications and exit without updating                                                     |
 | `--force`        | Update despite user modifications; preserve changed files in `.agent-factory/user-changes/<timestamp>/` |
-
-### What init-factory creates
-
-| What                 | Where                                                                                                                                                                 | Tracked? |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Toolset copy         | `.agent-factory/factory/`                                                                                                                                             | No       |
-| CLI symlinks         | `.claude/`, `.github/`, `.pi/`, `.codex/`, `.agents/` — pointing into `.agent-factory/factory/`                                                                       | No       |
-| Git safety guardrail | `.claude/hooks/block-dangerous-git.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/`                                                                          | No       |
-| Step guard hooks     | `.claude/hooks/step-guard.sh`, `.github/hooks/step-guard.*`, `.pi/extensions/step-guard.ts`, `.codex/hooks/step-guard.sh`                                             | No       |
-| Freshness check      | `.claude/hooks/check-factory-freshness.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/` — auto-runs `update-factory` when `.agent-factory/factory/` is stale | No       |
-| Usage capture hooks  | `.claude/hooks/capture-usage.sh` (Stop/SubagentStop), `.github/hooks/capture-*.sh`, `.pi/extensions/capture-usage.ts`, `.codex/hooks/capture-codex-usage.sh`          | No       |
-| Orientation file     | `.claude/CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — prepends a marker block if the file exists                                                      | No       |
-| Generated agents     | `.github/agents/*.md` (Copilot, with tools: frontmatter), `.codex/agents/*.toml` (Codex, native format)                                                               | No       |
-| Hook config          | `.claude/settings.json` (hook entries), `.codex/hooks.json` (hook entries)                                                                                            | No       |
-| Pre-commit hooks     | `.pre-commit-config.yaml` — `agent_factory_hook-*` block                                                                                                              | Yes      |
-| Gitignore block      | `.gitignore` — `agent_factory related` section                                                                                                                        | Yes      |
-| Project config       | `.agent-factory/config/project.json` (name + UUID), `.agent-factory/config/project-context.json` (scan results)                                                       | No       |
-| Test regime          | `docs/testing.yaml` — `test_command` if a single unambiguous entrypoint is detected                                                                                   | No       |
-| Usage runtime        | `.agent-factory/usage/runtime/` — hash-verified tokenizer venv                                                                                                        | No       |
-| Usage lifecycle      | `.agent-factory/usage/control/` — registration fence and capture state                                                                                                | No       |
-| Install manifest     | `.agent-factory/install.json`                                                                                                                                         | No       |
-| Install checksums    | `.agent-factory/checksums.json` — per-file SHA-256 for modification detection by `update-factory`                                                                     | No       |
-
-Re-running is safe. If `.agent-factory/factory/` exists, it is left alone — use `.agent-factory/factory/scripts/update-factory` instead.
-
-### Test execution
-
-Tests run through gates, not agents:
-
-1. **Pre-commit** — changed files only (`--no-verify` to bypass)
-2. **Pre-push** — full suite (`git push --no-verify` to bypass)
-3. **Phase advance** — entry conditions check `tests_pass`
-
-Projects declare test commands in `docs/testing.yaml`:
-
-- `test_command` — full suite (gates, feature merge); agents cannot run it
-- `test_staged_command` — staged files; agents cannot run it
-- `test_changed_command` — the tests of the changed files; a story merge
-  appends the changed paths (falls back to `test_command`); agents may run
-  it with their changed paths
-
-See [ADR-0003](../../docs/adr/0003-test-execution-via-hooks.md).
