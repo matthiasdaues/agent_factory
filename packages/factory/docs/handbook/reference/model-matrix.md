@@ -33,13 +33,13 @@ pi.standard = openrouter/anthropic/claude-sonnet-4.6
 pi.strong   = openrouter/anthropic/claude-opus-4.8
 ```
 
-| Setting               | Effect                                                                                                                                                                                                                                                          |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cli.tier = model-id` | One line per CLI and tier. The installer writes a `CONFIGURE-ME` line for each tier of each selected CLI that routes models. OpenCode gets none. Replace each one with a model ID. Add lines for each CLI you use, and leave out tiers you never want to reach. |
-| `on_missing = halt`   | When a dispatch asks for a tier with no model for the active CLI, the dispatch stops instead of guessing. So a strong-tier task never falls back to a weaker model in silence.                                                                                  |
-| Precedence            | An explicit `--model` flag wins over `model.conf`, which wins over the CLI's own default (FR-K3).                                                                                                                                                               |
+| Setting               | Effect                                                                                                                                                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli.tier = model-id` | One line per CLI and tier. The installer writes a `CONFIGURE-ME` line for each tier of each selected CLI that routes models. OpenCode gets none. Replace each one with a model ID. Add lines for each CLI you use. With `on_missing = halt`, leave out tiers you never want to reach. |
+| `on_missing = halt`   | When a dispatch asks for a tier with no model for the active CLI, the dispatch stops instead of guessing. So a strong-tier task never falls back to a weaker model in silence.                                                                                                        |
+| Precedence            | An explicit `--model` flag wins over `model.conf`, which wins over the CLI's own default (FR-K3).                                                                                                                                                                                     |
 
-`on_missing` applies only when a tier has no row. A row with a value is the model the CLI receives, even when the value is `CONFIGURE-ME`. To let the CLI pick its own default for a tier, delete that tier's row and set `on_missing = auto`. `matrix-lint` reports `MX-EMPTY` as an error for a matrix with no model rows.
+`on_missing` applies to every CLI and tier pair with no row, not only to a row you delete. A row with a value is the model the CLI receives, even when the value is `CONFIGURE-ME`. To let the CLI pick its own default for a tier, delete that tier's row and set `on_missing = auto`. That setting also applies to every other pair without a row. `matrix-lint` reports `MX-EMPTY` as an error for a matrix with no model rows.
 
 The file is git-ignored local configuration, so each developer can keep their own mapping. Edit it directly to pin models, swap providers, or add a CLI.
 
