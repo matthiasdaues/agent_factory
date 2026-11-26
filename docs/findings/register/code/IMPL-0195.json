@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The row still tells users when their tests run (no to fails_purpose). The broader claim can cost time checking why setup created the hook configuration.",
   "commit": "59ff796db598f0363076b21b53e154f09163e002",
-  "status": "open"
+  "status": "resolved"
 }

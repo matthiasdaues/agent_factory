@@ -52,7 +52,7 @@ description: Each gate script, when it fires, what it checks, the command that r
 
 The tests run at three points:
 
-1. **Pre-commit.** The factory installs no test hook. Your project decides whether tests run at commit and which tests run. `init-factory` records a detected test command in `docs/testing.yaml` and adds nothing to `.pre-commit-config.yaml`.
+1. **Pre-commit.** The factory installs no test hook. Your project decides whether tests run at commit and which tests run. Test-command detection adds no test hook. `init-factory` creates `docs/testing.yaml` only when it is absent, with the one detected command or the command you pick when the scan finds several. Setup creates `.pre-commit-config.yaml` with the factory hooks when that file is absent.
 2. **Pre-push.** The factory configures no pre-push test hook either. If your project adds one, the project decides which tests it runs.
 3. **Phase advance.** The entry condition `tests_pass` checks the suite.
 

@@ -31,7 +31,7 @@ description: Install the factory into a repository that already has its own hist
 
    - **`.codex/hooks.json`:** the same rule applies to Codex. `init-factory` adds its hook entries to an existing file, keeps your entries, and creates the file when it is absent. It stops with the path when the file is not valid JSON.
 
-   - **`docs/testing.yaml`:** `init-factory` creates this file only when it is absent and the scan finds exactly one test command. It then records that command as `test_command`. An existing file stays untouched, and `init-factory` adds no test hook to `.pre-commit-config.yaml`.
+   - **`docs/testing.yaml`:** `init-factory` creates this file only when it is absent. It records the one detected test command as `test_command`, or the command you pick when the scan finds several. An existing file stays untouched, and `init-factory` adds no test hook to `.pre-commit-config.yaml`.
 
    Beyond these files, `init-factory` adds new files and folders: `.agent-factory/`, `.current-work/`, and the links and hook scripts under `.claude/`, `.github/`, `.codex/`, `.agents/`, `.pi/`, and `.opencode/` for the CLIs it installs. Your own `docs/` pages, scripts, and the rest of your configuration stay as they are.
 

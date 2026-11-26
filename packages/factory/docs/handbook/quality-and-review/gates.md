@@ -30,7 +30,4 @@ Two of the four, `crap-score` and `mutation-testing`, are test guardrails. Which
 
 When neither source names a built-in gate, `premerge-check` runs none. It prints one line that names each built-in gate without an entry and the skill that sets it up: `setup-crap-score` for `crap-score`, and `mutation-testing` for `mutation-testing`.
 
-A gate that fails does not end the story at once, because the implementation agent retries it. `dispatch` counts these attempts, and not every failure counts. A story that uses up its attempts on its tier can move to the next tier. The limits come from `docs/testing.yaml`.
-
-> Rule summary: A story gets `gates.attempts` counted attempts on its tier and then `gates.attempts_escalated` on the next. Both values come from `docs/testing.yaml`, and `gates.attempts_escalated: 0` turns escalation off.
-> Source: [implementation-agent.md § Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation)
+A gate that fails is retried, and [implementation-agent.md § Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation) sets the limits.
