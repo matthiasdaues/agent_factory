@@ -2,7 +2,7 @@
 scope: global
 schema_version: 2
 title: Factory Handbooks
-status: open
+status: accepted
 owner: md@matthiasdaues.de
 created: 2026-11-25
 updated: 2026-11-26
