@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The health-check command still runs and returns all three counts (no to fails_purpose). Readers must reconcile the output with the checkpoint.",
   "commit": "c10510333491664d39643d24f7b43e7d579a18f6",
-  "status": "open"
+  "status": "resolved"
 }
