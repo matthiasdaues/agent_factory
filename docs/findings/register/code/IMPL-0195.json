@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0195",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/quality-and-review/gate-scripts.md:55",
+  "story": "ST-0457",
+  "finding": "A reader can expect no pre-commit configuration after setup, then find a generated file. The pre-commit row says init-factory adds nothing to .pre-commit-config.yaml. On first install, handle_precommit creates the file with the factory hooks when it is absent (packages/factory/scripts/init-factory:3241-3250). Fix the row to say that test-command detection adds no test hook.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The row still tells users when their tests run (no to fails_purpose). The broader claim can cost time checking why setup created the hook configuration.",
+  "commit": "59ff796db598f0363076b21b53e154f09163e002",
+  "status": "open"
+}
