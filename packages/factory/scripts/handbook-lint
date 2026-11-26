@@ -50,9 +50,12 @@ index = _load_index()
 
 
 def _root_uninspectable(handbook) -> bool:
-    """True when the reader failed on the root itself, or on a link above it."""
+    """True when the reader failed on the root, on a link above it, or on its index."""
     root = handbook.root
-    return any(f.path == root or root.startswith(f"{f.path}/") for f in handbook.top.page_failures)
+    return any(
+        f.path in (root, f"{root}/index.md") or root.startswith(f"{f.path}/")
+        for f in handbook.top.page_failures
+    )
 
 
 def layout_failures(handbooks) -> list:

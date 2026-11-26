@@ -320,6 +320,16 @@ def test_a_root_without_index_and_with_an_invalid_page_reports_both(model):
     assert f"{CONTRIBUTOR}/: handbook root has no index.md" in result.stdout
 
 
+def test_a_root_index_with_invalid_utf8_reports_only_the_decoding_failure(model):
+    (model / CONTRIBUTOR / "index.md").write_bytes(b"\xff")
+
+    result = run_script("handbook-lint", model)
+
+    assert result.returncode == 1
+    assert "handbook root has no index.md" not in result.stdout
+    assert f"{CONTRIBUTOR}/index.md" in result.stdout
+
+
 @pytest.mark.spec("FH-CT-55")
 def test_the_cli_writes_no_bytecode_beside_the_scripts(model, tmp_path_factory):
     import os
