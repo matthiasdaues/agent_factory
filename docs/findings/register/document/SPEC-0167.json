@@ -20,5 +20,5 @@
   },
   "why_this_severity": "The decision log link and the test row let the reader recover the omitted decision (no to fails_purpose).",
   "commit": "1e83f92d16ef69b54d01a7ef917ef705818ba202",
-  "status": "open"
+  "status": "resolved"
 }

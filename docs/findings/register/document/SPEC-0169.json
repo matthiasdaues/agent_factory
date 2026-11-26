@@ -20,5 +20,5 @@
   },
   "why_this_severity": "BR-144, BR-145, and the glossary distinguish the two page lists, so a reader can recover which index the introduction means (no to fails_purpose).",
   "commit": "1e83f92d16ef69b54d01a7ef917ef705818ba202",
-  "status": "open"
+  "status": "resolved"
 }

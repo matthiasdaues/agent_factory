@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0171",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:46",
+  "story": null,
+  "finding": "FH-05-IT-02 omits the full live-document link check from its contract summary. State that the test also runs link-check over every live document and link to the proposal's definition of that set.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "The linked scenario and BR-152 both require the full run (no to fails_purpose). The test author must read them to recover that assertion.",
+  "commit": "746ef16f45659d9ef974421732336e39db571909",
+  "status": "resolved"
+}

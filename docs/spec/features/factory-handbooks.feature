@@ -93,10 +93,12 @@ Feature: Factory Handbooks
 
     Scenario Outline: handbook-lint reports each kind of page rule failure
       # trace: FH-02-02
-      Given <defect>
+      Given both handbooks pass handbook-lint
+      And then <defect>
       When the contributor runs handbook-lint
       Then handbook-lint exits non-zero
       And it reports <report>
+      And it reports no other failure
 
       Examples:
         | defect                                                                                                                 | report                                                    |
@@ -162,6 +164,8 @@ Feature: Factory Handbooks
       Given the migration map docs/spec/work/factory-handbooks-migration-map.md
       Then every section heading of factory-guide.md, concepts.md, and beginner-intro.md at commit 4ebf5101f70c1540a0d53dcfb3d00cfa977d361a has a row in the map
       And each row names a handbook page that exists
+      And each row of factory-guide.md, of beginner-intro.md, and of the concepts.md sections "The phase chain" and "Key ideas" names a page of the user handbook
+      And the row of the concepts.md section "Project directory tree" names the reference page in the contributor handbook's architecture/ chapter
 
     Scenario: Every link to the three deleted files points to the new home of its information
       # trace: FH-05-02

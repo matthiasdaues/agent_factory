@@ -10,7 +10,7 @@ supersedes:
 
 impact:
   scope: cross_component
-  architecture_change: false
+  architecture_change: false  # manual override (product owner, 2026-11-26): module-graph-check reports eleven contracts that predate the feature, the same result as at baseline 4ebf5101; the handbooks add no module boundary (BUG-0150)
   external_contract_change: true
   boundaries:
     - packages/factory/docs/factory-guide.md
