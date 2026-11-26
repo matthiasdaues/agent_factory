@@ -4,12 +4,12 @@ title: Code review of the IMPL-0197 handbook index fix
 date: 2026-11-26
 status: defects
 reviewer: code-review-agent
-findings_filed: 3
+findings_filed: 5
 story: IMPL-0197
 run:
 branch: story/IMPL-0197
 branch_base: 04d5e45688d2ac10dd2ac348424e19639a0df98e
-branch_head: ebf6e20eab41c67f0d99444b123986a68a6d97f9
+branch_head: 2423d836243e437c04660ee7a56035172b149bb3
 ---
 
 # Code review of the IMPL-0197 handbook index fix
@@ -47,3 +47,30 @@ The current worktree passed `handbook-index --check`, `handbook-lint`, and the s
 | A valid bracketed title still makes the handbook hook fail.                         | `packages/factory/scripts/handbook-index:300-310` | defect   | checking  | major    | `in_use: false`, `harms_downstream: false`, `fails_purpose: true`, `raises_cost: false` | [IMPL-0202](../findings/IMPL-0202.md)                 |
 | The generator changes literal whitespace inside inline code.                        | `packages/factory/scripts/handbook-index:304-327` | defect   | algorithm | major    | `in_use: false`, `harms_downstream: false`, `fails_purpose: true`, `raises_cost: false` | [IMPL-0203](../findings/IMPL-0203.md)                 |
 | The regression tests resolve formatter dependencies outside the locked environment. | `tests/factory/test_handbook_index.py:205-208`    | defect   | test      | minor    | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: true` | [IMPL-0204](../findings/register/code/IMPL-0204.json) |
+
+## Repeat pass
+
+### Verdict
+
+Two new major findings block the fix. A title with a blank line loses its link, and a description with an HTML comment opener displays the escape text.
+
+### Prior findings
+
+- **IMPL-0202 (resolved).** The bracketed title from pass 1 survives the full formatter, and both index checks pass.
+- **IMPL-0203 (resolved).** The generated description keeps both spaces in the inline command through the formatter and both index checks.
+- **IMPL-0204 (open by design).** The project now declares the GFM plugin. The four formatter regression cases still call the wrapper, which resolves its plugin set separately.
+
+### Inspection and verification
+
+The formatter call stays in the generator's rendering functions, and lint reuses the generator's index comparison. Both scripts and the project declare the GFM dependency. The two new tests cover the pass 1 blocking examples.
+
+All 111 tests in `test_handbook_index.py` and `test_handbook_lint.py` passed after moving the uv cache and tool directory into writable scratch paths. Earlier runs reached 107 passing tests and four formatter subprocess failures because uv tried to write in read-only paths.
+
+The worktree passed `handbook-index --check`, `handbook-lint`, and the scoped `git diff --check`. On scratch copies, the formatter wrapper ran before lint. Comparing generated entries at `e5851118` and `2423d836` confirmed both regressions. The formatter and lint accepted both new cases at the reviewed head.
+
+### New findings
+
+| Finding                                                    | Artifact                                          | Category | Type      | Severity | Basis                                                                                   | Filed as                              |
+| ---------------------------------------------------------- | ------------------------------------------------- | -------- | --------- | -------- | --------------------------------------------------------------------------------------- | ------------------------------------- |
+| A blank line in a page title breaks its generated link.    | `packages/factory/scripts/handbook-index:307-319` | defect   | algorithm | major    | `in_use: false`, `harms_downstream: false`, `fails_purpose: true`, `raises_cost: false` | [IMPL-0205](../findings/IMPL-0205.md) |
+| The index displays escape text for an HTML comment opener. | `packages/factory/scripts/handbook-index:296-302` | defect   | algorithm | major    | `in_use: false`, `harms_downstream: false`, `fails_purpose: true`, `raises_cost: false` | [IMPL-0206](../findings/IMPL-0206.md) |
