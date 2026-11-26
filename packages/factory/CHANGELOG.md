@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.16.1 — 2026-11-26
+
+This release makes agents read the agent context at session start. Run
+`update-factory` to receive it.
+
+### Fixes
+
+- **Agents read `docs/agent-context.md` at session start.** No orientation
+  file named it before, so a session started without the concern registry.
+  Each CLI orientation file now names it after the INDEX.
+- **`rules.md` describes the current agent context.** The section still
+  described the retired `docs/agent-context/` YAML directory with `mode:`
+  and `source:` fields. It now matches version 3.0.0 of the agent-context
+  convention.
+
 ## 1.16.0 — 2026-11-25
 
 This release adds the `quiz` skill and aligns the playbooks with the current
