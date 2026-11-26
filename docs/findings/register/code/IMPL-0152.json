@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0152",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_handbook_content.py:49-69",
+  "story": "ST-0456",
+  "finding": "The README and agent-context checks omit the `FH-07-LN-01` spec marker and the `fh_07_01` scenario trace in their names. Add the marker to the class and include the scenario trace in both test names.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The checks run under ordinary test selection (no to fails_purpose). A maintainer cannot select them by the required spec marker or trace them from their names.",
+  "commit": "511df3e3fa5c3e74f97111f00ff42c450f5fa5c8",
+  "status": "open"
+}
