@@ -23,9 +23,9 @@ Claude Code `Stop` records are cumulative snapshots of the main transcript. `Sub
 
 ## Test ownership
 
-Each test file owns one layer and one contract boundary. A new capture case goes into the file that owns its boundary. A new file appears only for behaviour of a new layer.
+Each test file in the table owns one layer and one contract boundary.
 
-> Rule summary: A regression strengthens the existing owner before it creates another case.
+> Rule summary: Every contract has one owning layer and one kept test. A new case strengthens the existing owner before it creates another case, and a new file appears only for behaviour of a new layer. A higher layer must not duplicate the assertions of a lower one: when a regression duplicates a lower-level case, replace the overlap or state the distinct end-to-end boundary the case protects.
 > Source: [testing-strategy.md § One contract, one owner](../../../rulebooks/conventions/testing-strategy.md#one-contract-one-owner)
 
 | Test file                                    | Layer                 | Contract boundary                                                                                                                                   |

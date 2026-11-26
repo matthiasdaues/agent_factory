@@ -14,10 +14,10 @@ An agent under pressure can route around a failing gate or discard work with one
 - **Branch creation on its own:** `git branch <name>`, `git switch -c` and `-C`, and `git checkout -b` and `-B`.
 - **Commands that skip the repository's own commit gates:** `--no-verify`, `git commit -n`, a new value for `core.hooksPath`, `pre-commit uninstall`, and a `SKIP=...` override on `git commit` or `pre-commit`.
 
-> Rule summary: **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`.
+> Rule summary: **MUST**, in an automated run, create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`, and **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 > Source: [rules.md § Branching](../../../rulebooks/rules.md#branching)
 
-After it creates the branch, the agent checks it with `git worktree list --porcelain`.
+A run by hand checks out each story branch in the primary checkout instead. [Run dispatch by hand](../branches-and-dispatch/run-dispatch-by-hand.md) shows that workflow.
 
 ## How each CLI loads it
 
@@ -32,7 +32,7 @@ The guardrail is installed for every project. It is not optional, and it is not 
 
 One script serves the three hook-based CLIs. It reads the shell command from the `PreToolUse` JSON shape of each runtime, and Claude Code, Copilot CLI, and Codex treat exit code 2 as "deny". The generated local runtime folders are git-ignored, and so are only the factory's own entries under `.github/`. Your GitHub Actions workflows stay untouched. `init-factory` creates this state again in every clone.
 
-Pi gives weaker protection than the native hook path of the other CLIs. Pi loads project-local extensions only after the project is trusted, and a non-interactive run may ignore them unless the trust is saved or the run is explicitly approved. For stronger protection under Pi, install the same extension globally under `~/.pi/agent/extensions/`, pass it with `pi -e`, or run Pi in a sandbox or container. Pi's own documentation on [extensions](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/extensions.md), [security](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/security.md), and [containers](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/containerization.md) describes its model.
+Pi gives weaker protection than the native hook path of the other CLIs. Pi loads project-local extensions only after the project is trusted, and a non-interactive run may ignore them unless the trust is saved or the run is explicitly approved. For stronger protection under Pi, install the same extension globally under `~/.pi/agent/extensions/`, pass it with `pi -e`, or run Pi in a sandbox or container. Pi's own documentation describes its model in the pages on extensions, security, and containerization, under `packages/coding-agent/docs/` of the `earendil-works/pi-mono` repository on GitHub.
 
 ## What it does not protect against
 

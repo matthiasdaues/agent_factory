@@ -16,4 +16,8 @@ Implementation runs on story branches that the `dispatch` script prepares and me
 
 - [Dispatch runs](dispatch-runs.md): How the dispatch script owns branches, worktrees, and the ledger in an orchestrated run and in a run by hand.
 
+## How-to guides
+
+- [Run dispatch by hand](run-dispatch-by-hand.md): Build the stories of a feature one at a time in the primary checkout, with the ledger and checks of an orchestrated run.
+
 <!-- handbook-index:end -->

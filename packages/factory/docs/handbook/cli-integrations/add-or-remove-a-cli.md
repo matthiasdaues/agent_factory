@@ -23,7 +23,9 @@ You do not need to run the full installer again to wire in a new CLI or remove o
 .agent-factory/factory/scripts/init-factory --add
 ```
 
-`--add` creates the CLI's dot folder and links the factory content into it. It installs the guardrails, the step guards, the usage capture, and the freshness hooks for the CLI. It generates the adapter agents again where the CLI has them (Copilot, Codex), and it updates the `.gitignore` block.
+For Claude Code, Copilot CLI, Codex, and Pi, `--add` creates the CLI's dot folder and links the factory content into it. It installs the guardrails, the step guards, the usage capture, and the freshness hooks for the CLI. It generates the adapter agents again where the CLI has them (Copilot, Codex), and it updates the `.gitignore` block.
+
+OpenCode is guard-only: `--add opencode` links one plugin, `.opencode/plugins/agent-factory.ts`, which runs the git-safety guardrail and the guard on the fields only the stakeholder writes. It links no factory content and installs no step guard, no usage capture, and no freshness hook.
 
 ## Remove a CLI
 

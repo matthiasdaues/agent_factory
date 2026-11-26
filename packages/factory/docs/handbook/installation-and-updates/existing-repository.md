@@ -29,7 +29,7 @@ description: Install the factory into a repository that already has its own hist
 
 3. Run it again whenever you like. The script is idempotent: it skips whatever is already in place. It records what it did in `.agent-factory/install.json`, and a second run reads that manifest, so it never loses track of what it owns.
 
-4. When the script stops, read the path it names. When it finds something it cannot safely work around, it stops at once and names the exact path. It never applies part of a run. [Fix a known setup failure](../troubleshooting/fix-setup-failures.md) lists the known stops.
+4. When the script stops, read the path it names. When it finds something it cannot safely work around, it stops at once and names the exact path. It may stop after earlier changes of the run, such as the copy of the factory. Resolve the reported collision and run `init-factory` again: the rerun skips what is already in place. [Fix a known setup failure](../troubleshooting/fix-setup-failures.md) lists the known stops.
 
 5. Onboard the existing code with the `brownfield-onboarding` playbook. [Kinds of playbooks](../playbooks/playbook-kinds.md#onboarding-playbooks) describes its two stages.
 

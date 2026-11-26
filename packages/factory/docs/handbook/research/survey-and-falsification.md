@@ -15,4 +15,4 @@ Research runs apart from the chain from idea to production. It has two modes, an
 
 The research agents and their `research-*` skills drive both modes. Every artifact passes schema validation, then policy validation where it applies, then a semantic review, before the next step begins. [Validate a research artifact](validate-research-artifacts.md) shows the commands.
 
-A survey can find claims that deserve stronger scrutiny, but it never changes its mode by itself. To test such claims, pick entries from `candidates_for_deeper_falsification_study`, write a new research brief for the bounded claims with `mode: falsification`, and start `research-topic.md`. The survey report stays source context. It is not evidence that those claims already earned a falsification verdict.
+A survey can find claims that deserve stronger scrutiny, and it lists them under `candidates_for_deeper_falsification_study`. It never changes its mode by itself. Only a new research brief with `mode: falsification` starts a falsification study of such claims. The survey report then stays source context. It is not evidence that those claims already earned a falsification verdict.

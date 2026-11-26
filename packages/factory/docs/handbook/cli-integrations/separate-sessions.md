@@ -8,7 +8,7 @@ description: How Claude Code, Copilot CLI, Codex, and Pi start an agent in a sep
 
 # How each CLI runs an agent in its own session
 
-A reviewer must see only the artifact, never the author's reasoning, so each agent runs in its own session. [Author and reviewer](../concepts/author-and-reviewer.md) explains why. Each CLI creates that separate session in its own way:
+[Author and reviewer](../concepts/author-and-reviewer.md) explains why an agent that receives work starts in a session of its own. Each CLI creates that separate session in its own way:
 
 - **Claude Code and GitHub Copilot CLI** start subagents natively. The parent session dispatches an agent and reads back its result.
 - **Codex** gets native custom agents, which the factory generates under `.codex/agents/`. When a separate session is needed, the generated custom agent runs through Codex's native subagent mechanism. When you select an agent directly for interactive work, it may run in the current session unless a separation is needed. [Codex](codex.md) describes the Codex setup.

@@ -18,17 +18,16 @@ The ledger is `.current-work/<feature-branch>/dispatch-ledger.yaml`. It is machi
 - `dispatch merge-story <story-id>` runs `premerge-check`, merges the story, and runs the tests after the merge.
 - `dispatch close-wave <wave>` appends a closing record with the completed, blocked, and next ready stories.
 
-Stories run in waves. Every story of a wave reaches an end state, merged or explicitly blocked or failed, before the next wave starts. The tier rubric in [dispatch-contract.md](../../../rulebooks/conventions/dispatch-contract.md#tier-rubric) assigns each story the tier economy, standard, or strong. [Model matrix](../reference/model-matrix.md) explains the tiers.
+Stories run in waves. In an orchestrated run, the stories of one wave run in parallel, and the waves run one after another.
+
+> Rule summary: The next wave launches only after the wave record exists. `dispatch close-wave` writes it once every story of the wave has merged or stopped and the wave's drift rows are handled.
+> Source: [dispatch-contract.md § Wave Boundary As Hard Gate](../../../rulebooks/conventions/dispatch-contract.md#wave-boundary-as-hard-gate)
+
+The tier rubric in [dispatch-contract.md](../../../rulebooks/conventions/dispatch-contract.md#tier-rubric) assigns each story the tier economy, standard, or strong. [Model matrix](../reference/model-matrix.md) explains the tiers.
 
 ## A run by hand
 
-A run by hand keeps the ledger, the story workflow, and the checks of an orchestrated run. It runs one story at a time in the primary checkout and adds no worktree. Each story is a wave of its own (BR-064). You start it with the implementation agent's flag `--manual`.
-
-1. `dispatch init --mode by-hand` creates the feature branch from its base branch, `dev`.
-2. `dispatch prepare-story` creates each story branch and checks it out in the primary checkout.
-3. The developer agent commits on the story branch, and the code-review agent reviews the commit. A fresh developer agent fixes each blocking finding.
-4. The implementation agent stops before each decision point and waits for your go.
-5. `dispatch merge-story` merges the story branch, and you push.
+A run by hand keeps the ledger, the story workflow, and the checks of an orchestrated run. It runs one story at a time in the primary checkout and adds no worktree. Each story is a wave of its own (BR-064). The implementation agent stops before each decision point and waits for your go. [Run dispatch by hand](run-dispatch-by-hand.md) shows the steps.
 
 ## Step boundaries
 

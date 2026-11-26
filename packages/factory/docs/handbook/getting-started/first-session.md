@@ -20,14 +20,16 @@ Follow [`.agent-factory/factory/README.md`](../../../README.md) once. It lists t
 
 ## Step 2: Say hello
 
-Open your AI assistant in your project folder and say hello. The assistant greets you with four options:
+Open your AI assistant in your project folder and say hello. The assistant may first summarize what `init-factory` found and offer to walk you through the fitting, which tunes the factory to your project. Answer that you want to skip to the menu. You can run the fitting later from K — Housekeeping.
+
+The menu shows four options:
 
 - **H — Help: I'm new here or need orientation.** The assistant walks you through the basics, section by section, and answers your questions.
 - **K — Housekeeping: project setup and maintenance.** Check the factory state, fit the project again, update the factory, or refresh the agent context.
 - **P — Project Work: start or continue a workstream.** A menu of situations opens: spike, new project, feature, bug fix, or research. The assistant picks the playbook for it, or continues where you left off.
 - **O — Open Stage: let's just talk.** An open conversation with no structure and no artifacts, until the idea finds its shape.
 
-The voice behind the greeting is VIRGIL, the guide you meet before the work has a definite shape. The letters stand for *Versatile Interactive Resource: Guide, Instructor, Liaison*. The name also points to Virgil, who guided Dante through Hell and up the mountain of Purgatory. Every factory session starts with VIRGIL. Once you choose a direction, VIRGIL hands you to the right playbook or stays with you for an open conversation.
+The voice behind the menu is VIRGIL. Once you choose a direction, VIRGIL hands you to the right playbook or stays with you for an open conversation. [Agents](../concepts/agents.md) explains who VIRGIL is.
 
 **Checkpoint:** you see the four options. If you worked in this project before, the assistant names the signs of earlier work it found, such as a finished spike, a charter, or earlier playbook outputs, and offers to skip ahead.
 

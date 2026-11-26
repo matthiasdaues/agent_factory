@@ -51,4 +51,4 @@ Each JSON Lines entry holds:
 
 The exit code is the number of error findings, unless `--report-only` is set.
 
-The log file lives under `.current-work/`, which is git-ignored. It is local machine state: it does not travel with the repository and is not meant for review. The proposal "Session log addendum" (`docs/proposals/session-log-addendum.md`) in the Agent Factory repository holds the reasons for the design.
+The log file lives under `.current-work/`, which is git-ignored, so the log stays on the local machine and does not travel with the repository.
