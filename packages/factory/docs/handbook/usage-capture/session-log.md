@@ -17,7 +17,7 @@ The session log is an optional audit trail of gate runs that only grows. It lets
 | `AF_SESSION_LOG` unset  | Logging does nothing and writes nothing.                                                                                                                                        |
 | `AF_SESSION_LOG=<path>` | `.agent-factory/factory/scripts/_session_log.py` appends one line per gate run to that path and creates the parent folder when needed. It reads the variable fresh on each run. |
 
-Only `spec-lint` writes to the log today. No other gate does yet.
+Only `spec-lint` writes to the log.
 
 ## Record fields
 

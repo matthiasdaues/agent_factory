@@ -10,7 +10,7 @@ description: The design origin of a feature, from draft to accepted, and the age
 
 A feature starts as a proposal. The proposal is the brief that opens a feature-addition run, and the planning agent turns it into a backlog. Proposals live in your repository's `docs/proposals/`, one Markdown file per feature, written to the [proposal template](../../../rulebooks/templates/proposal.md).
 
-The frontmatter of a proposal is versioned. It records the lifecycle, the impact, the governance, and dated forecasts of active human review hours and normalized AI tokens. A forecast stays apart from the actuals, which are only appended to, and from the provider's bill. The body records the summary, the motivation, the design, the split into what is in scope and what is deferred, the open questions, and the completion criteria.
+The frontmatter of a proposal is versioned. It records the lifecycle, the impact, the governance, and dated forecasts of active human review hours and normalized AI tokens. A forecast stays separate from the actuals and from the provider's bill. The actuals are only appended to. The body records the summary, the motivation, the design, the split into what is in scope and what is deferred, the open questions, and the completion criteria.
 
 A proposal moves through the states `draft`, `open`, and `accepted`. [feature-addition.md](../../../playbooks/feature-addition.md) describes the lifecycle and the checks that route the work.
 

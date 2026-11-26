@@ -41,6 +41,6 @@ The update replaces the installed `.agent-factory/factory/` with a fresh copy of
 
 The update replaces only `.agent-factory/factory/`. It keeps the project's own files, the changes in `.gitignore` and `.pre-commit-config.yaml`, the usage transcripts under `.agent-factory/`, and the lifecycle state.
 
-An installation from before the checksum recording has no baseline to compare against. Its update replaces everything, as before, and records the checksums for the next update.
+An installation from before the checksum recording has no baseline to compare against. Its update replaces everything and records the checksums for the next update.
 
 When the source's `init-factory` stops on a collision, `update-factory` rolls the update back. It moves the old `.agent-factory/factory/` aside, never deletes it, and puts it back in place. So the project is never left without a `.agent-factory/factory/` or with broken runtime symlinks. Resolve the reported collision and run `update-factory` again to finish.

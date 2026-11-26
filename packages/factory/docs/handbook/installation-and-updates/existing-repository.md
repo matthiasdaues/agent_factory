@@ -8,7 +8,7 @@ description: Install the factory into a repository that already has its own hist
 
 # Use the factory in an existing repository
 
-`init-factory` works the same way in a repository that already has its own history, `.gitignore`, and `.pre-commit-config.yaml`. It does not disturb what the project already owns, and you can remove everything it adds without a trace.
+`init-factory` works the same way in a repository that already has its own history, `.gitignore`, and `.pre-commit-config.yaml`. It does not disturb what the project already owns, and you can remove everything it adds again.
 
 1. Run `init-factory` from inside the repository:
 

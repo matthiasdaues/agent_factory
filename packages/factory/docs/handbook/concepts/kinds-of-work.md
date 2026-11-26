@@ -10,7 +10,7 @@ description: Requirements, architecture, planning, implementation, and quality, 
 
 When you move from spikes to real work, the factory organizes it into five kinds of activity:
 
-1. **Requirements.** What are we building, and for whom? The assistant interviews you, sometimes stubbornly, until the answer is clear and written down.
+1. **Requirements.** What are we building, and for whom? The assistant interviews you and keeps asking until the answer is clear and written down.
 2. **Architecture.** How will it be shaped? The big structural decisions are made on purpose and recorded before code fixes them.
 3. **Planning.** The work is broken into a backlog of small, independent stories.
 4. **Implementation.** Each story is built test-first. The test comes before the code, so the code has something to be checked against.
