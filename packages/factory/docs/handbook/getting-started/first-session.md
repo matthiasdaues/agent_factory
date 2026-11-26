@@ -51,8 +51,11 @@ This loop is how Agent Factory works. Larger work runs the same loop with more c
 ## Step 4: Keep three habits
 
 1. **Read before you approve.** The assistant always shows you its move. Read it. Your "yes" is the last check, and it matters most.
-2. **Let the gates do their job.** A check that blocks a commit or a failing test is the system working. Fix the cause instead of working around the alarm.
+2. **Let the gates do their job.** A check that blocks a commit or a failing test is the system working: it found a mistake while the mistake is still cheap to fix.
 3. **Take one small step at a time.** Ask for one small step, not the whole thing at once. Small, checked steps correct mistakes before they add up, and they avoid a day-long detour.
+
+> Rule summary: **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook.
+> Source: [rules.md § Git workflow](../../../rulebooks/rules.md#git-workflow)
 
 ## Step 5: Get ready for your first real playbook
 

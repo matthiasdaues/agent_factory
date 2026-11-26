@@ -17,6 +17,6 @@ Most activities therefore have two agents. The author produces an artifact: a sp
 > Rule summary: When work moves to a different agent, the receiving agent begins in a fresh session and does not replay the prior transcript.
 > Source: [agent-lifecycle-protocol.md § Session entry](../../../rulebooks/conventions/agent-lifecycle-protocol.md#session-entry)
 
-A run by hand keeps the two apart as [the story workflow](../branches-and-dispatch/run-dispatch-by-hand.md) describes: the reviewer starts in a clean session with the artifacts and nothing else.
+A separate session helps the reviewer because it holds none of the author's assumptions. The reviewer meets the artifact the way its reader will. [The story workflow](../branches-and-dispatch/run-dispatch-by-hand.md) shows where the review falls in a run by hand.
 
 [How each CLI runs an agent in its own session](../cli-integrations/separate-sessions.md) explains how each CLI opens that separate session.
