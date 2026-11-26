@@ -1,0 +1,122 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyyaml"]
+# ///
+"""handbook-lint - check both handbooks against the page rules.
+
+What: Reads every page and every folder of the user handbook
+      (packages/factory/docs/handbook/) and the contributor handbook
+      (docs/handbook/) and reports every failure of both in one run:
+      frontmatter fields (BR-140), folder layout (BR-141), duplicate
+      titles in a chapter (BR-142), the marker pair of each index.md
+      (BR-143), and a page list that differs from what handbook-index
+      writes (BR-146). It checks no link and no rule word (BR-147).
+      The script writes nothing.
+When: A contributor runs it on demand. The pre-commit hook of this
+      repository runs it on every commit (BR-148).
+By:   `packages/factory/scripts/handbook-lint` from the repository root.
+
+Exit code:
+  0  no failure
+  1  at least one failure, one line per failure on stdout
+"""
+
+from __future__ import annotations
+
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+from types import ModuleType
+
+
+def _load_index() -> ModuleType:
+    """Import handbook-index, which sits beside this script."""
+    path = Path(__file__).resolve().parent / "handbook-index"
+    loader = SourceFileLoader("_handbook_index_rules", str(path))
+    module = ModuleType(loader.name)
+    module.__file__ = str(path)
+    sys.modules[loader.name] = module
+    # SourceFileLoader writes bytecode beside the source; lint writes nothing (BR-148).
+    keep, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    try:
+        loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = keep
+    return module
+
+
+index = _load_index()
+
+
+def _root_uninspectable(handbook) -> bool:
+    """True when the reader failed on the root, on a link above it, or on its index."""
+    root = handbook.root
+    return any(
+        f.path in (root, f"{root}/index.md") or root.startswith(f"{f.path}/")
+        for f in handbook.top.page_failures
+    )
+
+
+def layout_failures(handbooks) -> list:
+    """BR-141: roots with an index.md, chapters without folders."""
+    failures = []
+    for handbook in handbooks:
+        if not handbook.exists:
+            failures.append(index.Failure(f"{handbook.root}/", "handbook root does not exist"))
+            continue
+        top = handbook.top
+        if not top.has_index and not _root_uninspectable(handbook):
+            failures.append(index.Failure(f"{handbook.root}/", "handbook root has no index.md"))
+        for chapter in handbook.chapters:
+            holds_page = chapter.has_index or chapter.pages or chapter.page_failures
+            if holds_page and not chapter.has_index:
+                failures.append(index.Failure(f"{chapter.path}/", "folder holds pages and no index.md"))
+            for nested in chapter.nested:
+                failures.append(index.Failure(f"{nested}/", "a chapter folder holds no folder"))
+    return failures
+
+
+def duplicate_failures(handbooks) -> list:
+    """BR-142: implemented pages of one chapter never share a title."""
+    failures = []
+    for handbook in handbooks:
+        for chapter in handbook.chapters:
+            pages = list(chapter.pages.values())
+            if chapter.index_page is not None:
+                pages.append(chapter.index_page)
+            by_title: dict[str, list] = {}
+            for page in pages:
+                if page.status == "implemented":
+                    by_title.setdefault(page.title.casefold(), []).append(page)
+            for group in by_title.values():
+                if len(group) > 1:
+                    paths = " and ".join(sorted(page.path for page in group))
+                    failures.append(index.Failure(paths, f'implemented pages share the title "{group[0].title}"'))
+    return failures
+
+
+def stale_failures(handbooks) -> list:
+    """BR-146: the result of handbook-index --check."""
+    return [index.Failure(path, "page list is out of date; run handbook-index") for path in index.stale_lists(handbooks)]
+
+
+def lint(base: Path) -> list:
+    handbooks = index.read_handbooks(base)
+    return [
+        *index.rule_failures(handbooks),
+        *layout_failures(handbooks),
+        *duplicate_failures(handbooks),
+        *stale_failures(handbooks),
+    ]
+
+
+def main() -> int:
+    failures = lint(Path.cwd())
+    for failure in failures:
+        print(failure)
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
