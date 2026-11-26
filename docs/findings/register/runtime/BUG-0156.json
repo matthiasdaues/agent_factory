@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The chapter index says the add-on is optional and the install page works (no to fails_purpose). A reader who lands on a query page from a search gets an error that names the missing folder, and must find the install page without a link.",
   "commit": "f1c6a265def3184eb7c938631af3783b6a85f14d",
-  "status": "open"
+  "status": "resolved"
 }

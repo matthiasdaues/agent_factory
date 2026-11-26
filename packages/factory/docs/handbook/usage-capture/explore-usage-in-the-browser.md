@@ -10,7 +10,7 @@ description: Open the usage views in the bundled SQL explorer or in the DuckDB U
 
 You want to run SQL over your usage data and see the results. Two browser tools do that. Both run on localhost and read the same records as `usage-query`. The bundled explorer needs no network connection once the add-on's dependencies are installed. The DuckDB UI downloads software on its first run, as [Path 2](#path-2-the-duckdb-ui) describes.
 
-Run every command from the project root, the folder that holds `.agent-factory/usage/`.
+Run every command from the project root, the folder that holds `.agent-factory/usage/`. The usage add-on is optional and not installed by default. If `.agent-factory/usage/` is missing, [install the add-on](install-usage-add-on.md) first.
 
 ## Path 1: the bundled SQL explorer
 

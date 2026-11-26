@@ -8,7 +8,7 @@ description: Query the six usage views from the command line, read per-tool toke
 
 # Query usage views
 
-You want to see how many tokens each CLI tool used. Run every command from the project root. The wrapper scripts in `.agent-factory/factory/scripts/` find the installed add-on, so you need not change into its folder.
+You want to see how many tokens each CLI tool used. Run every command from the project root. The wrapper scripts in `.agent-factory/factory/scripts/` find the installed add-on, so you need not change into its folder. The usage add-on is optional and not installed by default. If `.agent-factory/usage/` is missing, [install the add-on](install-usage-add-on.md) first.
 
 1. Query a view. The call has the form `usage-query <view> [options]`. This one prints the token use per CLI tool:
 
