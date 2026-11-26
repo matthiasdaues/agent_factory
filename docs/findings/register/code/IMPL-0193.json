@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0193",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "docs/reviews/lector-user-handbook-2026-11-26.md:11-18",
+  "story": "ST-0457",
+  "finding": "A reader must open the diff to compare the rewritten proposals paragraph. The paragraph-check entry names the paragraph but omits the before-and-after example required by packages/factory/agents/lector-agent.md:213–219. The example below it shows a different edit. The report also counts 55 pages, while the reviewed base and head each contain 54 handbook Markdown files. Add the paragraph example and reconcile the page count with the reviewed tree.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The report identifies the paragraph and gives the required sentence example (no to fails_purpose). The missing paragraph example and unexplained count make the reader check the diff and tree.",
+  "commit": "e507686ec34467379e58206c2fc368a9ffbe6271",
+  "status": "open"
+}
