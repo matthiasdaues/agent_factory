@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0167",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/usage/README.md:72-73",
+  "story": "ST-0458",
+  "finding": "A contributor who opens the package README and follows the link 'Usage add-on in the contributor handbook' expects the data pipeline and the project structure on that page. The link goes to docs/handbook/architecture/usage-add-on.md, which holds only the pipeline since the fix commit 04acdf83 moved the structure to usage-add-on-structure.md and the source-checkout commands to run-usage-add-on-from-source.md. The README was not touched by the fix commit, so its description 'the data pipeline and the project structure' is now wrong, and the two new pages are not linked from the README. The pipeline page links to both, so the contributor reaches them after one more click. Fix: change the description to 'the data pipeline', and add one list entry each for 'Usage add-on structure' and 'Run the usage add-on from source' in the Related documentation section of packages/usage/README.md.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The README still links to the contributor chapter, so the story requirement holds (no to fails_purpose). The reader follows one extra link from the pipeline page to find the structure, and that link exists.",
+  "commit": "04acdf832b76adc3d25be92595c3af8c2aa41c5c",
+  "status": "open"
+}
