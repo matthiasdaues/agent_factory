@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0158",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_handbook_content.py:131",
+  "story": "ST-0455",
+  "finding": "The test embeds the retired guide name in its own source. The QA strategy requires building the name in two parts so the retirement search can scan this file without matching it. Build the string from two parts in the assertion.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The assertion still detects references in the entry points (no to fails_purpose). The literal adds a false match for the retirement search to handle.",
+  "commit": "3f135d0682ff8b7f575703887136791161222660",
+  "status": "open"
+}
