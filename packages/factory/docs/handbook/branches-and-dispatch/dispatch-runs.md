@@ -10,6 +10,8 @@ description: How the dispatch script owns branches, worktrees, and the ledger in
 
 When a backlog is ready, the implementation agent builds its stories on story branches. The `.agent-factory/factory/scripts/dispatch` script owns the git state, the ledger, and the life of each branch and worktree. The agent decides the order of the script calls, and the scripts make every change of state.
 
+For the sequence from a failing test through independent review and gates, see [How an implementation run earns trust](../quality-and-review/implementation-run.md).
+
 The ledger is `.current-work/<feature-branch>/dispatch-ledger.yaml`. It is machine-readable and tracks the preparation, dispatch, verification, and merge of every story. The main subcommands:
 
 - `dispatch init` starts the ledger of a feature branch.

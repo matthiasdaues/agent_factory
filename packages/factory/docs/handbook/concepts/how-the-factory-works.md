@@ -32,7 +32,7 @@ If a teammate wants to see the Factory in action before committing to this featu
 
 Installation wires the Factory into the coding CLIs you select. When you open a CLI in the project, its project instructions tell it where to find the installed Factory. The generated `INDEX.yaml` is a catalog of its agents, skills, playbooks, and rulebooks.
 
-During fitting, the Factory helps you connect its tools to the way your project already works. For the invoicing application, [agent context](../agent-context/what-agent-context-does.md) can point an agent to the team's billing conventions and test guidance. The test configuration tells the Factory which commands to run. The model matrix maps roles' model tiers to models, and hook settings determine which checks run at events such as a commit. The [installation and update guides](../installation-and-updates/index.md) cover those choices in detail.
+During [fitting](../getting-started/fitting.md), the Factory helps you connect its tools to the way your project already works. For the invoicing application, [agent context](../agent-context/what-agent-context-does.md) can point an agent to the team's billing conventions and test guidance. The test configuration tells the Factory which commands to run. The model matrix maps roles' model tiers to models, and hook settings determine which checks run at events such as a commit. The [installation and update guides](../installation-and-updates/index.md) cover those choices in detail.
 
 ## The phase chain
 
@@ -59,7 +59,7 @@ The planner turns the agreed behavior and applicable design into backlog stories
 
 ### Build, check, and merge
 
-The implementation agent coordinates the stories. A developer writes a test for the export, implements the change, and runs the relevant checks. [Dispatch](../branches-and-dispatch/dispatch-runs.md) manages story branches and merges. Which gates apply depends on the story and project configuration. People can drive the work one story at a time, or an implementation run can coordinate independent stories.
+The implementation agent coordinates the stories. A developer writes a test for the export, implements the change, and runs the relevant checks. [Dispatch](../branches-and-dispatch/dispatch-runs.md) manages story branches and merges. Which gates apply depends on the story and project configuration. People can drive the work one story at a time, or an orchestrated run can coordinate independent stories. [Follow the implementation run](../quality-and-review/implementation-run.md) to see how test-first development, independent review, and gates check each story before merge.
 
 Once the stories are together, code review and QA examine the combined feature. Suppose QA discovers that the CSV contains totals in the application's default currency, even when the invoices use different currencies. The team looks at the agreed behavior. If the specification already requires preserving invoice currency, the finding calls for a code fix. If the decision was never made, the owner needs to settle it with you. The finding helps route the work, and the checks run again after the fix.
 

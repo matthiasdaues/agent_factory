@@ -8,12 +8,13 @@ description: The gates and hooks that check work before a person reviews it.
 
 # Quality and review
 
-A gate is a script that checks work before a person spends time on it. This chapter explains the gates and the pre-commit hooks that run them.
+Start with [How an implementation run earns trust](implementation-run.md). It shows how test-first development, independent review, and deterministic gates check a story before it can merge.
 
 <!-- handbook-index:start -->
 
 ## Concepts
 
+- [How an implementation run earns trust](implementation-run.md): Follow a story through test-first development, independent review, deterministic gates, and merge.
 - [Gates](gates.md): What a gate checks, when the structural gates and the semantic gates run, and how a story's gates are picked.
 - [Pre-commit hooks](pre-commit-hooks.md): How the factory's pre-commit hooks run without installing anything, skip a clone without the factory, and leave your own hooks alone.
 

@@ -29,7 +29,13 @@ Specification ready for review
 
 ## Semantic gates
 
-Four semantic gates fire between a developer's commit and the merge of the story branch. The implementation agent's gate-check step runs them. `premerge-check` refuses the merge when a gate that applies to the story has no passing result.
+For project-specific setup, see [Fit the quality gates to the code](../getting-started/fitting.md#fit-the-quality-gates-to-the-code).
+
+After independent story review clears the blocking findings, the implementation agent runs the applicable gates. `premerge-check` refuses the merge when a required gate has no passing result.
+
+- `dependency-check` runs after every story.
+- `test-design-verify` runs when the story has a Test Design or Prior Tests section.
+- `crap-score` and `mutation-testing` run when selected by the story or project configuration.
 
 > Rule summary: **MUST** run `premerge-check` before merging a branch; a non-zero exit blocks the merge until investigated.
 > Source: [rules.md § Branching](../../../rulebooks/rules.md#branching)
@@ -39,6 +45,6 @@ Two of the four, `crap-score` and `mutation-testing`, are test guardrails. Which
 > Rule summary: The planning agent fills each story's `quality-gates` field from the enabled entries of the `gates` section of `docs/testing.yaml`. A test guardrail runs only when such an entry or the field names it. No default picks a gate, and `docs/charter/house-rules.md` is not a source of gates.
 > Source: [story-frontmatter-fields.md § quality-gates](../../../rulebooks/references/story-frontmatter-fields.md#quality-gates-filled-by-planner)
 
-When neither source names a built-in gate, `premerge-check` runs none. It prints one line that names each built-in gate without an entry and the skill that sets it up: `setup-crap-score` for `crap-score`, and `mutation-testing` for `mutation-testing`.
+When neither source names a test guardrail, `premerge-check` skips that guardrail. It prints one line that names each built-in gate without an entry and the skill that sets it up: `setup-crap-score` for `crap-score`, and `mutation-testing` for `mutation-testing`.
 
 [implementation-agent.md § Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation) describes what happens after a gate fails.
