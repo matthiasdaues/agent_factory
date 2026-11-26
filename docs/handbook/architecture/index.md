@@ -12,4 +12,8 @@ This chapter explains how the factory repository is built.
 
 <!-- handbook-index:start -->
 
+## Concepts
+
+- [The usage add-on pipeline and structure](usage-add-on.md): How the usage add-on turns JSONL records into six views, and where its files live in packages/usage/.
+
 <!-- handbook-index:end -->
