@@ -44,12 +44,20 @@ governance:
     - compatibility
 
 estimate:
-  as_of: 2026-11-25
-  basis: judgment
+  as_of: 2026-11-26
+  basis: decomposition
   confidence: low
-  human_review_hours: unknown
-  normalized_tokens: unknown
-  estimated_consumption: unknown
+  human_review_hours:
+    min: 3.0
+    max: 6.0
+  normalized_tokens:
+    min: 45000
+    max: 70000
+  estimated_consumption:
+    min: 700000
+    max: 1750000
+    overhead_multiplier: 20
+    playbook: feature-addition
 ---
 
 # Feature Request: Factory Handbooks
