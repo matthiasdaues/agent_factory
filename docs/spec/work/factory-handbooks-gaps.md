@@ -92,3 +92,4 @@ These checks hold once, after the migration. They come from the proposal's Scope
 09. The lector agent reads the migrated user handbook once before release, and its fixes are applied.
 10. Every `> Rule summary:` callout on a handbook page is followed by a `> Source:` line that links to `packages/factory/rulebooks/rules.md` or a file under `packages/factory/rulebooks/` (BR-149).
 11. The migration writes the migration map `docs/spec/work/factory-handbooks-migration-map.md` before FH-05-01 can run.
+12. Every section of `factory-guide.md` at commit `4ebf5101f70c1540a0d53dcfb3d00cfa977d361a` is on the page that the migration map names: its facts, commands, and paths are there, rewritten in the factory voice. The code review of the migration story checks this section by section (SPEC-0172).

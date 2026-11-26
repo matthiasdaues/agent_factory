@@ -107,7 +107,7 @@ Feature: Factory Handbooks
         | the folder docs/handbook/testing/ holds the page layers.md and no index.md                                             | the folder docs/handbook/testing/                         |
         | the chapter cli-integrations/ holds the folder cli-integrations/opencode/                                              | the folder cli-integrations/opencode/                     |
         | docs/handbook/ holds chapter folders and no index.md                                                                   | the folder docs/handbook/                                 |
-        | add-an-integration.md and add-cli.md in cli-integrations/ are implemented pages with the title "Add a CLI integration" | both paths and the title "Add a CLI integration"          |
+        | add-an-integration.md and add-cli.md in cli-integrations/ are implemented pages with the title "Add a CLI integration", and the page list of cli-integrations/index.md is current | both paths and the title "Add a CLI integration"          |
         | cli-integrations/index.md holds the end marker before the start marker                                                 | the path of cli-integrations/index.md                     |
 
     Scenario: One run of handbook-lint reports every failure of both handbooks
