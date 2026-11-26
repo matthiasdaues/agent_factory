@@ -78,14 +78,14 @@ def runnable_commands(text: str) -> set[str]:
     found = set()
     for block in re.findall(r"^```\w*\n(.*?)^```", text, re.DOTALL | re.MULTILINE):
         for line in block.splitlines():
-            found.update(re.findall(r"^(?:\./|\.agent-factory/factory/scripts/)?(init-factory|update-factory|remove-factory)\b", line.strip()))
+            found.update(re.findall(r"^(?:\./|\.agent-factory/factory/scripts/)?(init-factory|update-factory|remove-factory)(?=\s|$)", line.strip()))
     return found
 
 
 def tutorial_pages(body: str) -> list[Path]:
     """The implemented tutorial pages of the user handbook that the body names by path."""
     pages = []
-    for name in re.findall(re.escape(USER_TUTORIAL) + r"([\w-]+\.md)", body):
+    for name in re.findall(re.escape(USER_TUTORIAL) + r"([\w-]+\.md)(?![\w./-])", body):
         page = FACTORY / "docs" / "handbook" / "getting-started" / name
         if page.is_file() and frontmatter(page)["type"] == "tutorial":
             pages.append(page)
@@ -121,6 +121,9 @@ class TestFH06LN01UserEntryPoints:
     def test_st_0455_fh_06_01_tour_pointed_at_the_chapter_index_fails(self) -> None:
         assert not tutorial_pages(f"Read `{USER_TUTORIAL}index.md`.")
 
+    def test_st_0455_fh_06_01_tour_pointed_at_a_backup_file_fails(self) -> None:
+        assert not tutorial_pages(f"Read `{USER_TUTORIAL}first-session.md.bak`.")
+
     def test_st_0455_fh_06_01_guided_tour_names_the_tutorial_in_option_h(self) -> None:
         lines = [x for x in read(FACTORY / "skills" / "guided-tour" / "SKILL.md").splitlines() if x.startswith("- **H")]
         assert len(lines) == 1
@@ -150,6 +153,9 @@ class TestFH06LN01UserEntryPoints:
     def test_st_0455_fh_06_01_readme_with_commands_only_in_prose_fails(self) -> None:
         text = "Run init-factory, update-factory and remove-factory. See [handbook](docs/handbook/index.md).\n"
         assert runnable_commands(text) == set()
+
+    def test_st_0455_fh_06_01_readme_with_a_longer_command_name_fails(self) -> None:
+        assert runnable_commands("```bash\ninit-factory-missing\n```\n") == set()
 
     @pytest.mark.parametrize("path", ENTRY_POINTS, ids=lambda p: p.name)
     def test_st_0455_fh_06_01_no_entry_point_names_the_guide(self, path: Path) -> None:
