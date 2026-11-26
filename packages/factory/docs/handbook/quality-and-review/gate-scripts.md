@@ -3,7 +3,7 @@ title: Gate scripts
 type: reference
 status: implemented
 order: 20
-description: Each gate script, when it fires, what it checks, and the command that runs it.
+description: Each gate script, when it fires, what it checks, the command that runs it, and when tests run.
 ---
 
 # Gate scripts
@@ -44,3 +44,19 @@ description: Each gate script, when it fires, what it checks, and the command th
 | Gate scripts | `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `concern-lint`, `matrix-lint`, `statemachine-lint`, `index-lint` | Rejects the commit                   |
 
 [Pre-commit hooks](pre-commit-hooks.md) explains how the hooks run.
+
+## Test execution
+
+Tests run through gates, not through agents. They run at three points:
+
+1. **Pre-commit.** The tests of the changed files run. The commit option `--no-verify` skips them.
+2. **Pre-push.** The full suite runs. The push option `--no-verify` skips it.
+3. **Phase advance.** The entry condition `tests_pass` checks the suite.
+
+A project declares its test commands in `docs/testing.yaml`:
+
+| Key                    | Runs                                                                                                               | Agents may run it       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| `test_command`         | The full suite, in the gates and at the feature merge                                                              | No                      |
+| `test_staged_command`  | The tests of the staged files                                                                                      | No                      |
+| `test_changed_command` | The tests of the changed files. A story merge appends the changed paths, and the key falls back to `test_command`. | Yes, with changed paths |

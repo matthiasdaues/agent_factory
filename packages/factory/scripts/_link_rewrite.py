@@ -3,7 +3,9 @@
 Two kinds of reference exist. A Markdown link resolves relative to the file
 that holds it, so ``rewrite_links`` recomputes its destination. A full path
 names a file from the project root, such as ``docs/proposals/a.md`` in front
-matter, a code span, YAML, or prose, so ``rewrite_paths`` replaces it as text.
+matter, a code span, YAML, or prose, so ``rewrite_paths`` replaces it as text. A file whose sections move to
+several pages needs a section map, so ``rewrite_section_links`` repoints
+each link by its anchor.
 
 The link syntax follows packages/factory/scripts/link-check, the gate the
 rewritten files must pass: inline links and images, reference definitions,
@@ -208,6 +210,140 @@ def rewrite_links(
     for start, stop, replacement, _, _ in reversed(edits):
         rewritten = rewritten[:start] + replacement + rewritten[stop:]
     return rewritten, [(old, new) for _, _, _, old, new in edits]
+
+
+# ── Section map ──────────────────────────────────────────────────────────
+#
+# ``rewrite_links`` moves one file to one file. A file split across several
+# pages needs a section map instead: for an old path, each section anchor
+# maps to the page that now holds the section, and the key "" gives the
+# page of a link without an anchor (BR-151). A link to the installed copy
+# under .agent-factory/factory/ keeps that prefix (L-11), unless the caller
+# asks for the source page, as for this repository's own files (L-62).
+
+SOURCE_ROOT = "packages/factory/"
+INSTALLED_ROOT = ".agent-factory/factory/"
+MAP_ROW = re.compile(r"^\| *`([^`]+)` *\|[^|]*\| *`#([^`]+)` *\| *\[`([^`]+)`\]")
+
+
+class UnmappedAnchor(ValueError):
+    """A link names a section that the section map does not assign."""
+
+
+def read_section_map(table: str, sources: set[str]) -> dict[str, dict[str, str]]:
+    """Read the rows of ``sources`` from the migration map's Markdown table.
+
+    Each row gives a source path, an anchor, and the root-relative path of
+    a page. The first row of a source is its opening, so its page is also
+    the page of a link without an anchor.
+    """
+    sections: dict[str, dict[str, str]] = {}
+    for line in table.splitlines():
+        row = MAP_ROW.match(line)
+        if row is None or row.group(1) not in sources:
+            continue
+        pages = sections.setdefault(row.group(1), {"": row.group(3)})
+        pages[row.group(2)] = row.group(3)
+    return sections
+
+
+def _installed_split(target: str) -> tuple[str, bool]:
+    """Return the source path of ``target`` and whether it is installed."""
+    if target.startswith(INSTALLED_ROOT):
+        return SOURCE_ROOT + target[len(INSTALLED_ROOT) :], True
+    return target, False
+
+
+def section_target(
+    target: str,
+    anchor: str,
+    sections: dict[str, dict[str, str]],
+    anchors: dict[str, set[str]],
+    installed_links: bool = True,
+) -> str | None:
+    """Return the new root-relative target and anchor of a link, or None.
+
+    None means the section map does not hold ``target``. The anchor stays
+    when the new page has its heading in ``anchors``. With
+    ``installed_links`` false, a link to the installed copy gets the source
+    page.
+    """
+    source, installed = _installed_split(target)
+    pages = sections.get(source)
+    if pages is None:
+        return None
+    if anchor not in pages:
+        raise UnmappedAnchor(f"{target}#{anchor}")
+    page = pages[anchor]
+    if installed and installed_links:
+        if not page.startswith(SOURCE_ROOT):
+            raise UnmappedAnchor(f"{target}#{anchor}: {page} is not installed")
+        page = INSTALLED_ROOT + page[len(SOURCE_ROOT) :]
+    keep = anchor and anchor in anchors.get(_installed_split(page)[0], set())
+    return page + (f"#{anchor}" if keep else "")
+
+
+def _link_spans(masked: str) -> list[tuple[int, int]]:
+    """Every destination span of an inline link and a reference definition."""
+    spans: list[tuple[int, int]] = []
+    for match in LINK_START.finditer(masked):
+        span = _destination_span(masked, match.end())
+        if span is not None:
+            spans.append(span[:2])
+    for match in REFERENCE_DEFINITION.finditer(masked):
+        begin, end = match.span(2)
+        if masked[begin] == "<":
+            begin, end = begin + 1, end - 1
+        spans.append((begin, end))
+    return sorted(spans)
+
+
+def _section_destination(
+    dest: str,
+    src: str,
+    sections: dict[str, dict[str, str]],
+    anchors: dict[str, set[str]],
+    installed_links: bool,
+) -> str | None:
+    """Return the new destination of one link of ``src``, or None."""
+    if not dest or SCHEME.match(dest) or dest.startswith(("/", "#")):
+        return None
+    path, _, anchor = dest.partition("#")
+    folder = posixpath.dirname(src)
+    target = posixpath.normpath(posixpath.join(folder, unquote(path)))
+    new = section_target(target, anchor, sections, anchors, installed_links)
+    if new is None:
+        return None
+    page, mark, kept = new.partition("#")
+    return posixpath.relpath(page, folder or ".") + mark + kept
+
+
+def rewrite_section_links(
+    text: str,
+    src: str,
+    sections: dict[str, dict[str, str]],
+    anchors: dict[str, set[str]],
+    installed_links: bool = True,
+) -> tuple[str, list[tuple[str, str]]]:
+    """Repoint the links of ``text`` to the pages of the section map.
+
+    ``src`` is the file's path relative to the project root. ``anchors``
+    maps each root-relative page path to the anchors its headings give.
+    Only link destinations change; links in code stay. The result is the
+    new text and each (old destination, new destination) in document order.
+    ``installed_links`` is passed on to ``section_target``. Raises
+    UnmappedAnchor for a link to a section that the map lacks.
+    """
+    edits: list[tuple[int, int, str, str]] = []
+    for begin, end in _link_spans(mask_code(text)):
+        raw = text[begin:end]
+        new = _section_destination(raw, src, sections, anchors, installed_links)
+        if new is not None and new != raw:
+            edits.append((begin, end, raw, new))
+    rewritten = text
+    for begin, end, _, new in reversed(edits):
+        rewritten = rewritten[:begin] + new + rewritten[end:]
+    return rewritten, [(raw, new) for _, _, raw, new in edits]
 
 
 # ── Full paths ───────────────────────────────────────────────────────────

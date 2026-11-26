@@ -20,5 +20,5 @@
   },
   "why_this_severity": "FH-05-01 explicitly supplies the destination constraints, so the developer can write the full test (no to fails_purpose). The owner row requires another lookup to see which destinations are allowed.",
   "commit": "469beb9875c23d0cc314f4f005427c100de2eb2c",
-  "status": "open"
+  "status": "resolved"
 }

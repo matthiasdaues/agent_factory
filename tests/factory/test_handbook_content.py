@@ -3,16 +3,19 @@
 The checks read the committed Markdown of this repository and report a page
 that breaks a rule of the feature. FH-06-LN-01 covers the entry points of the
 user handbook (ST-0455). FH-07-LN-01 covers the entry points of the
-contributor handbook (ST-0456).
+contributor handbook (ST-0456). FH-05-IT-01 and FH-05-LN-01 cover the
+migration of the three deleted files (ST-0454).
 """
 
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import REPO_ROOT
+from _link_rewrite import MAP_ROW
+from conftest import REPO_ROOT, load_script
 
 CONTRIBUTOR = REPO_ROOT / "docs" / "handbook"
 FACTORY = REPO_ROOT / "packages" / "factory"
@@ -222,3 +225,101 @@ class TestContributorHandbookShape:
             elif path.startswith("./"):
                 path = path[2:]
             assert (REPO_ROOT / path).exists(), path
+
+
+# The guide's name is built from two parts, so the search of FH-05-LN-01
+# does not find this file.
+GUIDE_NAME = "factory" + "-guide"
+GUIDE = f"packages/factory/docs/{GUIDE_NAME}.md"
+CONCEPTS = "docs/arc42/concepts.md"
+INTRO = "docs/arc42/beginner-intro.md"
+OLD_FILES = (GUIDE, CONCEPTS, INTRO)
+MAP_COMMIT = "4ebf5101f70c1540a0d53dcfb3d00cfa977d361a"
+MIGRATION_MAP = REPO_ROOT / "docs" / "spec" / "work" / "factory-handbooks-migration-map.md"
+USER_PAGES = "packages/factory/docs/handbook/"
+
+
+def git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(REPO_ROOT), *args], capture_output=True, text=True, check=False)
+
+
+def map_rows() -> dict[tuple[str, str], str]:
+    """Each (source, anchor) of the migration map and the page it names."""
+    rows = {}
+    for line in read(MIGRATION_MAP).splitlines():
+        row = MAP_ROW.match(line)
+        if row and row.group(1) in OLD_FILES:
+            rows[(row.group(1), row.group(2))] = row.group(3)
+    return rows
+
+
+def heading_anchors(text: str) -> list[str]:
+    """The anchor of each heading, a repeated one suffixed as link-check does."""
+    link_check = load_script("link-check")
+    seen: dict[str, int] = {}
+    found = []
+    for title in link_check.heading_titles(text):
+        slug = link_check.slugify(title)
+        found.append(slug if slug not in seen else f"{slug}-{seen[slug]}")
+        seen[slug] = seen.get(slug, 0) + 1
+    return found
+
+
+@pytest.mark.spec("FH-05-IT-01")
+class TestFH05IT01MigrationMap:
+    """FH-05-01: every section of the three files has a home in the map."""
+
+    @pytest.mark.parametrize("old", OLD_FILES)
+    def test_st_0454_fh_05_01_every_heading_has_a_row_with_a_real_page(self, old: str) -> None:
+        if git("cat-file", "-e", f"{MAP_COMMIT}^{{commit}}").returncode != 0:
+            pytest.skip(f"commit {MAP_COMMIT} is missing, probably a shallow clone")
+        text = git("show", f"{MAP_COMMIT}:{old}").stdout
+        rows = map_rows()
+        for anchor in heading_anchors(text):
+            assert (old, anchor) in rows, f"no map row for {old}#{anchor}"
+            assert (REPO_ROOT / rows[(old, anchor)]).is_file(), rows[(old, anchor)]
+
+    def test_st_0454_fh_05_01_rows_name_the_handbook_of_their_reader(self) -> None:
+        for (old, anchor), page in map_rows().items():
+            if (old, anchor) == (CONCEPTS, "project-directory-tree"):
+                assert page.startswith("docs/handbook/architecture/"), page
+                assert frontmatter(REPO_ROOT / page)["type"] == "reference"
+            elif old != CONCEPTS or anchor in ("the-phase-chain", "key-ideas"):
+                assert page.startswith(USER_PAGES), f"{old}#{anchor}: {page}"
+
+    def test_st_0454_fh_05_01_concept_page_holds_both_sections(self) -> None:
+        page = map_rows()[(CONCEPTS, "the-phase-chain")]
+        assert frontmatter(REPO_ROOT / page)["type"] == "concept"
+        assert {"the-phase-chain", "key-ideas"} <= set(heading_anchors(read(REPO_ROOT / page)))
+
+    def test_st_0454_fh_05_01_tree_names_the_source_and_the_installed_copy(self) -> None:
+        page = REPO_ROOT / map_rows()[(CONCEPTS, "project-directory-tree")]
+        assert frontmatter(page)["status"] == "implemented"
+        tree = re.search(r"^```\n(.*?)^```", read(page), re.DOTALL | re.MULTILINE).group(1)
+        assert "packages/" in tree and "factory/" in tree and ".agent-factory/factory/" in tree
+
+
+@pytest.mark.spec("FH-05-LN-01")
+class TestFH05LN01OldFilesAreGone:
+    """FH-05-03: the three files are deleted, and nothing names the guide."""
+
+    @pytest.mark.parametrize("old", OLD_FILES)
+    def test_st_0454_fh_05_03_old_file_is_absent(self, old: str) -> None:
+        assert not (REPO_ROOT / old).exists()
+
+    def test_st_0454_fh_05_03_archive_holds_no_copy(self) -> None:
+        names = {Path(old).name for old in OLD_FILES}
+        tracked = git("ls-files").stdout.splitlines()
+        assert [p for p in tracked if "~archive/" in p and Path(p).name in names] == []
+
+    def test_st_0454_fh_05_03_search_finds_no_guide_name(self) -> None:
+        tracked = git("ls-files", "packages/", "tests/", "README.md", "docs/spec/features/").stdout.splitlines()
+        skipped = {"CHANGELOG.md", "factory-handbooks.feature"}
+        hits = [
+            name
+            for name in tracked
+            if Path(name).name not in skipped
+            and (REPO_ROOT / name).is_file()
+            and GUIDE_NAME in (REPO_ROOT / name).read_bytes().decode("utf-8", "replace")
+        ]
+        assert hits == []

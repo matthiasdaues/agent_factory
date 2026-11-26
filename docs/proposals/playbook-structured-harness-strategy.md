@@ -149,4 +149,4 @@ Adopt a git-ignored run-state marker plus a `transition-lint` pre-commit hook, d
 ## Referenced from
 
 - [session-log-addendum.md § 2. Where the log lives, and how scripts write to it](session-log-addendum.md#2-where-the-log-lives-and-how-scripts-write-to-it)
-- [factory-guide.md § Playbook phase gates](../../.agent-factory/factory/docs/factory-guide.md)
+- [factory-guide.md § Playbook phase gates](../../packages/factory/docs/handbook/index.md)

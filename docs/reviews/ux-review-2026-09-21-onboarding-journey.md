@@ -38,7 +38,7 @@ Primary evidence came from these sources:
 
 - the [root README](../../README.md);
 - the [Factory setup guide](../../packages/factory/README.md);
-- the [Getting Started guide](../../packages/factory/docs/factory-guide.md#getting-started);
+- the [Getting Started guide](../../packages/factory/docs/handbook/getting-started/first-session.md);
 - the [installer](../../packages/factory/scripts/init-factory);
 - the [session menu](../../packages/factory/config/session-menu.md);
 - the [VIRGIL definition](../../packages/factory/agents/virgil.md);
@@ -78,7 +78,7 @@ inherently reliable.
 ### The basic mental model is clear
 
 The
-[Getting Started guide](../../packages/factory/docs/factory-guide.md#the-five-words-you-will-keep-hearing)
+[Getting Started guide](../../packages/factory/docs/handbook/concepts/building-blocks.md)
 defines five core terms. It explains agent, skill, playbook, gate, and context
 in plain language. The explanations are clear.
 
@@ -206,7 +206,7 @@ Three sources describe different behavior:
   treats `greenfield` as ready and opens the session menu.
 - The [VIRGIL definition](../../packages/factory/agents/virgil.md#fitting) says
   greenfield projects must still configure model-matrix step 0.
-- The [Getting Started guide](../../packages/factory/docs/factory-guide.md#what-init-factory-put-on-your-disk)
+- The [Getting Started guide](../../packages/factory/docs/handbook/reference/local-configuration.md)
   says greenfield projects receive sensible defaults.
 
 The [installer](../../packages/factory/scripts/init-factory) writes
@@ -263,7 +263,7 @@ user encounters them.
 
 **Severity: High**
 
-The [Getting Started guide](../../packages/factory/docs/factory-guide.md#where-to-go-next)
+The [Getting Started guide](../../packages/factory/docs/handbook/getting-started/first-session.md)
 correctly says the Factory rewards learning by doing. The operational order is
 closer to:
 

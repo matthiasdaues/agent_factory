@@ -22,6 +22,7 @@ This chapter explains how the factory repository is built.
 
 ## Reference
 
+- [Repository layout](repository-layout.md): The top-level folders of the factory repository, with the source of the factory and its installed copy.
 - [Usage add-on structure](usage-add-on-structure.md): The directory tree of packages/usage/, the wrapper scripts that find it, and the documents that describe it.
 
 <!-- handbook-index:end -->

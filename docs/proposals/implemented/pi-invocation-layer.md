@@ -268,7 +268,7 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
   and its shell twin `.agent-factory/factory/config/hooks/block-dangerous-git.sh`.
 - Install/remove precedent: `factory/scripts/init-factory`,
   `factory/scripts/remove-factory`.
-- CLI-safety and Pi caveat prose: [`factory/docs/factory-guide.md`](../../../.agent-factory/factory/docs/factory-guide.md)
+- CLI-safety and Pi caveat prose: [`factory/docs/factory-guide.md`](../../../packages/factory/docs/handbook/index.md)
   (§ CLI safety guardrails).
 - Pi docs (primary source): `earendil-works/pi`,
   `packages/coding-agent/docs/{usage,skills,prompt-templates,extensions,security,json}.md`.

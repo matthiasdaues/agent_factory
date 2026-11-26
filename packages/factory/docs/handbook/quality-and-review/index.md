@@ -19,6 +19,6 @@ A gate is a script that checks work before a person spends time on it. This chap
 
 ## Reference
 
-- [Gate scripts](gate-scripts.md): Each gate script, when it fires, what it checks, and the command that runs it.
+- [Gate scripts](gate-scripts.md): Each gate script, when it fires, what it checks, the command that runs it, and when tests run.
 
 <!-- handbook-index:end -->
