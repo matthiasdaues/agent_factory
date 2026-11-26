@@ -12,10 +12,13 @@ A feature starts as a proposal. The proposal is the brief that opens a feature-a
 
 The frontmatter of a proposal is versioned. It records the lifecycle, the impact, the governance, and dated forecasts of active human review hours and normalized AI tokens. A forecast stays apart from the actuals, which are only appended to, and from the provider's bill. The body records the summary, the motivation, the design, the split into what is in scope and what is deferred, the open questions, and the completion criteria.
 
-A proposal moves through the states `draft`, `open`, and `accepted`. [feature-addition.md](../../../playbooks/feature-addition.md) describes the lifecycle and the checks that route the work. The [proposal template](../../../rulebooks/templates/proposal.md) explains what a material change after acceptance does.
+A proposal moves through the states `draft`, `open`, and `accepted`. [feature-addition.md](../../../playbooks/feature-addition.md) describes the lifecycle and the checks that route the work.
 
 > Rule summary: **MUST** clarify or grill a feature proposal in place. A decision-complete interview may move it from `draft` to `open`, but only stakeholder approval moves it to `accepted`. **MUST** enter specification, architecture, or planning work from an `accepted` proposal.
 > Source: [rules.md § Proposals](../../../rulebooks/rules.md#proposals)
+
+> Rule summary: A material change after acceptance returns the proposal to `open` for reacceptance.
+> Source: [proposal template § Feature Request](../../../rulebooks/templates/proposal.md#feature-request-)
 
 A proposal is where a design comes from. It is not an artifact that agents read at run time.
 

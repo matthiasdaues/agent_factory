@@ -35,7 +35,10 @@ The guard looks for `.agent-factory/` in the current checkout first. A linked wo
 `init-factory` answers that question once per clone. It sets the key `agent-factory.installed` in the clone's local `.git/config`, which git never commits or shares. Linked worktrees read the same file. `remove-factory` unsets the key.
 
 - **The key is not set.** The clone belongs to a colleague without the factory. The hook exits 0 in silence, and the colleague commits with no error, no warning, and no trace of Agent Factory.
-- **The key is set.** This clone installed the factory, so a missing folder is a fault. The hook fails and names two ways out: run `update-factory`, or set `SKIP` to the hook id that pre-commit prints above the message, which skips that hook for one run. So a broken installation never lets a commit through unchecked.
+- **The key is set.** This clone installed the factory, so a missing folder is a fault. The hook fails with the message above. The message mentions a per-hook skip, but the way out is to repair the installation: run `update-factory`, then commit again. So a broken installation never lets a commit through unchecked.
+
+> Rule summary: **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook.
+> Source: [rules.md § Git workflow](../../../rulebooks/rules.md#git-workflow)
 
 The tracked `.pre-commit-config.yaml` survives clones and branch switches. The untracked `.agent-factory/factory/` is local tooling, not project source. The guard connects the two: the hooks run for everyone who installed the factory and stay silent for everyone else.
 
