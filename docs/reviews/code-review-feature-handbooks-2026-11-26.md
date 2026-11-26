@@ -2,13 +2,13 @@
 type: code-review
 title: Code review of feature/handbooks
 date: 2026-11-26
-status: defects
+status: pass
 reviewer: code-review-agent
-findings_filed: 5
+findings_filed: 6
 run: feature/handbooks
 branch: feature/handbooks
 branch_base: 43964dac1d1cb6bd933c1f459ead2b39b949c33c
-branch_head: c10510333491664d39643d24f7b43e7d579a18f6
+branch_head: 01342e30dfaedb67112ca639287887d63c5dcdae
 ---
 
 # Code review of feature/handbooks
@@ -50,3 +50,45 @@ The selected handbook, pre-commit, and updater test files returned 331 passes. F
 ## Handoff
 
 Fix the four major findings and submit the merged feature for repeat review.
+
+## Repeat pass
+
+### Verdict
+
+The feature passes the blocking checks. All four pass-1 majors hold on the merged head, and the fixes introduce no blocking defect. One new minor finding remains open beside the pass-1 minor findings that the units left open.
+
+### Scope
+
+The pass reviewed `c1051033..01342e30` at feature level: the five pass-1 findings, and the seams between the fixed pages and the pages and scripts around them. It did not repeat the four unit reviews.
+
+### Pass-1 findings on the merged head
+
+| Finding                                                          | Result            | Evidence                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMPL-0197, a generated index can fail the commit hook            | Holds             | `handbook-index` formats its output with mdformat and the gfm extension. `handbook-index --check` and `handbook-lint` exit 0 on the head. A probe list with escapes, emphasis, and a trailing backslash gave the same bytes from the script and from `scripts/mdformat --number`. 73 tests of `test_handbook_index.py` pass. |
+| IMPL-0198, the usage guide omits the source checkout             | Holds, with a gap | The handbook page names `--source`. The usage README repeats the old command, filed as [IMPL-0217](../findings/register/code/IMPL-0217.json).                                                                                                                                                                                |
+| IMPL-0199, the tutorial promises model defaults                  | Holds             | `init-factory` writes `CONFIGURE-ME` rows per selected CLI, no row for OpenCode, and `on_missing = halt`. `resolve-model` returns a row value as given and applies `on_missing` to every missing pair. `matrix-lint` reports `MX-EMPTY`.                                                                                     |
+| IMPL-0200, the update command needs an undocumented self-install | Holds             | `update-factory` documents `--target` as the current directory and reads the source from the manifest. The page, the freshness hook text, and the troubleshooting page agree on the command.                                                                                                                                 |
+| IMPL-0201, the health check names the wrong field                | Holds             | `capture_health.py` returns `total_lines`. The handbook page and `packages/usage/README.md` both name it.                                                                                                                                                                                                                    |
+
+### Seams
+
+- The hook runs mdformat with four plugins, and the generator uses only the gfm extension. The probe showed no difference for the constructs the generator can emit.
+- The new `mdformat` and `mdformat-gfm` dependencies appear in the inline script header of both scripts and in `pyproject.toml`, so the installed copies and the repository hook resolve the same formatter.
+- The freshness row in the local-configuration page matches `check-factory-freshness.sh`: it warns once per session on a missing or different tree hash and exits silently without `packages/factory/`.
+
+### Findings
+
+| Finding                                                               | Artifact                         | Category | Type          | Severity | Basis                                                                                   | Filed as                                              |
+| --------------------------------------------------------------------- | -------------------------------- | -------- | ------------- | -------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| The usage README still gives `--add usage` without a source checkout. | `packages/usage/README.md:25-28` | defect   | documentation | minor    | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: true` | [IMPL-0217](../findings/register/code/IMPL-0217.json) |
+
+IMPL-0204 stays open on purpose, as the brief states.
+
+### Verification
+
+`handbook-index --check`, `handbook-lint`, and `tests/factory/test_handbook_index.py` (73 passed) ran read-only on `01342e30`. The full repository suite was not run.
+
+### Handoff
+
+Fix IMPL-0217 when the feature next touches the usage README. The feature may proceed to QA on the feature branch.
