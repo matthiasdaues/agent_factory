@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Both rows give the correct Git visibility for existing orientation symlinks (no to fails_purpose). A maintainer tracing a changed link target must consult the installer to explain it.",
   "commit": "864a1bd70c1e1681ab088953b3a4c3b30c7e1df5",
-  "status": "open"
+  "status": "resolved"
 }
