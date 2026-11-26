@@ -17,7 +17,7 @@ An agent under pressure can route around a failing gate or discard work with one
 > Rule summary: **MUST**, in an automated run, create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`, and **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 > Source: [rules.md § Branching](../../../rulebooks/rules.md#branching)
 
-A run by hand checks out each story branch in the primary checkout instead. [Run dispatch by hand](../branches-and-dispatch/run-dispatch-by-hand.md) shows that workflow.
+[Run dispatch by hand](../branches-and-dispatch/run-dispatch-by-hand.md) shows the workflow of a run by hand.
 
 ## How each CLI loads it
 
