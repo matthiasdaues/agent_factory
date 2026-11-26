@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0176",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:45",
+  "story": null,
+  "finding": "FH-05-IT-01 omits the destination audience checks. State that the test checks the required user handbook destinations and the contributor directory-tree reference.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "FH-05-01 explicitly supplies the destination constraints, so the developer can write the full test (no to fails_purpose). The owner row requires another lookup to see which destinations are allowed.",
+  "commit": "469beb9875c23d0cc314f4f005427c100de2eb2c",
+  "status": "open"
+}
