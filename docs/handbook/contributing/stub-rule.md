@@ -14,14 +14,14 @@ A stub holds a place for a page that does not exist yet. The chapter stays visib
 
 1. Create the file in the chapter folder, for example `docs/handbook/release/sources.md`.
 2. Set `status: stub` in the frontmatter, together with `title` and `type`.
-3. The stub holds one sentence that names its scope and a link to a source that exists, as [the proposal](../../proposals/factory-handbooks.md) defines a stub.
+3. Write the stub as the proposal's [§ Page format](../../proposals/factory-handbooks.md#page-format) defines it.
 4. Run `packages/factory/scripts/handbook-index`.
 
 A stub stays out of the generated page lists. A chapter whose `index.md` exists appears in the top-level list, even when it holds only stubs.
 
 ## Fill a stub
 
-1. The stub file and the finished page are one file, because [the proposal](../../proposals/factory-handbooks.md) fills a stub by an edit in place.
+1. Fill the stub as the proposal's [§ Page format](../../proposals/factory-handbooks.md#page-format) defines it.
 2. Write the page for its `type`, as [the page format](page-format.md) describes.
 3. Set `status: implemented`.
 4. Run `packages/factory/scripts/handbook-index`. The page joins the list.

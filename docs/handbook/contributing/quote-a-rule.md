@@ -8,7 +8,7 @@ description: Copy a rule from a rulebook into a handbook page as a rule summary 
 
 # Quote a rule in a page
 
-[BR-149](../../spec/validation-rules.md) gives a binding rule one home, a rulebook under `packages/factory/rulebooks/`. A handbook page repeats the rule only as a rule summary with a source line that links to the home. `handbook-lint` does not check rule summaries, so the code review checks them.
+[BR-149](../../spec/validation-rules.md) defines where a binding rule lives and how a page repeats it. `handbook-lint` does not check rule summaries, so the code review checks them.
 
 1. Find the section of the rulebook that states the rule.
 2. Write a `> Rule summary:` line with the rule in your own words.
