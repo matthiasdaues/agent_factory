@@ -2,10 +2,10 @@
 scope: global
 schema_version: 2
 title: Factory Handbooks
-status: accepted
+status: open
 owner: md@matthiasdaues.de
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-26
 supersedes:
 
 impact:
@@ -37,6 +37,9 @@ impact:
     - tests/factory/test_brownfield_order.py
     - tests/factory/test_hook_missing_factory.py
     - .pre-commit-config.yaml
+    - packages/usage/README.md
+    - packages/usage/docs/ui-exploration.md
+    - packages/usage/scripts/usage-ui-doc-check
 
 governance:
   assurance: routine
@@ -144,34 +147,34 @@ installed version, so the handbook always matches the installed code
 
 ### User handbook chapters
 
-| Chapter                     | A page belongs here when it explains                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `getting-started/`          | How to install the factory and run a first session and a first playbook.                                      |
-| `concepts/`                 | What agents, skills, playbooks, proposals, workstreams, and gates are, and why author and reviewer run apart. |
-| `playbooks/`                | When to choose one playbook and what the user sees at each of its steps.                                      |
-| `agent-context/`            | What `docs/agent-context.md` does and how to set it up and keep it current.                                   |
-| `quality-and-review/`       | Gates, findings and their classification, and how to read a review.                                           |
-| `branches-and-dispatch/`    | Worktrees, a run by hand and an orchestrated run, `next-id`, and merging.                                     |
-| `research/`                 | Survey research and falsification research.                                                                   |
-| `cli-integrations/`         | How Claude Code, Codex, Copilot CLI, Pi, and OpenCode differ, and how to add or remove one.                   |
-| `installation-and-updates/` | `init-factory`, `update-factory`, removal, and the user's own changes under `user-changes/`.                  |
-| `usage-capture/`            | What the usage runtime records and how to read it.                                                            |
-| `reference/`                | CLI flags, the directory layout, and frontmatter fields.                                                      |
-| `troubleshooting/`          | A known failure and its fix.                                                                                  |
+| Chapter                     | A page belongs here when it explains                                                                                                                                                                                                                                              |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getting-started/`          | How to install the factory and run a first session and a first playbook.                                                                                                                                                                                                          |
+| `concepts/`                 | What agents, skills, playbooks, proposals, workstreams, and gates are, and why author and reviewer run apart.                                                                                                                                                                     |
+| `playbooks/`                | When to choose one playbook and what the user sees at each of its steps.                                                                                                                                                                                                          |
+| `agent-context/`            | What `docs/agent-context.md` does and how to set it up and keep it current.                                                                                                                                                                                                       |
+| `quality-and-review/`       | Gates, findings and their classification, and how to read a review.                                                                                                                                                                                                               |
+| `branches-and-dispatch/`    | Worktrees, a run by hand and an orchestrated run, `next-id`, and merging.                                                                                                                                                                                                         |
+| `research/`                 | Survey research and falsification research.                                                                                                                                                                                                                                       |
+| `cli-integrations/`         | How Claude Code, Codex, Copilot CLI, Pi, and OpenCode differ, and how to add or remove one.                                                                                                                                                                                       |
+| `installation-and-updates/` | `init-factory`, `update-factory`, removal, and the user's own changes under `user-changes/`.                                                                                                                                                                                      |
+| `usage-capture/`            | What the usage runtime records, and how to read it with the optional usage add-on (`packages/usage/`): what the add-on is and that the factory works without it, how to install it, how to query the views, the two browser UIs, the output formats, and the Python API (DEC-15). |
+| `reference/`                | CLI flags, the directory layout, and frontmatter fields.                                                                                                                                                                                                                          |
+| `troubleshooting/`          | A known failure and its fix.                                                                                                                                                                                                                                                      |
 
 ### Contributor handbook chapters
 
-| Chapter              | A page belongs here when it explains                                                                                  |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `getting-started/`   | How to clone, run `./init-factory .`, edit `packages/`, refresh the installed copy, run the tests, and make a change. |
-| `architecture/`      | The packages `factory`, `orchestrator`, and `usage`, the install model, and the engine, with links to arc42 and ADRs. |
-| `agents-and-skills/` | How to write an agent, a skill, or a playbook, and how `INDEX.yaml` and the generated CLI files come about.           |
-| `gates-and-hooks/`   | How to add a lint script or a hook that works in every supported CLI.                                                 |
-| `cli-integrations/`  | How to wire a new CLI into the factory.                                                                               |
-| `testing/`           | `docs/testing.yaml`, the test layers, and a recipe per layer.                                                         |
-| `workflow/`          | Proposals on `dev`, feature branches, story worktrees, commits, and how the factory is built with itself.             |
-| `release/`           | Versioning, the changelog, and tags.                                                                                  |
-| `contributing/`      | The page format of both handbooks, the stub rule, and the lint check.                                                 |
+| Chapter              | A page belongs here when it explains                                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getting-started/`   | How to clone, run `./init-factory .`, edit `packages/`, refresh the installed copy, run the tests, and make a change.                                                                     |
+| `architecture/`      | The packages `factory`, `orchestrator`, and `usage`, the install model, and the engine, with links to arc42 and ADRs. For the usage add-on, also its data pipeline and project structure. |
+| `agents-and-skills/` | How to write an agent, a skill, or a playbook, and how `INDEX.yaml` and the generated CLI files come about.                                                                               |
+| `gates-and-hooks/`   | How to add a lint script or a hook that works in every supported CLI.                                                                                                                     |
+| `cli-integrations/`  | How to wire a new CLI into the factory.                                                                                                                                                   |
+| `testing/`           | `docs/testing.yaml`, the test layers, and a recipe per layer. For the usage add-on, also its three checks `usage-contract-check`, `usage-dependency-check`, and `usage-ui-doc-check`.     |
+| `workflow/`          | Proposals on `dev`, feature branches, story worktrees, commits, and how the factory is built with itself.                                                                                 |
+| `release/`           | Versioning, the changelog, and tags.                                                                                                                                                      |
+| `contributing/`      | The page format of both handbooks, the stub rule, and the lint check.                                                                                                                     |
 
 A page that fits two chapters goes into the chapter that owns its concept. The
 other chapter links to it.
@@ -310,6 +313,16 @@ in user projects, because user projects do not write factory handbook pages.
   `docs/spec/scope-map.md`.
 - Every entry point listed under "Entry points to the handbook" points to the
   new pages.
+- The documentation of the optional usage add-on moves into the handbooks
+  (DEC-15). Its user sections, from `packages/usage/README.md` and
+  `packages/usage/docs/ui-exploration.md`, become pages of the user handbook's
+  `usage-capture/` chapter, which states that the add-on is optional. Its
+  developer sections, the data pipeline, the project structure, and the three
+  `usage-*-check` scripts, go to the contributor handbook's `architecture/` and
+  `testing/` chapters. `ui-exploration.md` is deleted. The package README
+  keeps a short description and its installation steps, and links to both
+  handbooks. `usage-ui-doc-check` reads the launch commands from the user
+  handbook page that now holds them.
 - The contributor handbook with `getting-started/` and `contributing/` written
   in full. Every other contributor chapter has an `index.md` and at least one
   stub that names its sources (DEC-08).
@@ -405,6 +418,10 @@ No open questions remain.
 - The contributor handbook's `getting-started/` tutorial takes a person from
   `git clone` to a passing test run, using only commands that exist in the
   repository.
+- The user handbook's `usage-capture/` chapter says that the usage add-on is
+  optional and holds every user section of `packages/usage/README.md` and
+  `packages/usage/docs/ui-exploration.md`. `packages/usage/docs/ui-exploration.md`
+  does not exist, and `usage-ui-doc-check` exits 0 against the handbook page.
 - The contributor handbook's `contributing/` chapter describes the page
   format, the stub rule, and both scripts. Every other contributor chapter has
   an `index.md` and at least one stub that names its sources.
@@ -423,22 +440,23 @@ the task the title names.
 
 ## Decisions
 
-| ID     | Date       | Kind     | Decided by    | Decision                                                                                                                                                                                                      | Raised by                       |
-| ------ | ---------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| DEC-01 | 2026-11-25 | decision | product owner | The handbooks stay plain Markdown. A VitePress site is a later addition, kept for its better rendering of diagrams.                                                                                           | session, rendering question     |
-| DEC-02 | 2026-11-25 | decision | product owner | Binding factory rules stay in `rules.md` and the rulebooks. Handbook pages link to them and do not hold rules of their own.                                                                                   | session, rules question         |
-| DEC-03 | 2026-11-25 | decision | product owner | One proposal covers both handbooks, because they share the page format, the index generator, and the lint check.                                                                                              | session, proposal question      |
-| DEC-04 | 2026-11-25 | decision | product owner | There are two handbooks, one per audience: the user handbook ships with the package, the contributor handbook stays in this repository.                                                                       | session, initial request        |
-| DEC-05 | 2026-11-25 | decision | product owner | The `status` field has two values, `implemented` and `stub`. Gigacron's `specified` and `planned` exist only on its older pages.                                                                              | gigacron comparison             |
-| DEC-06 | 2026-11-25 | decision | product owner | Generated page lists are written into each `index.md` between markers, so the file reads correctly without a renderer.                                                                                        | DEC-01                          |
-| DEC-07 | 2026-11-25 | decision | product owner | `factory-guide.md` is deleted, not kept as a redirect, because `update-factory` replaces every factory file that links to it.                                                                                 | Breakage Test                   |
-| DEC-08 | 2026-11-25 | decision | product owner | The first release writes the contributor chapters `getting-started/` and `contributing/` in full and leaves the other chapters as stubs.                                                                      | scope                           |
-| DEC-09 | 2026-11-25 | decision | product owner | `docs/arc42/concepts.md` splits: the phase chain and key ideas go to the user handbook, the directory tree goes to the contributor handbook.                                                                  | grilling, question 1            |
-| DEC-10 | 2026-11-25 | decision | product owner | `docs/arc42/beginner-intro.md` is deleted, because it holds only a redirect to the deleted guide and only records link to it.                                                                                 | grilling, question 1            |
-| DEC-11 | 2026-11-25 | decision | product owner | The `playbooks/` chapter documents today's playbooks. The rethink of the playbook concept is a separate proposal that rewrites the chapter.                                                                   | grilling, question 6            |
-| DEC-12 | 2026-11-25 | decision | product owner | `handbook-lint` does not check for rule words such as "must" in any form. Rules stay out of the pages by authoring and review.                                                                                | lector structural pass, item 16 |
-| DEC-13 | 2026-11-25 | decision | product owner | The three replaced files are deleted, not archived under `~archive/`. Their content moves into the handbooks and git history keeps the old text, so the archive rule of `rules.md` § Handoffs does not apply. | review pass 1, PROP-01          |
-| DEC-14 | 2026-11-25 | decision | product owner | Every link to the three deleted files, records included, is repointed to the new home of its information. Records change only in link targets.                                                                | review pass 1, PROP-01          |
+| ID     | Date       | Kind     | Decided by    | Decision                                                                                                                                                                                                                                                     | Raised by                       |
+| ------ | ---------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| DEC-01 | 2026-11-25 | decision | product owner | The handbooks stay plain Markdown. A VitePress site is a later addition, kept for its better rendering of diagrams.                                                                                                                                          | session, rendering question     |
+| DEC-02 | 2026-11-25 | decision | product owner | Binding factory rules stay in `rules.md` and the rulebooks. Handbook pages link to them and do not hold rules of their own.                                                                                                                                  | session, rules question         |
+| DEC-03 | 2026-11-25 | decision | product owner | One proposal covers both handbooks, because they share the page format, the index generator, and the lint check.                                                                                                                                             | session, proposal question      |
+| DEC-04 | 2026-11-25 | decision | product owner | There are two handbooks, one per audience: the user handbook ships with the package, the contributor handbook stays in this repository.                                                                                                                      | session, initial request        |
+| DEC-05 | 2026-11-25 | decision | product owner | The `status` field has two values, `implemented` and `stub`. Gigacron's `specified` and `planned` exist only on its older pages.                                                                                                                             | gigacron comparison             |
+| DEC-06 | 2026-11-25 | decision | product owner | Generated page lists are written into each `index.md` between markers, so the file reads correctly without a renderer.                                                                                                                                       | DEC-01                          |
+| DEC-07 | 2026-11-25 | decision | product owner | `factory-guide.md` is deleted, not kept as a redirect, because `update-factory` replaces every factory file that links to it.                                                                                                                                | Breakage Test                   |
+| DEC-08 | 2026-11-25 | decision | product owner | The first release writes the contributor chapters `getting-started/` and `contributing/` in full and leaves the other chapters as stubs.                                                                                                                     | scope                           |
+| DEC-09 | 2026-11-25 | decision | product owner | `docs/arc42/concepts.md` splits: the phase chain and key ideas go to the user handbook, the directory tree goes to the contributor handbook.                                                                                                                 | grilling, question 1            |
+| DEC-10 | 2026-11-25 | decision | product owner | `docs/arc42/beginner-intro.md` is deleted, because it holds only a redirect to the deleted guide and only records link to it.                                                                                                                                | grilling, question 1            |
+| DEC-11 | 2026-11-25 | decision | product owner | The `playbooks/` chapter documents today's playbooks. The rethink of the playbook concept is a separate proposal that rewrites the chapter.                                                                                                                  | grilling, question 6            |
+| DEC-12 | 2026-11-25 | decision | product owner | `handbook-lint` does not check for rule words such as "must" in any form. Rules stay out of the pages by authoring and review.                                                                                                                               | lector structural pass, item 16 |
+| DEC-13 | 2026-11-25 | decision | product owner | The three replaced files are deleted, not archived under `~archive/`. Their content moves into the handbooks and git history keeps the old text, so the archive rule of `rules.md` § Handoffs does not apply.                                                | review pass 1, PROP-01          |
+| DEC-14 | 2026-11-25 | decision | product owner | Every link to the three deleted files, records included, is repointed to the new home of its information. Records change only in link targets.                                                                                                               | review pass 1, PROP-01          |
+| DEC-15 | 2026-11-26 | decision | product owner | The documentation of the optional usage add-on (`packages/usage/`) moves into the handbooks in the first release: user sections into `usage-capture/`, developer sections into the contributor handbook. The user handbook says that the add-on is optional. | backlog review, usage question  |
 
 ## Review findings
 
