@@ -1,0 +1,46 @@
+---
+title: Gate scripts
+type: reference
+status: implemented
+order: 20
+description: Each gate script, when it fires, what it checks, and the command that runs it.
+---
+
+# Gate scripts
+
+[Gates](gates.md) explains what a gate is and when each kind runs.
+
+## Structural gates
+
+| Gate                                          | Fires                                           | Checks                                                                                                                                                           |
+| --------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agent-factory/factory/scripts/spec-lint`    | After specification work                        | The core of the specification: references to business rules, entities, and glossary terms in the core files and `.feature` files; unique IDs; required artifacts |
+| `.agent-factory/factory/scripts/arch-lint`    | After architecture work                         | The arc42 chapters exist and reference the Structurizr DSL; the ADR index is consistent; diagram file references resolve                                         |
+| `.agent-factory/factory/scripts/backlog-lint` | After planning                                  | The YAML frontmatter schema, a dependency graph without cycles, and the values of priority and status                                                            |
+| `.agent-factory/factory/scripts/concern-lint` | When `agent-context.md` changes                 | The section structure, the resolution of `Read:` and `Boundary:` paths, the concerns that stories name, and no leftover legacy YAML                              |
+| `.agent-factory/factory/scripts/matrix-lint`  | When `.agent-factory/config/model.conf` changes | The syntax, the required fields, and valid mappings of tier to model                                                                                             |
+
+```bash
+.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec/
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog/
+.agent-factory/factory/scripts/matrix-lint --matrix .agent-factory/config/model.conf
+```
+
+## Semantic gates
+
+| Gate               | Script                                              | Runs                                                    | Checks                                                                                                                                     |
+| ------------------ | --------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dependency check   | `.agent-factory/factory/scripts/dependency-check`   | After every story                                       | The module import directions match the declarations in `architecture.dsl`.                                                                 |
+| Test design verify | `.agent-factory/factory/scripts/test-design-verify` | When the story has a Test Design or Prior Tests section | The story's test design is complete: its listed test modules exist, or each reachable Scenario has a test entry.                           |
+| CRAP score         | `.agent-factory/factory/scripts/crap-score`         | When picked as a test guardrail                         | Composite structural risk, cyclomatic complexity weighted against coverage. The threshold applies to the composite score, not to coverage. |
+| Mutation testing   | `.agent-factory/factory/scripts/mutation-testing`   | When picked as a test guardrail                         | Runs the mutation command from the `gates` section of `docs/testing.yaml` within its time limit.                                           |
+
+## Pre-commit hooks
+
+| Group        | Hooks                                                                                                                                    | On failure                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Formatter    | `mdformat` for Markdown                                                                                                                  | Fixes the style and stops the commit |
+| Gate scripts | `link-check`, `mermaid-lint`, `spec-lint`, `arch-lint`, `backlog-lint`, `concern-lint`, `matrix-lint`, `statemachine-lint`, `index-lint` | Rejects the commit                   |
+
+[Pre-commit hooks](pre-commit-hooks.md) explains how the hooks run.
