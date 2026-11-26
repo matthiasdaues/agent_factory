@@ -301,24 +301,46 @@ Span = tuple[int, int]
 Doubt = tuple[int, int, int, str]  # (offset, begin, end, reason)
 
 
+def _escaped(text: str, offset: int) -> bool:
+    """Whether an odd run of backslashes escapes the character at ``offset``."""
+    count = 0
+    while count < offset and text[offset - count - 1] == "\\":
+        count += 1
+    return count % 2 == 1
+
+
+def _span_close(masked: str, begin: int, end: int) -> int | None:
+    """Return the offset behind the run that closes ``masked[begin:end]``, or None.
+
+    The closing run has the same length and lies in the same paragraph.
+    """
+    if begin == end:
+        return None
+    close = re.compile(rf"(?<!`)`{{{end - begin}}}(?!`)").search(masked, end)
+    if close is None or BLANK_LINE.search(masked, end, close.start()):
+        return None
+    return close.end()
+
+
 def _code_spans(masked: str) -> tuple[list[Span], list[Span]]:
     """Return the one-line and the multiline code spans of ``masked``.
 
-    A span opens with a backtick run and closes with the next run of the
-    same length inside the same paragraph; a run without one stays text.
+    The rules follow CommonMark. A backslash before a run makes its first
+    backtick a literal character. A span opens with a backtick run and
+    closes with the next run of the same length inside the same paragraph;
+    a run without one stays text.
     """
     single: list[Span] = []
     multi: list[Span] = []
     run = BACKTICKS.search(masked)
     while run is not None:
-        closer = re.compile(rf"(?<!`)`{{{len(run.group())}}}(?!`)")
-        close = closer.search(masked, run.end())
-        if close is None or BLANK_LINE.search(masked, run.end(), close.start()):
+        begin = run.start() + _escaped(masked, run.start())
+        close = _span_close(masked, begin, run.end())
+        if close is None:
             run = BACKTICKS.search(masked, run.end())
             continue
-        span = (run.start(), close.end())
-        (multi if "\n" in masked[span[0] : span[1]] else single).append(span)
-        run = BACKTICKS.search(masked, close.end())
+        (multi if "\n" in masked[begin:close] else single).append((begin, close))
+        run = BACKTICKS.search(masked, close)
     return single, multi
 
 
@@ -358,15 +380,30 @@ def _inline_links(
     return spans, doubts, label_ends
 
 
+def _open_bracket(masked: str, offset: int) -> bool:
+    """Whether a "[" before ``offset`` in the same paragraph stays unmatched.
+
+    A backslash-escaped bracket is a literal character.
+    """
+    starts = [blank.end() for blank in BLANK_LINE.finditer(masked, 0, offset)]
+    depth = 0
+    for position in range(starts[-1] if starts else 0, offset):
+        if masked[position] in "[]" and not _escaped(masked, position):
+            depth = depth + 1 if masked[position] == "[" else max(depth - 1, 0)
+    return depth > 0
+
+
 def _nested_labels(masked: str, label_ends: set[int]) -> list[Doubt]:
-    """Every "](" that no simple label ends, as with a bracket in a label."""
+    """Every "](" that ends a label no simple link start matched.
+
+    Only a "](" behind an unmatched "[" in its paragraph ends a label; any
+    other "](" is plain text.
+    """
     doubts: list[Doubt] = []
     for match in LABEL_END.finditer(masked):
-        span = (
-            None
-            if match.end() in label_ends
-            else _destination_span(masked, match.end())
-        )
+        if match.end() in label_ends or not _open_bracket(masked, match.start()):
+            continue
+        span = _destination_span(masked, match.end())
         if span is not None:
             doubts.append(
                 (match.start(), span[0], span[1], "a nested bracket in a link label")
@@ -379,10 +416,23 @@ def _unangled(masked: str, match: re.Match[str], group: int) -> Span:
     return (begin + 1, end - 1) if masked[begin] == "<" else (begin, end)
 
 
-def _definitions(masked: str) -> tuple[list[Span], list[Doubt]]:
-    """Return the destinations of the reference definitions and the split ones."""
-    spans = [_unangled(masked, m, 2) for m in REFERENCE_DEFINITION.finditer(masked)]
-    doubts = [
+def _definitions(masked: str, regions: list[Span]) -> tuple[list[Span], list[Doubt]]:
+    """Return the sure destinations of the reference definitions and the doubtful ones.
+
+    A definition inside a multiline code span or split over two lines is
+    doubtful.
+    """
+    spans: list[Span] = []
+    doubts: list[Doubt] = []
+    for match in REFERENCE_DEFINITION.finditer(masked):
+        begin, end = _unangled(masked, match, 2)
+        region = _region_start(regions, begin)
+        if region is None:
+            spans.append((begin, end))
+        else:
+            reason = "a reference definition inside a multiline code span"
+            doubts.append((region, begin, end, reason))
+    doubts += [
         (
             m.start(),
             *_unangled(masked, m, 1),
@@ -397,10 +447,9 @@ def _link_scan(text: str) -> tuple[list[Span], list[Doubt]]:
     """Every sure destination span of ``text`` and every doubtful link."""
     masked, regions = _mask_section_code(text)
     spans, doubts, label_ends = _inline_links(masked, regions)
-    definitions, split = _definitions(masked)
-    return sorted(spans + definitions), doubts + _nested_labels(
-        masked, label_ends
-    ) + split
+    definitions, definition_doubts = _definitions(masked, regions)
+    nested = _nested_labels(masked, label_ends)
+    return sorted(spans + definitions), doubts + nested + definition_doubts
 
 
 def _target(dest: str, src: str) -> tuple[str, str, str] | None:

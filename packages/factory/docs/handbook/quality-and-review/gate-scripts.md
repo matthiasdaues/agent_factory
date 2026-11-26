@@ -56,7 +56,7 @@ The tests run at three points:
 2. **Pre-push.** The full suite runs.
 3. **Phase advance.** The entry condition `tests_pass` checks the suite.
 
-Git's option `--no-verify` skips the hooks of the first two points. You fix a failing hook instead of skipping it. [Commit through the pre-commit hooks](../../../rulebooks/conventions/git-workflow.md#commit-through-the-pre-commit-hooks--the-two-pass-rule) shows how.
+Git's option `--no-verify` skips the hooks of the first two points. [Commit through the pre-commit hooks](../../../rulebooks/conventions/git-workflow.md#commit-through-the-pre-commit-hooks--the-two-pass-rule) shows how a commit passes them.
 
 > Rule summary: **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook.
 > Source: [rules.md § Git workflow](../../../rulebooks/rules.md#git-workflow)

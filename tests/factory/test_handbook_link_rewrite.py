@@ -169,8 +169,15 @@ def test_st_0454_link_in_a_span_with_inner_backticks_stays() -> None:
         (f"Intro\n\n[a [b]]({CONCEPTS})\n", 3),
         (f"[x]:\n    {CONCEPTS}\n", 1),
         (f"Intro\n[x]({CONCEPTS}\n", 2),
+        (f"Intro\n\n`open text\n[x]: {CONCEPTS}\ntext close`\n", 3),
     ],
-    ids=["multiline-code-span", "nested-label", "split-reference-definition", "unclosed-link"],
+    ids=[
+        "multiline-code-span",
+        "nested-label",
+        "split-reference-definition",
+        "unclosed-link",
+        "definition-in-multiline-code-span",
+    ],
 )
 def test_st_0454_doubtful_link_is_refused_with_file_and_line(text: str, line: int) -> None:
     with pytest.raises(AmbiguousLink, match=f"^README.md:{line}: "):
@@ -187,4 +194,16 @@ def test_st_0454_refusal_edits_nothing_in_the_file() -> None:
 @pytest.mark.spec("FH-CT-78")
 def test_st_0454_doubtful_construct_without_a_mapped_link_is_left_alone() -> None:
     text = "`a\n[x](other.md)`\n\n[a [b]](other.md)\n\n[r]:\n    other.md\n\n[u](other.md\n"
+    assert rewrite(text, src="README.md") == text
+
+
+@pytest.mark.spec("FH-CT-79")
+def test_st_0454_escaped_backticks_open_no_code_span() -> None:
+    text = f"Example \\`open\n[x]({CONCEPTS})\nclose\\`\n"
+    assert rewrite(text, src="README.md") == f"Example \\`open\n[x]({PHASE_PAGE})\nclose\\`\n"
+
+
+@pytest.mark.spec("FH-CT-80")
+def test_st_0454_label_end_without_an_open_bracket_is_plain_text() -> None:
+    text = f"A literal suffix is ]({CONCEPTS}).\n\n[a] and ]({CONCEPTS}).\n"
     assert rewrite(text, src="README.md") == text

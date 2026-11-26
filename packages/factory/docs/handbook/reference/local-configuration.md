@@ -24,10 +24,14 @@ The files under `.agent-factory/config/` are local configuration, not project so
 
 - `/.agent-factory/`, `/.current-work/`, and `/session-scratchpad.md`, always.
 - `/.claude/` and `/.pi/` as whole folders, when you install for Claude Code or Pi.
-- Under `.github/`, `.codex/`, `.opencode/`, and `.agents/`, each file and folder that `init-factory` created, never the whole folder. Your own files there stay tracked.
+- Under `.github/`, for Copilot, the block holds three kinds of rule:
+  - `/.github/hooks` and `/.github/agents` as whole folders. The installer writes its hook files and generated agents there and adds both rules, also when the folder existed before. Git then ignores every untracked file in the two folders, your own included. A file that Git already tracks there stays tracked.
+  - `/.github/skills`, `/.github/playbooks`, `/.github/rulebooks`, `/.github/scripts`, and `/.github/INDEX.yaml`, each a link that `init-factory` created. When one of these folders existed before, the installer links its entries into it one by one and lists only the entries it created. Your own files in such a folder stay visible to Git.
+  - `/.github/copilot-instructions.md`, only when `init-factory` created the link. A file that existed before gets a marker block and stays tracked.
+- Under `.codex/`, `.opencode/`, and `.agents/`, each file and folder that `init-factory` created, never the whole folder.
 - `/AGENTS.md`, when `init-factory` links the root `AGENTS.md` for Pi or Codex.
 
-The block lists no file that existed before the installation. When `init-factory` adds a marker block to such a file, the file stays tracked. Everything outside the block is yours to commit: `.gitignore` itself, `.pre-commit-config.yaml` with its hook block, and `docs/testing.yaml`, the test declaration of the project.
+Apart from the two Copilot folder rules, the block lists no file that existed before the installation. When `init-factory` adds a marker block to such a file, the file stays tracked. Everything outside the block is yours to commit: `.gitignore` itself, `.pre-commit-config.yaml` with its hook block, and `docs/testing.yaml`, the test declaration of the project.
 
 | What                 | Where                                                                                                                                                                 | Tracked?                                                                          |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
