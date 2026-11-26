@@ -8,27 +8,37 @@ description: Run handbook-index after you add, change, or remove a page.
 
 # Update the page lists with handbook-index
 
-Every `index.md` holds a page list between two markers:
+Write the introduction to a chapter in its `index.md`. The generator owns the page list between these two markers:
 
 ```markdown
 <!-- handbook-index:start -->
 <!-- handbook-index:end -->
 ```
 
-The script `handbook-index` writes that list. Write the text of the chapter above the markers or below them. The script leaves it alone.
+Put your prose above the start marker or below the end marker. The generator leaves text outside the markers unchanged.
 
-## Run it
+## Regenerate the lists
 
-From the repository root:
+After adding, changing, or removing a page, run this command from the repository root:
 
 ```bash
 packages/factory/scripts/handbook-index
 ```
 
-The script reads the frontmatter of every page in both handbooks. It groups the pages of a chapter by `type`, sorts them by `order` and then by `title`, and leaves out stubs. The top-level `index.md` lists each chapter that has an `index.md`.
+Review the diff and include the updated `index.md` files in the same commit as the page changes.
 
-To see which lists are out of date without writing them, add `--check`. The exit code is 1 when a list differs.
+## How the lists are built
 
-## When it refuses
+The generator reads the [frontmatter](page-format.md) of every Markdown page in `packages/factory/docs/handbook/` and `docs/handbook/`, including each `index.md`.
 
-The script writes nothing and exits with 1 when a page has a wrong frontmatter field, or when an `index.md` has no marker pair or a broken one. Add the two marker lines by hand. The script does not add them.
+- A chapter index groups its implemented pages under **Tutorials**, **Concepts**, **How-to guides**, **Reference**, and **Learning**, in that order. Within each group, pages sort by `order`, then `title`, then file path. An omitted `order` counts as 100. Each link uses the page title and shows the description if one is present.
+- A handbook's top-level index links to every chapter with an `index.md`, including chapters whose content is all stubs. It sorts chapters by their index's `order`, then `title`, then chapter path.
+- Pages marked `status: stub` stay out of chapter lists. Set the status to `implemented` when the page is ready, then regenerate.
+
+## Check the lists
+
+Run `packages/factory/scripts/handbook-index --check` to see which lists are stale. Check mode writes nothing. The repository's pre-commit hook runs the same comparison through [handbook-lint](handbook-lint.md) on every commit, including one that only deletes a page. A stale list blocks the commit.
+
+If any page has invalid frontmatter or any index has broken markers, generation stops before writing either handbook. Fix the file named in the error and rerun the command. Each index needs exactly one start marker followed by exactly one end marker. Add or repair the markers by hand.
+
+[Handbook validation rules](../../spec/validation-rules.md#factory-handbooks-handbook-index-handbook-lint-br-140br-152) define the page metadata and generation contract.

@@ -14,7 +14,7 @@ This chapter explains the parts the factory hands to your assistant and how they
 
 ## Concepts
 
-- [How the factory works](how-the-factory-works.md): The chain of agents from an idea to checked code, and the four ideas the factory is built on.
+- [How the Factory works](how-the-factory-works.md): Follow a feature from the first request through decisions, checks, and a merge.
 - [The five building blocks](building-blocks.md): Agents, skills, playbooks, gates, and context, and the catalogue that lists them.
 - [Author and reviewer](author-and-reviewer.md): Why the agent that checks a piece of work is never the agent that wrote it, and how you keep them apart.
 - [Five kinds of work](kinds-of-work.md): Requirements, architecture, planning, implementation, and quality, and how each agent's needs set their order.

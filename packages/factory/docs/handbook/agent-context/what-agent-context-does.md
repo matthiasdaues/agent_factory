@@ -12,6 +12,18 @@ An agent that works on your project needs your project's knowledge: how you bran
 
 The file does not exist after `init-factory`. VIRGIL creates it during onboarding with the `capture-context` skill, as part of a greenfield or brownfield playbook. [Set up and keep the agent context current](set-up-and-keep-current.md) describes that step.
 
+```text
+Story names its concerns
+          |
+          v
+docs/agent-context.md
+          |
+          | Read: paths
+          +--> Test commands in docs/testing.yaml
+          +--> Team rules in the project documentation
+          +--> Domain behavior in the specification
+```
+
 ## Three categories of concern
 
 The file has three concern categories, each under a `##` heading:

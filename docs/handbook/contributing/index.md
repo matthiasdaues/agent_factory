@@ -1,12 +1,12 @@
 ---
-title: Contributing
+title: Writing handbook pages
 type: concept
 status: implemented
 order: 90
 description: This chapter describes the page format of both handbooks, the stub rule, and the lint check.
 ---
 
-# Contributing
+# Writing handbook pages
 
 This chapter explains how to write and check a handbook page.
 

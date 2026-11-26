@@ -12,7 +12,7 @@ Find the message or the symptom you see, and apply the fix under it.
 
 ## `init-factory: STOPPED — <path> already exists and is not a symlink to <dest>`
 
-Something real already sits at that path. Move, rename, or remove it, and run `init-factory` again.
+Check the file or directory at `<path>`. If you can move it without disrupting your project, rename it or move it somewhere safe. Run `init-factory` again and check that it finishes without the same error.
 
 ## `merge-precommit-config` cannot merge your `.pre-commit-config.yaml`
 
@@ -28,14 +28,14 @@ Start Docker Desktop on macOS or the Docker daemon on Linux. Only `.agent-factor
 
 ## Your first commit fails, or changes files you did not touch
 
-The `mdformat` hook fixes the formatting on commit. When a commit fails with "files were modified by this hook", the formatter changed files that did not match the project style yet. Stage the changes and commit again:
+The `mdformat` hook fixes the formatting on commit. When a commit fails with "files were modified by this hook", the formatter changed files that did not match the project style yet. Review the formatter’s changes with `git diff`. Stage only the files you want in this commit, then retry:
 
 ```bash
-git add -u
+git add -- <file>
 git commit -m "<same message>"
 ```
 
-This happens once per file. After the first pass, the hooks change only the files you change, and only their formatting, never their content.
+Replace `<file>` with the path you reviewed. Repeat for any other files you want to stage.
 
 ## `.agent-factory/factory/` looks out of date after you update your `agent_factory` checkout
 

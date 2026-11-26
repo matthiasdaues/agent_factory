@@ -8,12 +8,14 @@ description: This chapter explains the packages, the install model, and the engi
 
 # Architecture
 
-This chapter explains how the factory repository is built.
+Start with [How a Factory run works](how-a-factory-run-works.md) to see how the instructions and executable code work together. For usage changes, start with [From CLI session to usage report](from-cli-session-to-usage-report.md).
 
 <!-- handbook-index:start -->
 
 ## Concepts
 
+- [From CLI session to usage report](from-cli-session-to-usage-report.md): Trace token counts from CLI events through capture and analysis.
+- [How a Factory run works](how-a-factory-run-works.md): Follow a specification review from the playbook to the reviewer and its checks.
 - [The usage add-on pipeline](usage-add-on.md): How the usage add-on turns JSONL records into six views in four stages.
 
 ## How-to guides

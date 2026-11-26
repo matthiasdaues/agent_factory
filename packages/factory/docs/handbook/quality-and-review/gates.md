@@ -8,13 +8,24 @@ description: What a gate checks, when the structural gates and the semantic gate
 
 # Gates
 
-A reviewer agent's time is expensive, so a cheap check runs first. A gate is a deterministic script that catches a provable defect before a reviewer agent spends time on it: a broken cross-reference, a missing required section, or an inconsistent ID. No LLM judges anything in a gate, so a gate is cheap, gives the same result every time, and reports no false positives.
+A gate is an automated check with defined rules. It can flag a broken cross-reference, a missing required section, or an inconsistent ID. A failed gate reports which rule the work needs to satisfy before it can proceed.
 
 The gate scripts are stdlib-only Python, so you install nothing to run them. [Gate scripts](gate-scripts.md) lists each gate and its command.
 
 ## Structural gates
 
 Each structural gate fires at the end of one kind of work: `spec-lint` after specification work, `arch-lint` after architecture work, `backlog-lint` after planning. `concern-lint` fires when `agent-context.md` changes, and `matrix-lint` when `.agent-factory/config/model.conf` changes. When you drive each agent by hand, one session at a time, the reviewer agent runs its gate as its first step. You can run any gate yourself too.
+
+```text
+Specification ready for review
+              |
+              v
+     spec-lint checks structure
+              |
+              +-- fails --> Fix the reported rule and rerun
+              |
+              +-- passes -> Reviewer reads for meaning
+```
 
 ## Semantic gates
 

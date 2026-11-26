@@ -8,7 +8,7 @@ description: The top-level folders of the factory repository, with the source of
 
 # Repository layout
 
-You look for a folder of the factory repository. `packages/factory/` is the source of the factory. `init-factory` copies it to `.agent-factory/factory/` in a project, and that installed copy is never edited by hand. In this repository, edit the source and run `update-factory` to refresh the installed copy.
+Factory source lives in `packages/factory/`. `init-factory` copies it to `.agent-factory/factory/` in a project, and that installed copy is never edited by hand. In this repository, edit the source and run `update-factory` to refresh the installed copy.
 
 ```
 agent_factory/
@@ -18,7 +18,8 @@ agent_factory/
 │   │   ├── skills/              One folder per skill, each holding a SKILL.md
 │   │   ├── playbooks/           Flows for common situations, such as a bug fix or a feature
 │   │   ├── rulebooks/           conventions/, templates/, and schemas/
-│   │   ├── scripts/             The gate scripts and the setup scripts, such as init-factory and update-factory
+│   │   ├── scripts/             Executable commands for setup, checks, dispatch, and usage capture
+│   │   ├── engine/              Python logic for eligibility, workstreams, and session bindings
 │   │   ├── config/              Templates such as AGENTS.md, the pre-commit config, and model.conf
 │   │   ├── docs/handbook/       The user handbook
 │   │   └── INDEX.yaml           The generated catalogue of agents, skills, playbooks, and rulebooks

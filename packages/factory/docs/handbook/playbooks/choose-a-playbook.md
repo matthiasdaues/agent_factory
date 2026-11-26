@@ -8,7 +8,7 @@ description: Find the playbook that fits your situation and see which agents can
 
 # Choose a playbook
 
-Pick a playbook once your first spike feels comfortable. When a smaller playbook fits your situation, it saves you the full dependency chain.
+A playbook gives your assistant a workflow for a task. Choose the row that matches what you want to do.
 
 1. Find your situation in the table and note its playbook:
 

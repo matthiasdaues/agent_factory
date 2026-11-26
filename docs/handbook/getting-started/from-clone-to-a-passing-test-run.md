@@ -83,4 +83,4 @@ git checkout HEAD -- packages/factory/scripts/handbook-lint
 
 To keep a real change, write the commit message as [commit-conventions.md](../../../packages/factory/rulebooks/conventions/commit-conventions.md) sets out. Once you installed the hooks in step 2, they run the tests that the change affects.
 
-Next, read the [contributing chapter](../contributing/index.md) before you write a handbook page.
+Next, [follow a specification review through the Factory](../architecture/how-a-factory-run-works.md). When you have a change in mind, use the [repository map](../architecture/repository-layout.md) to find its source and [Testing](../testing/index.md) to pick a check.

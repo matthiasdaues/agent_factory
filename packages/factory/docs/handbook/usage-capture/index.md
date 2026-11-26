@@ -10,6 +10,14 @@ description: What the usage runtime records about token use, and where it keeps 
 
 The factory records how many tokens each session uses. This chapter explains what it records and how to configure it. It also covers the usage add-on, which reads the records. The add-on is optional, and the factory runs without it.
 
+```text
+CLI event -> Capture counts tokens -> Local usage records (.jsonl)
+                      |                              |
+                      | If retained                  | Optional add-on
+                      v                              v
+               Transcript files                Query or browser report
+```
+
 <!-- handbook-index:start -->
 
 ## Concepts
