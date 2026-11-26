@@ -1,7 +1,8 @@
 """Text checks of the handbook content (factory-handbooks.feature).
 
 The checks read the committed Markdown of this repository and report a page
-that breaks a rule of the feature. FH-07-LN-01 covers the entry points of the
+that breaks a rule of the feature. FH-06-LN-01 covers the entry points of the
+user handbook (ST-0455). FH-07-LN-01 covers the entry points of the
 contributor handbook (ST-0456).
 """
 
@@ -14,6 +15,18 @@ import pytest
 from conftest import REPO_ROOT
 
 CONTRIBUTOR = REPO_ROOT / "docs" / "handbook"
+FACTORY = REPO_ROOT / "packages" / "factory"
+USER_HANDBOOK = ".agent-factory/factory/docs/handbook/"
+USER_TUTORIAL = USER_HANDBOOK + "getting-started/"
+ENTRY_POINTS = (
+    FACTORY / "config" / "session-menu.md",
+    FACTORY / "agents" / "virgil.md",
+    FACTORY / "skills" / "newcomer-tour" / "SKILL.md",
+    FACTORY / "skills" / "guided-tour" / "SKILL.md",
+    FACTORY / "skills" / "explain-concept" / "SKILL.md",
+    FACTORY / "INDEX.yaml",
+    FACTORY / "README.md",
+)
 CHAPTERS = (
     "getting-started",
     "architecture",
@@ -58,6 +71,95 @@ def linked_tutorials(body: str, repo: Path) -> list[Path]:
             if meta["type"] == "tutorial" and meta["status"] == "implemented":
                 found.append(page)
     return found
+
+
+def runnable_commands(text: str) -> set[str]:
+    """The factory commands that start a line of a fenced code block."""
+    found = set()
+    for block in re.findall(r"^```\w*\n(.*?)^```", text, re.DOTALL | re.MULTILINE):
+        for line in block.splitlines():
+            found.update(re.findall(r"^(?:\./|\.agent-factory/factory/scripts/)?(init-factory|update-factory|remove-factory)(?=\s|$)", line.strip()))
+    return found
+
+
+def tutorial_pages(body: str) -> list[Path]:
+    """The implemented tutorial pages of the user handbook that the body names by path."""
+    pages = []
+    for name in re.findall(re.escape(USER_TUTORIAL) + r"([\w-]+\.md)(?![\w./-])", body):
+        page = FACTORY / "docs" / "handbook" / "getting-started" / name
+        if page.is_file() and frontmatter(page)["type"] == "tutorial":
+            pages.append(page)
+    return pages
+
+
+def virgil_inputs(index_text: str) -> list[str]:
+    """The inputs listed for the virgil agent in INDEX.yaml."""
+    block = re.search(r"^\s*- name: virgil\n(.*?)(?=^\s*- name: |\Z)", index_text, re.DOTALL | re.MULTILINE)
+    assert block, "no virgil entry in INDEX.yaml"
+    inputs = re.search(r"inputs:\n\s+context:\n((?:\s+- .+\n)+)", block.group(1))
+    assert inputs, "virgil lists no inputs"
+    return [line.strip().removeprefix("- ") for line in inputs.group(1).splitlines()]
+
+
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+@pytest.mark.spec("FH-06-LN-01")
+class TestFH06LN01UserEntryPoints:
+    """FH-06-01: every factory entry point leads to the user handbook."""
+
+    def test_st_0455_fh_06_01_menu_routes_a_new_user_to_the_tutorial(self) -> None:
+        body = section(read(FACTORY / "config" / "session-menu.md"), "H — Help")
+        assert "newcomer-tour" in body
+        assert USER_TUTORIAL in body
+
+    def test_st_0455_fh_06_01_tour_reads_the_tutorial_page(self) -> None:
+        body = section(read(FACTORY / "skills" / "newcomer-tour" / "SKILL.md"), "Procedure")
+        assert tutorial_pages(body), "the procedure names no tutorial page under " + USER_TUTORIAL
+
+    def test_st_0455_fh_06_01_tour_pointed_at_the_chapter_index_fails(self) -> None:
+        assert not tutorial_pages(f"Read `{USER_TUTORIAL}index.md`.")
+
+    def test_st_0455_fh_06_01_tour_pointed_at_a_backup_file_fails(self) -> None:
+        assert not tutorial_pages(f"Read `{USER_TUTORIAL}first-session.md.bak`.")
+
+    def test_st_0455_fh_06_01_guided_tour_names_the_tutorial_in_option_h(self) -> None:
+        lines = [x for x in read(FACTORY / "skills" / "guided-tour" / "SKILL.md").splitlines() if x.startswith("- **H")]
+        assert len(lines) == 1
+        assert USER_TUTORIAL in lines[0]
+
+    @pytest.mark.parametrize("path", [FACTORY / "skills" / "explain-concept" / "SKILL.md", FACTORY / "agents" / "virgil.md"])
+    def test_st_0455_fh_06_01_entry_point_names_the_user_handbook(self, path: Path) -> None:
+        assert USER_HANDBOOK in read(path)
+
+    def test_st_0455_fh_06_01_virgil_inputs_name_the_handbook_index(self) -> None:
+        inputs = virgil_inputs(read(FACTORY / "INDEX.yaml"))
+        assert USER_HANDBOOK + "index.md" in inputs
+        assert (FACTORY / "docs" / "handbook" / "index.md").is_file()
+
+    def test_st_0455_fh_06_01_virgil_inputs_without_the_index_fail(self) -> None:
+        text = "agents:\n  - name: virgil\n    inputs:\n      context:\n        - other.md\n"
+        assert USER_HANDBOOK + "index.md" not in virgil_inputs(text)
+
+    def test_st_0455_fh_06_01_readme_keeps_the_commands_and_links_to_the_handbook(self) -> None:
+        text = read(FACTORY / "README.md")
+        assert runnable_commands(text) == {"init-factory", "update-factory", "remove-factory"}
+        assert "docs/handbook/" in text
+        targets = [t for t in LINK.findall(text) if t.startswith("docs/handbook/")]
+        assert targets
+        assert all((FACTORY / t).is_file() for t in targets), targets
+
+    def test_st_0455_fh_06_01_readme_with_commands_only_in_prose_fails(self) -> None:
+        text = "Run init-factory, update-factory and remove-factory. See [handbook](docs/handbook/index.md).\n"
+        assert runnable_commands(text) == set()
+
+    def test_st_0455_fh_06_01_readme_with_a_longer_command_name_fails(self) -> None:
+        assert runnable_commands("```bash\ninit-factory-missing\n```\n") == set()
+
+    @pytest.mark.parametrize("path", ENTRY_POINTS, ids=lambda p: p.name)
+    def test_st_0455_fh_06_01_no_entry_point_names_the_guide(self, path: Path) -> None:
+        assert "factory-" + "guide" not in read(path)
 
 
 @pytest.mark.spec("FH-07-LN-01")
