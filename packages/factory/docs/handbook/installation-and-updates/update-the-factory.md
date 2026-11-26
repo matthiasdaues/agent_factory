@@ -18,16 +18,21 @@ When your `agent_factory` checkout gets newer, run `update-factory` to bring the
 
    The script compares the per-file SHA-256 checksums it recorded at installation with the installed files. It reports the files you added, such as your own skills, agents, or scripts, and the files you changed, such as edited prompts or rules. `--check` changes nothing.
 
-2. Run the update:
+2. Run the update from the project root:
 
    ```bash
-   /path/to/agent_factory/.agent-factory/factory/scripts/update-factory --target /path/to/existing-project \
-       --source /path/to/agent_factory
+   .agent-factory/factory/scripts/update-factory
+   ```
+
+   `--target` defaults to the current directory. To update from an explicit checkout, pass its path with `--source`:
+
+   ```bash
+   .agent-factory/factory/scripts/update-factory --source /path/to/agent_factory
    ```
 
    Before it changes anything, the update shows a preview: the source, the installed and the new version, and the planned effects. It goes on only after an explicit `yes`.
 
-   `--source` is optional when the installation recorded its source. `init-factory` stores the checkout it copied from as `factory_source` in `.agent-factory/install.json`, and `update-factory` uses it as the default. You can also run the installed copy from inside the project with `--source` when the manifest no longer holds the original checkout path.
+   `--source` is optional when the installation recorded its source. `init-factory` stores the checkout it copied from as `factory_source` in `.agent-factory/install.json`, and `update-factory` uses it as the default.
 
 3. When the update reports your own changes, it stops with exit code 2. To update anyway, pass `--force`:
 
