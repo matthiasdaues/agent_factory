@@ -57,7 +57,7 @@ def layout_failures(handbooks) -> list:
             failures.append(index.Failure(f"{handbook.root}/", "handbook root does not exist"))
             continue
         top = handbook.top
-        if not top.has_index:
+        if not top.has_index and not top.page_failures:
             failures.append(index.Failure(f"{handbook.root}/", "handbook root has no index.md"))
         for chapter in handbook.chapters:
             holds_page = chapter.has_index or chapter.pages or chapter.page_failures

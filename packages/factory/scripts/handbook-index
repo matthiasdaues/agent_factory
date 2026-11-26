@@ -147,46 +147,57 @@ def _rel(base: Path, path: Path) -> str:
     return path.relative_to(base).as_posix()
 
 
-def _inside(root: Path, target: Path) -> bool:
-    return target == root or root in target.parents
+def _link_failure(path: str) -> Failure:
+    return Failure(path, "symlink: a link is not followed, and the handbooks hold none")
 
 
-def _read_page(base: Path, root: Path, entry: Path) -> tuple[str, str | None, list[Failure]]:
+def _read_page(base: Path, entry: Path) -> tuple[str, str | None, list[Failure]]:
     """Read one Markdown file: its path, its text, and its BR-140 failures.
 
-    A symlink to a folder, or to a file outside the handbook root, is refused
-    and never read, so no command reads or writes beyond the two roots.
+    A symlink is refused with lstat before any read, so no command reads or
+    writes beyond the two roots. A read that fails reports the page path.
     """
     path = _rel(base, entry)
-    if entry.is_symlink() and not _inside(root, entry.resolve()):
-        return path, None, [Failure(path, "symlink: the link points outside the handbook")]
+    if entry.is_symlink():
+        return path, None, [_link_failure(path)]
     try:
         text = entry.read_bytes().decode("utf-8")
     except UnicodeDecodeError:
         return path, None, [Failure(path, "field frontmatter: the file is not valid UTF-8")]
+    except OSError as error:
+        return path, None, [Failure(path, f"read: the page cannot be read ({error.strerror or error})")]
     return path, text, []
 
 
-def _read_folder(base: Path, root: Path, folder: Path, deep: bool = False) -> Folder:
+def _entries(base: Path, folder: Path, failures: list[Failure]) -> list[Path]:
+    """The entries of one folder, sorted; an unreadable folder reports its path."""
+    try:
+        return sorted(folder.iterdir(), key=lambda item: item.name)
+    except OSError as error:
+        failures.append(Failure(_rel(base, folder), f"read: the folder cannot be read ({error.strerror or error})"))
+        return []
+
+
+def _read_folder(base: Path, folder: Path, deep: bool = False) -> Folder:
     """Read the Markdown files directly inside one folder.
 
     With deep, also check every Markdown file and index.md marker pair of the
     folders below it, and name each of those folders in nested.
     """
     result = Folder(_rel(base, folder), {}, None, None, [], [], [])
-    for entry in sorted(folder.iterdir(), key=lambda item: item.name):
+    for entry in _entries(base, folder, result.page_failures):
         path = _rel(base, entry)
-        if entry.is_symlink() and entry.is_dir():
-            result.page_failures.append(Failure(path, "symlink: a linked folder is not followed"))
+        if entry.is_symlink():
+            result.page_failures.append(_link_failure(path))
             continue
         if entry.is_dir():
             result.nested.append(path)
             if deep:
-                _check_below(base, root, entry, result)
+                _check_below(base, entry, result)
             continue
         if entry.suffix != ".md":
             continue
-        path, text, failures = _read_page(base, root, entry)
+        path, text, failures = _read_page(base, entry)
         result.page_failures.extend(failures)
         if text is None:
             continue
@@ -201,17 +212,17 @@ def _read_folder(base: Path, root: Path, folder: Path, deep: bool = False) -> Fo
     return result
 
 
-def _check_below(base: Path, root: Path, folder: Path, result: Folder) -> None:
+def _check_below(base: Path, folder: Path, result: Folder) -> None:
     """Check each Markdown file below a chapter folder, hidden ones included."""
-    for entry in sorted(folder.iterdir(), key=lambda item: item.name):
+    for entry in _entries(base, folder, result.deep_failures):
         path = _rel(base, entry)
-        if entry.is_symlink() and entry.is_dir():
-            result.deep_failures.append(Failure(path, "symlink: a linked folder is not followed"))
+        if entry.is_symlink():
+            result.deep_failures.append(_link_failure(path))
         elif entry.is_dir():
             result.nested.append(path)
-            _check_below(base, root, entry, result)
+            _check_below(base, entry, result)
         elif entry.suffix == ".md":
-            path, text, failures = _read_page(base, root, entry)
+            path, text, failures = _read_page(base, entry)
             result.deep_failures.extend(failures)
             if text is None:
                 continue
@@ -235,16 +246,29 @@ def marker_failures(path: str, text: str) -> list[Failure]:
     ]
 
 
+def _linked_part(base: Path, root: str) -> str | None:
+    """The first part of a handbook root path that is a symlink, checked with lstat."""
+    current = base
+    for part in Path(root).parts:
+        current = current / part
+        if current.is_symlink():
+            return _rel(base, current)
+    return None
+
+
 def read_handbook(base: Path, root: str) -> Handbook:
     """Read one handbook: its top level and each chapter folder."""
     root_path = base / root
+    linked = _linked_part(base, root)
+    if linked is not None:
+        top = Folder(root, {}, None, None, [_link_failure(linked)], [], [])
+        return Handbook(root, True, top, [])
     if not root_path.is_dir():
         return Handbook(root, False, None, [])
-    real_root = root_path.resolve()
-    top = _read_folder(base, real_root, root_path)
+    top = _read_folder(base, root_path)
     # A page directly in a chapter folder is a page of that chapter. Pages in
     # folders below a chapter are checked but listed by no page list.
-    chapters = [_read_folder(base, real_root, base / nested, deep=True) for nested in top.nested]
+    chapters = [_read_folder(base, base / nested, deep=True) for nested in top.nested]
     return Handbook(root, True, top, chapters)
 
 
@@ -360,7 +384,7 @@ def run(base: Path, check: bool) -> tuple[int, list[str]]:
     if failures:
         return 1, messages
     for path, current, new in planned_lists(handbooks):
-        if current != new:
+        if current != new and not (base / path).is_symlink():
             (base / path).write_bytes(new.encode("utf-8"))
     return 0, messages
 

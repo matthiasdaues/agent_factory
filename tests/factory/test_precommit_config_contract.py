@@ -680,7 +680,7 @@ def _repo_hooks() -> dict[str, dict]:
     return {hook["id"]: hook for repo in config["repos"] for hook in repo["hooks"]}
 
 
-@pytest.mark.spec("FH-CT-05")
+@pytest.mark.spec("FH-CT-56")
 def test_st_0452_hook_runs_on_every_commit_without_a_file_list():
     hook = _repo_hooks()["handbook-lint"]
 
@@ -691,7 +691,7 @@ def test_st_0452_hook_runs_on_every_commit_without_a_file_list():
     assert "files" not in hook
 
 
-@pytest.mark.spec("FH-CT-05")
+@pytest.mark.spec("FH-CT-57")
 def test_st_0452_hook_sits_outside_the_block_that_init_factory_copies():
     ids = list(_repo_hooks())
     consumer = [i for i in ids if i.startswith("agent_factory_hook-")]
@@ -699,7 +699,7 @@ def test_st_0452_hook_sits_outside_the_block_that_init_factory_copies():
     assert ids.index("handbook-lint") > ids.index(consumer[-1])
 
 
-@pytest.mark.spec("FH-CT-05")
+@pytest.mark.spec("FH-CT-58")
 def test_st_0452_init_factory_writes_no_handbook_hook_into_a_user_project():
     template = yaml_ids(PRE_COMMIT_PATH)
 
@@ -755,6 +755,7 @@ def test_fh_03_01_a_page_without_type_blocks_the_commit(tmp_path):
     assert _commit_count(project) == before
 
 
+@pytest.mark.spec("FH-CT-59")
 def test_st_0452_a_commit_that_only_deletes_a_page_is_checked(tmp_path):
     from test_handbook_index import USER
 

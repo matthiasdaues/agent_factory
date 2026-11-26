@@ -44,7 +44,7 @@ def report_lines(result) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
-@pytest.mark.spec("FH-CT-04")
+@pytest.mark.spec("FH-CT-38")
 def test_the_model_passes(model):
     result = run_script("handbook-lint", model)
 
@@ -126,8 +126,8 @@ def test_fh_02_03_one_run_reports_a_page_a_folder_and_a_stale_list(model):
     assert snapshot(model) == before
 
 
-@pytest.mark.spec("FH-CT-03")
 class TestPageRules:
+    @pytest.mark.spec("FH-CT-39")
     @pytest.mark.parametrize(
         "kwargs,field",
         [
@@ -156,6 +156,7 @@ class TestPageRules:
         assert result.returncode != 0
         assert f"{CHAPTER}/add-an-integration.md: field {field}" in result.stdout
 
+    @pytest.mark.spec("FH-CT-40")
     @pytest.mark.parametrize("order", [0, -5, 20])
     def test_an_integer_order_passes(self, model, order):
         write(model, f"{CHAPTER}/remove-an-integration.md",
@@ -164,6 +165,7 @@ class TestPageRules:
 
         assert run_script("handbook-lint", model).returncode == 0
 
+    @pytest.mark.spec("FH-CT-41")
     def test_a_page_without_a_frontmatter_block_fails(self, model):
         write(model, f"{CHAPTER}/add-an-integration.md", "# Add a CLI integration\n")
 
@@ -171,6 +173,7 @@ class TestPageRules:
 
         assert f"{CHAPTER}/add-an-integration.md: field frontmatter" in result.stdout
 
+    @pytest.mark.spec("FH-CT-42")
     def test_frontmatter_that_does_not_parse_fails(self, model):
         write(model, f"{CHAPTER}/add-an-integration.md", "---\ntitle: [\n---\n")
 
@@ -179,8 +182,8 @@ class TestPageRules:
         assert f"{CHAPTER}/add-an-integration.md: field frontmatter" in result.stdout
 
 
-@pytest.mark.spec("FH-CT-04")
 class TestTitles:
+    @pytest.mark.spec("FH-CT-43")
     def test_titles_that_differ_only_in_case_fail(self, model):
         write(model, f"{CHAPTER}/add-cli.md", page_text("Add a CLI Integration", "how-to", order=30))
         run_script("handbook-index", model)
@@ -190,12 +193,14 @@ class TestTitles:
         assert result.returncode != 0
         assert "add-cli.md" in result.stdout and "add-an-integration.md" in result.stdout
 
+    @pytest.mark.spec("FH-CT-44")
     def test_a_stub_may_share_a_title_with_an_implemented_page(self, model):
         write(model, f"{CHAPTER}/add-cli.md", page_text("Add a CLI integration", "how-to", "stub"))
         run_script("handbook-index", model)
 
         assert run_script("handbook-lint", model).returncode == 0
 
+    @pytest.mark.spec("FH-CT-45")
     def test_two_chapters_may_share_a_title(self, model):
         for root in (USER, CONTRIBUTOR):
             write(model, f"{root}/shared/index.md", index_text("Shared", order=90))
@@ -205,8 +210,8 @@ class TestTitles:
         assert run_script("handbook-lint", model).returncode == 0
 
 
-@pytest.mark.spec("FH-CT-04")
 class TestOutOfScope:
+    @pytest.mark.spec("FH-CT-46")
     def test_a_broken_link_and_the_word_must_do_not_fail(self, model):
         write(model, f"{CHAPTER}/how-the-clis-differ.md",
               page_text("How the CLIs differ", "concept", body="You must read [this](missing.md)."))
@@ -214,8 +219,8 @@ class TestOutOfScope:
         assert run_script("handbook-lint", model).returncode == 0
 
 
-@pytest.mark.spec("FH-CT-04")
 class TestFunctions:
+    @pytest.mark.spec("FH-CT-47")
     def test_duplicate_failures_group_by_casefolded_title(self):
         def page(path, title, status="implemented"):
             return lint.index.Page(path, title, "concept", status, 100, "")
@@ -230,14 +235,15 @@ class TestFunctions:
 
         assert [str(f) for f in failures] == ['c/a.md and c/b.md: implemented pages share the title "Same"']
 
+    @pytest.mark.spec("FH-CT-48")
     def test_a_missing_root_is_a_failure(self, tmp_path):
         failures = lint.lint(tmp_path)
 
         assert {f.path for f in failures} == {f"{USER}/", f"{CONTRIBUTOR}/"}
 
 
-@pytest.mark.spec("FH-CT-06")
 class TestEveryDepth:
+    @pytest.mark.spec("FH-CT-49")
     def test_a_hidden_page_fails_lint(self, model):
         write(model, f"{CHAPTER}/.draft.md", "# No frontmatter\n")
 
@@ -246,6 +252,7 @@ class TestEveryDepth:
         assert result.returncode != 0
         assert f"{CHAPTER}/.draft.md: field frontmatter" in result.stdout
 
+    @pytest.mark.spec("FH-CT-50")
     def test_a_nested_folder_and_its_bad_page_are_both_named(self, model):
         write(model, f"{CHAPTER}/nested/bad.md", "# No frontmatter\n")
 
@@ -255,7 +262,7 @@ class TestEveryDepth:
         assert f"{CHAPTER}/nested/bad.md: field frontmatter" in out
 
 
-@pytest.mark.spec("FH-CT-07")
+@pytest.mark.spec("FH-CT-51")
 def test_an_invalid_date_is_reported_next_to_a_failure_of_the_other_handbook(model):
     write(model, f"{CHAPTER}/add-an-integration.md", "---\ntitle: 2000-01-99\ntype: how-to\nstatus: implemented\n---\n")
     write(model, f"{CONTRIBUTOR}/release/ship.md", page_text("Ship a release", type_=None))
@@ -267,7 +274,7 @@ def test_an_invalid_date_is_reported_next_to_a_failure_of_the_other_handbook(mod
     assert f"{CONTRIBUTOR}/release/ship.md: field type" in result.stdout
 
 
-@pytest.mark.spec("FH-CT-08")
+@pytest.mark.spec("FH-CT-52")
 def test_a_linked_chapter_fails_lint(model):
     write(model, "elsewhere/index.md", index_text("Elsewhere"))
     (model / USER / "linked").symlink_to(model / "elsewhere", target_is_directory=True)
@@ -278,7 +285,31 @@ def test_a_linked_chapter_fails_lint(model):
     assert f"{USER}/linked: symlink" in result.stdout
 
 
-@pytest.mark.spec("FH-CT-11")
+@pytest.mark.spec("FH-CT-53")
+def test_a_dangling_nested_link_and_an_invalid_page_are_both_reported(model):
+    write(model, f"{CHAPTER}/nested/keep.md", page_text("Keep"))
+    (model / CHAPTER / "nested/draft.md").symlink_to(model / "missing.md")
+    write(model, f"{CONTRIBUTOR}/release/ship.md", "# No frontmatter\n")
+
+    result = run_script("handbook-lint", model)
+
+    assert "Traceback" not in result.stderr
+    assert f"{CHAPTER}/nested/draft.md: symlink" in result.stdout
+    assert f"{CONTRIBUTOR}/release/ship.md: field frontmatter" in result.stdout
+
+
+@pytest.mark.spec("FH-CT-54")
+def test_a_linked_handbook_root_fails_lint(model):
+    (model / CONTRIBUTOR).rename(model / "moved")
+    (model / CONTRIBUTOR).symlink_to(model / "moved", target_is_directory=True)
+
+    result = run_script("handbook-lint", model)
+
+    assert result.returncode != 0
+    assert f"{CONTRIBUTOR}: symlink" in result.stdout
+
+
+@pytest.mark.spec("FH-CT-55")
 def test_the_cli_writes_no_bytecode_beside_the_scripts(model, tmp_path_factory):
     import os
     import shutil

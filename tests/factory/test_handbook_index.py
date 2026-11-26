@@ -168,7 +168,7 @@ def test_rerun_changes_nothing_and_check_passes(model):
     assert run_script("handbook-index", model, "--check").returncode == 0
 
 
-@pytest.mark.spec("FH-CT-01")
+@pytest.mark.spec("FH-CT-02")
 def test_a_stub_that_becomes_implemented_joins_the_list(model):
     write(model, f"{USER}/cli-integrations/opencode-desktop.md",
           page_text("OpenCode Desktop", "how-to", "implemented"))
@@ -179,7 +179,7 @@ def test_a_stub_that_becomes_implemented_joins_the_list(model):
     assert "[OpenCode Desktop](opencode-desktop.md)" in text
 
 
-@pytest.mark.spec("FH-CT-01")
+@pytest.mark.spec("FH-CT-03")
 def test_an_image_in_a_chapter_is_listed_by_no_list(model):
     (model / USER / "cli-integrations/diagram.png").write_bytes(b"\x89PNG")
 
@@ -197,8 +197,8 @@ def _chapter(pages):
     return hi.Folder("ch", {p.path: p for p in pages}, "", None, [], [], [])
 
 
-@pytest.mark.spec("FH-CT-01")
 class TestChapterBody:
+    @pytest.mark.spec("FH-CT-04")
     def test_group_headings_follow_the_type_order(self):
         pages = [_page(f"ch/{t}.md", type_=t) for t in reversed(hi.TYPES)]
 
@@ -207,12 +207,14 @@ class TestChapterBody:
         headings = [line for line in body.splitlines() if line.startswith("## ")]
         assert headings == ["## Tutorials", "## Concepts", "## How-to guides", "## Reference", "## Learning"]
 
+    @pytest.mark.spec("FH-CT-05")
     def test_a_type_without_a_page_gets_no_heading(self):
         body = hi.chapter_body(_chapter([_page("ch/a.md", type_="reference")]))
 
         assert "## Reference" in body
         assert "Tutorials" not in body and "Concepts" not in body
 
+    @pytest.mark.spec("FH-CT-06")
     def test_orders_sort_lower_first_with_negative_zero_and_default(self):
         pages = [_page("ch/d.md", 100, "Default"), _page("ch/e.md", 20, "Twenty"), _page("ch/c.md", 1, "One"),
                  _page("ch/b.md", 0, "Zero"), _page("ch/a.md", -5, "Minus")]
@@ -222,6 +224,7 @@ class TestChapterBody:
         titles = [line.split("]")[0][3:] for line in body.splitlines() if line.startswith("- ")]
         assert titles == ["Minus", "Zero", "One", "Twenty", "Default"]
 
+    @pytest.mark.spec("FH-CT-07")
     def test_ties_sort_by_title_then_by_path(self):
         pages = [_page("ch/z.md", 5, "Same"), _page("ch/y.md", 5, "Same"), _page("ch/x.md", 5, "Alpha")]
 
@@ -230,18 +233,19 @@ class TestChapterBody:
         targets = [line.split("(")[1].rstrip(")") for line in body.splitlines() if line.startswith("- ")]
         assert targets == ["x.md", "y.md", "z.md"]
 
+    @pytest.mark.spec("FH-CT-08")
     def test_an_entry_without_a_description_has_no_colon(self):
         body = hi.chapter_body(_chapter([_page("ch/a.md", title="Alone")]))
 
         assert "- [Alone](a.md)" in body.splitlines()
 
+    @pytest.mark.spec("FH-CT-09")
     def test_a_stub_is_not_listed(self):
         stub = hi.Page("ch/s.md", "Stub", "concept", "stub", 100, "")
 
         assert hi.chapter_body(_chapter([stub])) == ""
 
 
-@pytest.mark.spec("FH-CT-01")
 class TestTopBody:
     def _chapters(self, rows):
         chapters = []
@@ -250,6 +254,7 @@ class TestTopBody:
             chapters.append(hi.Folder(path, {}, "", page, [], [], []))
         return chapters
 
+    @pytest.mark.spec("FH-CT-10")
     def test_chapters_sort_by_order_then_title_then_path(self):
         chapters = self._chapters([("c", 5, "Same"), ("b", 5, "Same"), ("a", 5, "Alpha"), ("d", 1, "Zed")])
 
@@ -259,23 +264,25 @@ class TestTopBody:
             "d/index.md", "a/index.md", "b/index.md", "c/index.md",
         ]
 
+    @pytest.mark.spec("FH-CT-11")
     def test_a_stub_chapter_stays_in_the_list(self):
         assert "[Only stubs](s/index.md)" in hi.top_body(self._chapters([("s", 1, "Only stubs")]))
 
 
-@pytest.mark.spec("FH-CT-01")
 class TestSplice:
+    @pytest.mark.spec("FH-CT-12")
     def test_text_outside_the_markers_keeps_its_bytes(self):
         text = f"head \r\n{START}old{END}\ttail\n"
 
         assert hi.splice(text, "") == f"head \r\n{START}\n\n{END}\ttail\n"
 
+    @pytest.mark.spec("FH-CT-13")
     def test_a_body_sits_between_blank_lines(self):
         assert hi.splice(f"{START}\n{END}\n", "- x") == f"{START}\n\n- x\n\n{END}\n"
 
 
-@pytest.mark.spec("FH-CT-02")
 class TestMarkers:
+    @pytest.mark.spec("FH-CT-14")
     @pytest.mark.parametrize(
         "text",
         [
@@ -290,9 +297,11 @@ class TestMarkers:
     def test_each_broken_marker_case_fails(self, text):
         assert hi.marker_failures("x/index.md", text)
 
+    @pytest.mark.spec("FH-CT-15")
     def test_a_correct_pair_passes(self):
         assert hi.marker_failures("x/index.md", f"{START}\n{END}\n") == []
 
+    @pytest.mark.spec("FH-CT-16")
     @pytest.mark.parametrize(
         "mode", [[], ["--check"]], ids=["write", "check"]
     )
@@ -313,19 +322,21 @@ class TestMarkers:
         assert snapshot(model) == before
 
 
-@pytest.mark.spec("FH-CT-03")
 class TestFrontmatter:
     def _parse(self, text):
         return hi.parse_page("p.md", text)
 
+    @pytest.mark.spec("FH-CT-17")
     def test_a_full_page_parses(self):
         page, failures = self._parse(page_text("A", "how-to", order=-5, description="One sentence."))
 
         assert failures == [] and page.order == -5 and page.description == "One sentence."
 
+    @pytest.mark.spec("FH-CT-18")
     def test_order_defaults_to_100(self):
         assert self._parse(page_text("A"))[0].order == 100
 
+    @pytest.mark.spec("FH-CT-19")
     @pytest.mark.parametrize(
         "field,value",
         [("order", "2.5"), ("order", "first"), ("order", "null"), ("title", '""'), ("title", "42"),
@@ -340,15 +351,16 @@ class TestFrontmatter:
         assert page is None
         assert [str(failure) for failure in failures if f"field {field}" in str(failure)]
 
+    @pytest.mark.spec("FH-CT-20")
     def test_no_frontmatter_and_unparsable_frontmatter_fail(self):
         assert self._parse("# Heading\n")[0] is None
         assert self._parse("---\ntitle: [\n---\n")[0] is None
 
 
-@pytest.mark.spec("FH-CT-06")
 class TestPagesAtEveryDepth:
     """IMPL-0118: a hidden page and a page in a nested folder face BR-140 too."""
 
+    @pytest.mark.spec("FH-CT-21")
     @pytest.mark.parametrize(
         "rel", ["cli-integrations/.draft.md", "cli-integrations/nested/bad.md", "cli-integrations/a/b/.bad.md"]
     )
@@ -363,6 +375,7 @@ class TestPagesAtEveryDepth:
         assert f"{USER}/{rel}: field frontmatter" in result.stdout
         assert snapshot(model) == before
 
+    @pytest.mark.spec("FH-CT-22")
     def test_a_marker_in_a_nested_index_is_checked(self, model):
         write(model, f"{USER}/cli-integrations/nested/index.md", page_text("Nested") + f"{START}\n")
 
@@ -371,6 +384,7 @@ class TestPagesAtEveryDepth:
         assert result.returncode != 0
         assert f"{USER}/cli-integrations/nested/index.md: markers" in result.stdout
 
+    @pytest.mark.spec("FH-CT-23")
     def test_a_nested_page_joins_no_list(self, model):
         write(model, f"{USER}/cli-integrations/nested/ok.md", page_text("Nested ok", "how-to"))
 
@@ -378,16 +392,17 @@ class TestPagesAtEveryDepth:
         assert "Nested ok" not in (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
 
 
-@pytest.mark.spec("FH-CT-07")
 class TestUnparsableDates:
     """IMPL-0119: a YAML scalar that cannot convert is a diagnostic, not a traceback."""
 
+    @pytest.mark.spec("FH-CT-24")
     def test_an_invalid_date_is_a_frontmatter_failure(self):
         page, failures = hi.parse_page("p.md", "---\ntitle: 2000-01-99\ntype: concept\nstatus: implemented\n---\n")
 
         assert page is None
         assert [str(f) for f in failures] == ["p.md: field frontmatter: the frontmatter does not parse as YAML"]
 
+    @pytest.mark.spec("FH-CT-25")
     def test_the_run_goes_on_to_the_other_handbook(self, model):
         write(model, f"{USER}/cli-integrations/add-an-integration.md",
               "---\ntitle: 2000-01-99\ntype: how-to\nstatus: implemented\n---\n")
@@ -400,10 +415,10 @@ class TestUnparsableDates:
         assert f"{CONTRIBUTOR}/release/ship.md: field type" in result.stdout
 
 
-@pytest.mark.spec("FH-CT-08")
 class TestSymlinks:
     """IMPL-0120: a link never leads the reader or the writer out of a handbook."""
 
+    @pytest.mark.spec("FH-CT-26")
     def test_a_chapter_link_to_a_sibling_folder_refuses(self, model):
         outside = model / "elsewhere"
         write(model, "elsewhere/index.md", index_text("Elsewhere"))
@@ -416,6 +431,7 @@ class TestSymlinks:
         assert f"{USER}/linked: symlink" in result.stdout
         assert snapshot(model) == before
 
+    @pytest.mark.spec("FH-CT-27")
     def test_a_page_link_to_a_file_outside_refuses(self, model):
         write(model, "outside.md", page_text("Outside"))
         (model / USER / "cli-integrations/outside.md").symlink_to(model / "outside.md")
@@ -426,15 +442,105 @@ class TestSymlinks:
         assert f"{USER}/cli-integrations/outside.md: symlink" in result.stdout
 
 
-@pytest.mark.spec("FH-CT-09")
+class TestEverySymlinkIsRefused:
+    """IMPL-0120, IMPL-0125: a link at any level is refused by path, and no read of a page raises."""
+
+    @pytest.mark.spec("FH-CT-28")
+    def test_a_linked_handbook_root_refuses_and_writes_nothing(self, model):
+        sibling = model / "sibling"
+        sibling.mkdir()
+        write(model, "sibling/index.md", index_text("Sibling"))
+        write(model, "sibling/ch/index.md", index_text("Chapter", order=1))
+        write(model, "sibling/ch/page.md", page_text("Page", "how-to"))
+        (model / CONTRIBUTOR).rename(model / "moved")
+        (model / CONTRIBUTOR).symlink_to(sibling, target_is_directory=True)
+        before = snapshot(model)
+
+        result = run_script("handbook-index", model)
+
+        assert result.returncode != 0
+        assert f"{CONTRIBUTOR}: symlink" in result.stdout
+        assert snapshot(model) == before
+
+    @pytest.mark.spec("FH-CT-29")
+    def test_a_linked_parent_of_a_root_is_refused(self, model):
+        (model / "docs").rename(model / "docs-real")
+        (model / "docs").symlink_to(model / "docs-real", target_is_directory=True)
+
+        result = run_script("handbook-index", model, "--check")
+
+        assert result.returncode != 0
+        assert "docs: symlink" in result.stdout
+
+    @pytest.mark.spec("FH-CT-30")
+    def test_a_link_to_a_file_inside_the_handbook_is_refused(self, model):
+        chapter = model / USER / "cli-integrations"
+        (chapter / "alias.md").symlink_to(chapter / "how-the-clis-differ.md")
+
+        result = run_script("handbook-index", model, "--check")
+
+        assert result.returncode != 0
+        assert f"{USER}/cli-integrations/alias.md: symlink" in result.stdout
+
+    @pytest.mark.spec("FH-CT-31")
+    def test_a_link_to_a_folder_inside_the_handbook_is_refused(self, model):
+        (model / USER / "alias").symlink_to(model / USER / "cli-integrations", target_is_directory=True)
+
+        result = run_script("handbook-index", model, "--check")
+
+        assert result.returncode != 0
+        assert f"{USER}/alias: symlink" in result.stdout
+
+    @pytest.mark.spec("FH-CT-32")
+    def test_a_link_that_is_no_markdown_file_is_refused(self, model):
+        (model / USER / "cli-integrations/logo.png").symlink_to(model / "missing.png")
+
+        result = run_script("handbook-index", model, "--check")
+
+        assert f"{USER}/cli-integrations/logo.png: symlink" in result.stdout
+
+    @pytest.mark.spec("FH-CT-33")
+    def test_a_dangling_page_link_in_a_nested_folder_is_reported_without_a_traceback(self, model):
+        write(model, f"{USER}/cli-integrations/nested/keep.md", page_text("Keep"))
+        (model / USER / "cli-integrations/nested/draft.md").symlink_to(model / "missing.md")
+        write(model, f"{CONTRIBUTOR}/release/ship.md", page_text("Ship a release", type_=None))
+
+        result = run_script("handbook-index", model, "--check")
+
+        assert "Traceback" not in result.stderr
+        assert f"{USER}/cli-integrations/nested/draft.md: symlink" in result.stdout
+        assert f"{CONTRIBUTOR}/release/ship.md: field type" in result.stdout
+
+    @pytest.mark.spec("FH-CT-34")
+    def test_an_unreadable_page_is_reported_by_path(self, model, monkeypatch):
+        page = model / USER / "cli-integrations/add-an-integration.md"
+        original = Path.read_bytes
+
+        def read_bytes(self):
+            if self == page:
+                raise PermissionError(13, "Permission denied")
+            return original(self)
+
+        monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+        _, text, failures = hi._read_page(model, page)
+
+        assert text is None
+        assert [str(failure) for failure in failures] == [
+            f"{USER}/cli-integrations/add-an-integration.md: read: the page cannot be read (Permission denied)"
+        ]
+
+
 class TestLinkTargets:
     """IMPL-0121: a hash in a name stays part of the path."""
 
+    @pytest.mark.spec("FH-CT-35")
     def test_a_hash_in_a_page_name_is_encoded(self):
         body = hi.chapter_body(_chapter([_page("ch/changes#2.md", title="Example")]))
 
         assert "- [Example](changes%232.md)" in body
 
+    @pytest.mark.spec("FH-CT-36")
     def test_a_hash_in_a_chapter_name_is_encoded(self):
         page = _page("c#1/index.md", title="C")
         chapter = hi.Folder("h/c#1", {}, "", page, [], [], [])
@@ -442,10 +548,10 @@ class TestLinkTargets:
         assert "- [C](c%231/index.md)" in hi.top_body([chapter])
 
 
-@pytest.mark.spec("FH-CT-10")
 class TestMarkerLiteralsInMetadata:
     """IMPL-0122: page metadata never adds a marker to a generated list."""
 
+    @pytest.mark.spec("FH-CT-37")
     def test_a_marker_in_a_description_or_title_is_encoded(self, model):
         chapter = f"{USER}/cli-integrations"
         write(model, f"{chapter}/add-an-integration.md",
