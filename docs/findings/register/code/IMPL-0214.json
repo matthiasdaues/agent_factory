@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0214",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/getting-started/first-session.md:65",
+  "story": "IMPL-0199",
+  "finding": "A new user who chooses the CLI default for every tier can pass model resolution and then fail validation. Step 5 offers deletion for each placeholder row without mentioning what happens when the last row is gone. With only on_missing = auto in [facts], resolve-model exits 0 with empty output and matrix-lint exits 1 with MX-EMPTY. The linked reference explains MX-EMPTY. Add the validation consequence beside the deletion instructions in Step 5.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The resolver still uses the requested default (no to fails_purpose). The reader has to consult the linked reference and configure a model row to pass validation.",
+  "commit": "136b82c0eb0eada1b9aa702ab08d34861fc96561",
+  "status": "open"
+}

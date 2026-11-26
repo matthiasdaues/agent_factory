@@ -16,5 +16,5 @@
   },
   "why_this_severity": "OpenCode is guard-only, and the installer writes the documented placeholders for all four model-routed CLIs (no to fails_purpose). The wording can send readers looking for rows they will never need.",
   "commit": "6dc2ea46e302d15b26d232502169cc1caaa7b9fd",
-  "status": "open"
+  "status": "resolved"
 }
