@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml"]
+# dependencies = ["pyyaml", "mdformat", "mdformat-gfm"]
 # ///
 """handbook-index - write the page list of every index.md of both handbooks.
 
@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
 
+import mdformat
 import yaml
 
 HANDBOOK_ROOTS = ("packages/factory/docs/handbook", "docs/handbook")
@@ -293,16 +294,33 @@ def rule_failures(handbooks: list[Handbook]) -> list[Failure]:
 
 
 def _literal(text: str) -> str:
-    """Encode the start of an HTML comment, so page metadata never forms a marker."""
-    return text.replace("<!--", "&lt;!--")
+    """Encode the start of an HTML comment, so page metadata never forms a marker.
+
+    Every comment opener is encoded once, so mdformat shows it as written. A reserved
+    marker is encoded twice: mdformat decodes one entity and then writes the opener
+    as \\<!--, which still holds the marker text, so only the doubled form survives.
+    """
+    encoded = text.replace("<!--", "&lt;!--")
+    for marker in (START_MARKER, END_MARKER):
+        encoded = encoded.replace("&lt;" + marker[1:], "&amp;lt;" + marker[1:])
+    return encoded
 
 
 def _escape(text: str) -> str:
     return _literal(re.sub(r"([\\\[\]])", r"\\\1", text))
 
 
+def _format(text: str) -> str:
+    """Format generated Markdown with the formatter of the repository hook (IMPL-0197).
+
+    The generated region is then a fixed point of mdformat: the hook rewrites
+    nothing that this script wrote.
+    """
+    return mdformat.text(text, extensions={"gfm"}, options={"number": True}).rstrip("\n")
+
+
 def _link(label: str, target: str) -> str:
-    return f"[{_escape(label)}]({quote(target, safe='/-._~')})"
+    return f"[{_escape(' '.join(label.split()))}]({quote(target, safe='/-._~')})"
 
 
 def chapter_body(folder: Folder) -> str:
@@ -321,7 +339,7 @@ def chapter_body(folder: Folder) -> str:
             entry = f"- {_link(page.title, Path(page.path).name)}"
             lines.append(f"{entry}: {_literal(page.description)}" if page.description else entry)
         sections.append("\n".join(lines))
-    return "\n\n".join(sections)
+    return _format("\n\n".join(sections))
 
 
 def _chapter_target(chapter: Folder) -> str:
@@ -334,7 +352,7 @@ def top_body(chapters: list[Folder]) -> str:
         ((chapter.index_page, chapter) for chapter in chapters if chapter.index_page is not None),
         key=lambda pair: (pair[0].order, pair[0].title, pair[1].path),
     )
-    return "\n".join(f"- {_link(page.title, _chapter_target(chapter))}" for page, chapter in entries)
+    return _format("\n".join(f"- {_link(page.title, _chapter_target(chapter))}" for page, chapter in entries))
 
 
 def splice(text: str, body: str) -> str:

@@ -4,6 +4,7 @@ version = "1.0.0"
 requires-python = ">=3.10"
 dependencies = [
     "mdformat-frontmatter>=2.1.2",
+    "mdformat-gfm>=1.0.0",
 ]
 
 # uv run installs the dev group, so the run-tests hook gets the same test

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml"]
+# dependencies = ["pyyaml", "mdformat", "mdformat-gfm"]
 # ///
 """handbook-lint - check both handbooks against the page rules.
 

@@ -189,6 +189,64 @@ def test_an_image_in_a_chapter_is_listed_by_no_list(model):
     assert "diagram" not in (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize(
+    "title, description",
+    [
+        ("Add a CLI integration", "Add   the files  of one CLI."),
+        ("Add  a CLI integration", "Add the files of one CLI."),
+    ],
+)
+def test_a_run_of_spaces_survives_mdformat(model, title, description):
+    """IMPL-0197: the repository mdformat hook runs before handbook-lint and must not change the index."""
+    assert_index_survives_mdformat(model, title, description)
+
+
+def test_a_bracketed_title_survives_mdformat(model):
+    """IMPL-0202: a bracket in a title is escaped by the generator and kept by mdformat."""
+    assert_index_survives_mdformat(model, "Add [CLI] integration", "Add the files of one CLI.")
+
+
+def test_inline_code_keeps_its_two_spaces_through_mdformat(model):
+    """IMPL-0203: the generator leaves the spaces of inline code as the author wrote them."""
+    text = assert_index_survives_mdformat(model, "Add a CLI integration", 'Run `printf "a  b"`.')
+
+    assert '`printf "a  b"`' in text
+
+
+def test_a_blank_line_in_a_title_keeps_its_link_through_mdformat(model):
+    """IMPL-0205: a line break in a title does not split the generated link label."""
+    text = assert_index_survives_mdformat(model, "|-\n  Add a\n\n  CLI integration", "Add the files of one CLI.")
+
+    assert "[Add a CLI integration](add-an-integration.md)" in text
+
+
+def test_a_comment_opener_in_a_description_renders_as_written(model):
+    """IMPL-0206: an HTML comment opener in a description is shown as written, not as an entity.
+
+    mdformat writes the opener as \\<!--, a CommonMark escape that renders as <!--.
+    """
+    text = assert_index_survives_mdformat(model, "Add a CLI integration", "Use <!-- to start a comment.")
+
+    assert "Use \\<!-- to start a comment." in text
+    assert "&lt;" not in text
+
+
+def assert_index_survives_mdformat(model, title, description) -> str:
+    """Generate the index of one page, format it as the hook does, and check it again; return the index text."""
+    write(model, f"{USER}/cli-integrations/add-an-integration.md",
+          page_text(title, "how-to", order=20, description=description))
+    assert run_script("handbook-index", model).returncode == 0
+
+    subprocess.run(
+        [str(SOURCE_SCRIPTS_DIR / "mdformat"), "--number", str(model / USER / "cli-integrations/index.md")],
+        check=True, capture_output=True,
+    )
+
+    result = run_script("handbook-index", model, "--check")
+    assert result.returncode == 0, result.stdout
+    return (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
+
+
 def _page(path, order=100, title="T", type_="concept", description=""):
     return hi.Page(path, title, type_, "implemented", order, description)
 
