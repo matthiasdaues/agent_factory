@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The checks run under ordinary test selection (no to fails_purpose). A maintainer cannot select them by the required spec marker or trace them from their names.",
   "commit": "511df3e3fa5c3e74f97111f00ff42c450f5fa5c8",
-  "status": "open"
+  "status": "resolved"
 }

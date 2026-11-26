@@ -3,7 +3,7 @@ title: CLI integration sources
 type: how-to
 status: stub
 order: 10
-description: Where the CLI wiring is written.
+description: This page names where the CLI wiring is written.
 ---
 
 # CLI integration sources

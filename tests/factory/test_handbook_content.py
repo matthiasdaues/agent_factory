@@ -46,21 +46,36 @@ def frontmatter(path: Path) -> dict:
     return dict(line.split(": ", 1) for line in block.group(1).splitlines() if ": " in line)
 
 
+def linked_tutorials(body: str, repo: Path) -> list[Path]:
+    """The pages under getting-started/ that the body links to and that hold an implemented tutorial."""
+    found = []
+    for target in LINK.findall(body):
+        if target.startswith("http"):
+            continue
+        page = (repo / target).resolve()
+        if page.is_relative_to((repo / "docs" / "handbook" / "getting-started").resolve()) and page.is_file():
+            meta = frontmatter(page)
+            if meta["type"] == "tutorial" and meta["status"] == "implemented":
+                found.append(page)
+    return found
+
+
+@pytest.mark.spec("FH-07-LN-01")
 class TestFH07LN01ContributorEntryPoints:
     """FH-07-01: the root README and the agent context lead to contributor pages."""
 
-    def test_st_0456_contributing_section_links_to_the_tutorial(self) -> None:
+    def test_st_0456_fh_07_01_contributing_section_links_to_the_tutorial(self) -> None:
         body = section((REPO_ROOT / "README.md").read_text(encoding="utf-8"), "Contributing")
-        targets = [REPO_ROOT / t for t in LINK.findall(body) if not t.startswith("http")]
-        tutorials = [
-            t
-            for t in targets
-            if t.is_relative_to(CONTRIBUTOR / "getting-started") and t.is_file() and frontmatter(t)["type"] == "tutorial"
-        ]
-        assert tutorials, "Contributing links to no tutorial page under docs/handbook/getting-started/"
+        assert linked_tutorials(body, REPO_ROOT), "Contributing links to no implemented tutorial under docs/handbook/getting-started/"
+
+    def test_st_0456_fh_07_01_contributing_link_to_a_stub_tutorial_fails(self, tmp_path: Path) -> None:
+        folder = tmp_path / "docs" / "handbook" / "getting-started"
+        folder.mkdir(parents=True)
+        (folder / "tutorial.md").write_text("---\ntitle: T\ntype: tutorial\nstatus: stub\n---\n\nA stub.\n", encoding="utf-8")
+        assert linked_tutorials("[tutorial](docs/handbook/getting-started/tutorial.md)", tmp_path) == []
 
     @pytest.mark.parametrize(("concern", "target"), sorted(CONCERN_TARGETS.items()))
-    def test_st_0456_agent_context_routes_the_concern(self, concern: str, target: str) -> None:
+    def test_st_0456_fh_07_01_agent_context_routes_the_concern(self, concern: str, target: str) -> None:
         text = (REPO_ROOT / "docs" / "agent-context.md").read_text(encoding="utf-8")
         technical = section(text, "Technical concerns")
         names = {m.group(1).lower(): m.group(2) for m in re.finditer(r"^### ([^\n]+)\n(.*?)(?=^### |\Z)", technical, re.DOTALL | re.MULTILINE)}

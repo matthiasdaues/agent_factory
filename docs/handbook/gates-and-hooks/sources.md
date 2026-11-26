@@ -3,7 +3,7 @@ title: Gate and hook sources
 type: how-to
 status: stub
 order: 10
-description: Where the gates and hooks are defined.
+description: This page names where the gates and hooks are defined.
 ---
 
 # Gate and hook sources

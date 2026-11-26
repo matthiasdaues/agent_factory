@@ -3,7 +3,7 @@ title: Architecture
 type: concept
 status: implemented
 order: 20
-description: The packages, the install model, and the engine.
+description: This chapter explains the packages, the install model, and the engine of the factory.
 ---
 
 # Architecture

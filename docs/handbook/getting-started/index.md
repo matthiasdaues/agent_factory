@@ -3,7 +3,7 @@ title: Getting started
 type: concept
 status: implemented
 order: 10
-description: Go from a clone to a passing test run.
+description: This chapter takes you from a clone to a passing test run.
 ---
 
 # Getting started

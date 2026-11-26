@@ -3,7 +3,7 @@ title: CLI integrations
 type: concept
 status: implemented
 order: 50
-description: How to wire a new CLI into the factory.
+description: This chapter explains how to wire a new CLI into the factory.
 ---
 
 # CLI integrations

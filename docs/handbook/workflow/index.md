@@ -3,7 +3,7 @@ title: Workflow
 type: concept
 status: implemented
 order: 70
-description: How a change travels from proposal to merge.
+description: This chapter explains how a change travels from proposal to merge.
 ---
 
 # Workflow

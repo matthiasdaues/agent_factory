@@ -3,7 +3,7 @@ title: Agent and skill sources
 type: how-to
 status: stub
 order: 10
-description: Where the rules for agents and skills live.
+description: This page names where the rules for agents and skills live.
 ---
 
 # Agent and skill sources

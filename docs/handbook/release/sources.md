@@ -3,7 +3,7 @@ title: Release sources
 type: how-to
 status: stub
 order: 10
-description: Where the release rules live.
+description: This page names where the release rules live.
 ---
 
 # Release sources

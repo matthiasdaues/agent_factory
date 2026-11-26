@@ -3,7 +3,7 @@ title: Release
 type: concept
 status: implemented
 order: 80
-description: Versioning, the changelog, and tags.
+description: This chapter explains versioning, the changelog, and tags.
 ---
 
 # Release

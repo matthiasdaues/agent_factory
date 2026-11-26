@@ -3,7 +3,7 @@ title: Testing
 type: concept
 status: implemented
 order: 60
-description: How the repository tests itself.
+description: This chapter explains how the repository tests itself.
 ---
 
 # Testing
