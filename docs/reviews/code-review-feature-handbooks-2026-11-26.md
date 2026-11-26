@@ -2,7 +2,7 @@
 type: code-review
 title: Code review of feature/handbooks
 date: 2026-11-26
-status: pass
+status: defects
 reviewer: code-review-agent
 findings_filed: 6
 run: feature/handbooks
