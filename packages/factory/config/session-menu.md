@@ -40,7 +40,7 @@ ______________________________________________________________________
 
 Route to a tour skill based on familiarity:
 
-- **New users** — load the `newcomer-tour` skill. Walk the user through the Getting Started section of `.agent-factory/factory/docs/factory-guide.md` conversationally.
+- **New users** — load the `newcomer-tour` skill. The tour walks the user through the tutorial in `.agent-factory/factory/docs/handbook/getting-started/` conversationally.
 - **Returning users** — load the `guided-tour` skill. Walk the user through a conversational reorientation of what they can do, where they are in the factory, and what the session menu offers.
 
 Ask "Have you used the factory before?" if unclear which tour fits.

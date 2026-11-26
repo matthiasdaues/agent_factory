@@ -1,0 +1,20 @@
+{
+  "id": "FAGAN-0036",
+  "source": "fagan-review",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/_link_rewrite.py:227-569",
+  "story": null,
+  "finding": "The section map of the one-time migration (`read_section_map`, `section_target`, `rewrite_section_links`, and the link scanner behind them, about 340 lines) has no caller outside the tests. ST-0454 ran the rewrite once and added no command, so the code stays in the shared module `_link_rewrite.py` that `move-docs` and `migrate-spec-layout` import. The guard tests `test_handbook_links.py` re-run it on every test run. They read the work file `docs/spec/work/factory-handbooks-migration-map.md` and, through `git log --diff-filter=D`, the commit that deleted the guide. A later cleanup of `docs/spec/work/` or a shallow clone breaks or skips the guard, and a maintainer of `move-docs` must read the migration scanner to change the module. Fix: after the release, move the section-map code and its two test files out of `_link_rewrite.py` into a module that only the guard tests import, or delete both once `link-check` holds the same guarantee. Until then, name in the module header that the section map serves no command.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The migration is done and its links resolve, so the feature meets its purpose (no to fails_purpose). The unused scanner and the coupling of the guard tests to a work file raise the cost of the next change to `_link_rewrite.py`. The code exists only on feature/handbooks.",
+  "commit": "f1c6a265def3184eb7c938631af3783b6a85f14d",
+  "status": "open"
+}

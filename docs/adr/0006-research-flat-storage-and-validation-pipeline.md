@@ -58,5 +58,5 @@ Once "keep the catalog's existing conventions, mechanise what is mechanisable, a
 
 - [09_architecture_decisions.md](../arc42/09_architecture_decisions.md)
 - [factory/playbooks/research-topic.md](../../.agent-factory/factory/playbooks/research-topic.md)
-- [factory/docs/factory-guide.md § Rulebooks](../../.agent-factory/factory/docs/factory-guide.md#rulebooks)
+- [factory/docs/factory-guide.md § Rulebooks](../../packages/factory/docs/handbook/concepts/rulebooks.md#rulebooks)
 - [05_building_block_view.md § 5.2.2](../arc42/05_building_block_view.md#522-research-artifact-validators-schema-validate-policy-validate)

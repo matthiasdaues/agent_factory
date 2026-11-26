@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0212",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/reference/model-matrix.md:38",
+  "story": "IMPL-0199",
+  "finding": "A reader who selects OpenCode can look for three placeholder rows that the installer never writes. The model reference, first-session tutorial, and local configuration inventory describe placeholders for each selected CLI. init-factory accepts OpenCode but provides no OpenCode stanza. A generator check with only OpenCode selected produced no tier rows. Qualify the claim in all three pages to cover selected CLIs with model routing.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "OpenCode is guard-only, and the installer writes the documented placeholders for all four model-routed CLIs (no to fails_purpose). The wording can send readers looking for rows they will never need.",
+  "commit": "6dc2ea46e302d15b26d232502169cc1caaa7b9fd",
+  "status": "resolved"
+}

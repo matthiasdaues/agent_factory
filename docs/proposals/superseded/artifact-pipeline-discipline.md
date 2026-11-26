@@ -481,7 +481,7 @@ pipeline model alone, before any other optimization.
   with manifest and guard conventions.
 - Updated [`init-factory`](../../../.agent-factory/factory/scripts/init-factory) to install the
   step-guard wiring alongside existing hooks.
-- Updated [`factory-guide.md`](../../../.agent-factory/factory/docs/factory-guide.md) with
+- Updated [`factory-guide.md`](../../../packages/factory/docs/handbook/index.md) with
   pipeline discipline documentation.
 - Epic-0 spike story verifying the GitHub Copilot CLI `pre_tool_use` event
   surface for `Read`/`Edit`/`Write` matchers (currently unverified — recorded

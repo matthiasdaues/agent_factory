@@ -580,13 +580,13 @@ Feature: Core artifact layout
       And the gaps report and the QA strategy are in docs/spec/work/
       # @packages/factory/skills/derive-feature/SKILL.md
 
-  Rule: Factory maintainer keeps the factory free of old paths
-    # actor: Factory maintainer
+  Rule: Contributor keeps the factory free of old paths
+    # actor: Contributor
     # @packages/factory
 
     Scenario Outline: No factory file names an old path
       Given the factory's repository after the layout change
-      When the factory maintainer runs grep -rE '<pattern>' on packages/factory/, tests/factory/, and .pre-commit-config.yaml
+      When the contributor runs grep -rE '<pattern>' on packages/factory/, tests/factory/, and .pre-commit-config.yaml
       Then grep finds nothing outside CHANGELOG.md, reports/, scripts/migrate-spec-layout, and that script's tests
 
       Examples:
@@ -605,41 +605,41 @@ Feature: Core artifact layout
 
     Scenario: No factory file names the old routing files
       Given the factory's repository after the layout change
-      When the factory maintainer runs grep -rE 'CONTEXT(-MAP)?\.md' packages/factory/
+      When the contributor runs grep -rE 'CONTEXT(-MAP)?\.md' packages/factory/
       Then grep finds nothing outside CHANGELOG.md, scripts/migrate-spec-layout and its tests, and the --fold-context-map section of capture-context
 
-  Rule: Factory maintainer migrates the factory's own repository first
-    # actor: Factory maintainer
+  Rule: Contributor migrates the factory's own repository first
+    # actor: Contributor
     # @docs/spec/glossary.md
     # @docs/agent-context.md
 
     Scenario: The factory's own migration runs without stopping
       Given the factory's repository in the old layout
       And docs/CONTEXT.md has no "## Language" section
-      When the factory maintainer runs migrate-spec-layout
+      When the contributor runs migrate-spec-layout
       Then the script exits 0
       And docs/spec/glossary.md holds the terms of the old docs/arc42/12_glossary.md
 
     Scenario: Every gate passes on the migrated factory repository
       Given the factory's own repository after its migration
-      When the factory maintainer runs link-check, arch-lint, structurizr validate, dependency-check, spec-lint, scope-lint, and statemachine-lint
+      When the contributor runs link-check, arch-lint, structurizr validate, dependency-check, spec-lint, scope-lint, and statemachine-lint
       Then every gate exits 0
 
     Scenario: The factory's routing folds into the agent context file
       Given the factory's repository after migrate-spec-layout
-      When the factory maintainer runs capture-context --fold-context-map
-      And the factory maintainer deletes docs/CONTEXT.md and docs/arc42/CONTEXT-MAP.md
+      When the contributor runs capture-context --fold-context-map
+      And the contributor deletes docs/CONTEXT.md and docs/arc42/CONTEXT-MAP.md
       Then docs/agent-context.md has one domain concern per context of the old CONTEXT-MAP.md
       And concern-lint passes
 
     Scenario: Every section of the factory's glossary is a Term table
       Given the factory's repository after its migration
-      When the factory maintainer reads docs/spec/glossary.md
+      When the contributor reads docs/spec/glossary.md
       Then every section is a table with the columns Term, Definition, and Avoid
       And the section "Acronyms and Abbreviations" is among them
       And GLOSS001 reads the terms of every section
 
     Scenario: No actor-goal list and no use-case folder remain
       Given the factory's repository after its migration
-      When the factory maintainer runs find docs -name actor-goal-list.md -o -name use_cases
+      When the contributor runs find docs -name actor-goal-list.md -o -name use_cases
       Then find prints nothing

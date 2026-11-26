@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0152",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md:216",
+  "story": null,
+  "finding": "The Stub entry says no page list names a stub. BR-145 lists a chapter through its index regardless of the index status. Limit the exclusion to chapter page lists and link to the top-level chapter-index rule.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "BR-145 gives the right generator behavior (no to fails_purpose), but readers must reconcile the glossary with it.",
+  "commit": "a39f9b6d5242b51fb5de51a1b789b2a646eae1f1",
+  "status": "resolved"
+}

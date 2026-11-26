@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0128",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_handbook_lint.py:323",
+  "story": "ST-0452",
+  "finding": "Reviewers must find the invalid UTF-8 regression by test name. The handbook QA strategy requires each test to carry its Test ID in a spec marker. Assign the new regression a unique Test ID and add its pytest.mark.spec decorator.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The regression runs and checks the lint result, so the answer is no to fails_purpose. The missing marker adds manual work when reviewers trace test coverage.",
+  "commit": "9c3887106d61a63fc353b587628e5b541eb77485",
+  "status": "open"
+}

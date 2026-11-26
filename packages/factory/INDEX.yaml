@@ -686,12 +686,12 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 4490
-    total_tokens: 19539
+    tokens: 4499
+    total_tokens: 19566
     inputs:
       context:
         - .agent-factory/config/project-context.json
-        - .agent-factory/factory/docs/factory-guide.md
+        - .agent-factory/factory/docs/handbook/index.md
         - .agent-factory/factory/INDEX.yaml
         - docs/agent-context.md
         - docs/testing.yaml
@@ -940,7 +940,7 @@ skills:
     category: utility
     description: Look up a Factory concept and explain it. Knows what exists and what is missing.
     path: skills/explain-concept/SKILL.md
-    tokens: 285
+    tokens: 311
   - name: grilling
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me" or "grill with docs".
@@ -950,7 +950,7 @@ skills:
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
     path: skills/guided-tour/SKILL.md
-    tokens: 588
+    tokens: 590
   - name: handoff
     category: utility
     description: Create and validate a dense session-boundary restart contract before ending the outgoing session.
@@ -1005,7 +1005,7 @@ skills:
     category: onboarding
     description: Give first-time Agent Factory users a short, interactive orientation when they choose option H or ask to be shown around
     path: skills/newcomer-tour/SKILL.md
-    tokens: 750
+    tokens: 742
   - name: quiz
     category: onboarding
     description: Quiz me about the current codebase, one open question at a time, graded against the actual code.
@@ -1234,7 +1234,7 @@ rulebooks:
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 1461
+    tokens: 1477
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md

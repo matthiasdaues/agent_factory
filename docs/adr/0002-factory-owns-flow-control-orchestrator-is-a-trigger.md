@@ -39,7 +39,7 @@ B wins decisively. C is actively worse than the status quo — two independent, 
 
 `orchestrator/` keeps its own `RUN`/`RUN_LOCK` bookkeeping and invocation audit trail — concerns distinct from "what phase are we in," which `.agent-factory/factory/` does not duplicate (see [PRD § NG1](../spec/work/prd.md#non-goals)).
 
-This documentation ([docs/](../README.md)) supersedes the informal prior description in [docs/arc42/concepts.md § The phase chain](../arc42/concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../.agent-factory/factory/docs/factory-guide.md) as the rigorous statement of this boundary.
+This documentation ([docs/](../README.md)) supersedes the informal prior description in [docs/arc42/concepts.md § The phase chain](../../packages/factory/docs/handbook/concepts/how-the-factory-works.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../packages/factory/docs/handbook/index.md) as the rigorous statement of this boundary.
 
 ## Consequences
 

@@ -664,3 +664,107 @@ def test_st_0417_metadata_needs_the_rules_file():
     assert meta.trade_off == "none"
     assert meta.availability == "requires-path:docs/spec/dependency-rules.dsl"
     assert meta.description
+
+
+# ---------------------------------------------------------------------------
+# ST-0452: the handbook-lint hook of this repository (FH-03-IT-01, BR-148).
+# ---------------------------------------------------------------------------
+
+REPO_CONFIG_PATH = REPO_ROOT / ".pre-commit-config.yaml"
+
+
+def _repo_hooks() -> dict[str, dict]:
+    import yaml
+
+    config = yaml.safe_load(REPO_CONFIG_PATH.read_text(encoding="utf-8"))
+    return {hook["id"]: hook for repo in config["repos"] for hook in repo["hooks"]}
+
+
+@pytest.mark.spec("FH-CT-56")
+def test_st_0452_hook_runs_on_every_commit_without_a_file_list():
+    hook = _repo_hooks()["handbook-lint"]
+
+    assert hook["always_run"] is True
+    assert hook["pass_filenames"] is False
+    assert hook["language"] == "system"
+    assert hook["entry"] == "packages/factory/scripts/handbook-lint"
+    assert "files" not in hook
+
+
+@pytest.mark.spec("FH-CT-57")
+def test_st_0452_hook_sits_outside_the_block_that_init_factory_copies():
+    ids = list(_repo_hooks())
+    consumer = [i for i in ids if i.startswith("agent_factory_hook-")]
+
+    assert ids.index("handbook-lint") > ids.index(consumer[-1])
+
+
+@pytest.mark.spec("FH-CT-58")
+def test_st_0452_init_factory_writes_no_handbook_hook_into_a_user_project():
+    template = yaml_ids(PRE_COMMIT_PATH)
+
+    assert not [i for i in template if "handbook" in i]
+    assert "handbook" not in PRE_COMMIT_TEXT
+    assert "handbook" not in METADATA_TEXT
+
+
+def yaml_ids(path: Path) -> list[str]:
+    import yaml
+
+    config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return [hook["id"] for repo in config["repos"] for hook in repo["hooks"]]
+
+
+def _handbook_project(tmp_path: Path) -> Path:
+    """A project with a valid handbook, one committed page, and the hook installed."""
+    from test_handbook_index import build_model, run_script
+
+    project = tmp_path / "project"
+    project.mkdir()
+    assert run_git(project, "init", "-q", "-b", "dev").returncode == 0
+    (project / "packages" / "factory").mkdir(parents=True)
+    (project / "packages" / "factory" / "scripts").symlink_to(REPO_ROOT / "packages" / "factory" / "scripts")
+    build_model(project)
+    assert run_script("handbook-index", project).returncode == 0
+    script = project / ".git" / "hooks" / "pre-commit"
+    script.parent.mkdir(exist_ok=True)
+    script.write_text("#!/bin/sh\n" + _repo_hooks()["handbook-lint"]["entry"].strip() + "\n")
+    script.chmod(0o755)
+    run_git(project, "add", ".")
+    assert run_git(project, "commit", "-qm", "init").returncode == 0, "the model passes the hook"
+    return project
+
+
+def _commit_count(project: Path) -> int:
+    return int(run_git(project, "rev-list", "--count", "HEAD").stdout)
+
+
+@pytest.mark.spec("FH-03-IT-01")
+def test_fh_03_01_a_page_without_type_blocks_the_commit(tmp_path):
+    from test_handbook_index import CONTRIBUTOR, page_text, write
+
+    project = _handbook_project(tmp_path)
+    before = _commit_count(project)
+    write(project, f"{CONTRIBUTOR}/testing/layers.md", page_text("Test layers", type_=None))
+    run_git(project, "add", ".")
+
+    result = run_git(project, "commit", "-qm", "docs: add test layers")
+
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert "docs/handbook/testing/layers.md" in result.stdout + result.stderr
+    assert _commit_count(project) == before
+
+
+@pytest.mark.spec("FH-CT-59")
+def test_st_0452_a_commit_that_only_deletes_a_page_is_checked(tmp_path):
+    from test_handbook_index import USER
+
+    project = _handbook_project(tmp_path)
+    before = _commit_count(project)
+    run_git(project, "rm", "-q", f"{USER}/cli-integrations/how-the-clis-differ.md")
+
+    result = run_git(project, "commit", "-qm", "docs: remove a page")
+
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert f"{USER}/cli-integrations/index.md" in result.stdout + result.stderr
+    assert _commit_count(project) == before

@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0164",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:131",
+  "story": null,
+  "finding": "The FH-10-IT-01 owner row describes passing whole files, which can count unrelated links in a record. State that the record check validates rewritten destinations and reserve whole-file checks for live documents under FH-10-IT-02.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "BR-152 and the scenario let a test author recover the intended scope of the record check (no to fails_purpose).",
+  "commit": "8ad7ceeeb3d57d358f94d74ad90606ae236eb849",
+  "status": "resolved"
+}

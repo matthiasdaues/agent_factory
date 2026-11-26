@@ -68,11 +68,11 @@ Scenario: Installer preserves user-owned files under .opencode/
 
 Scenario: Documentation records OpenCode support
   Given an OpenCode installation completes
-  Then packages/factory/docs/factory-guide.md lists the supported OpenCode version
-  And packages/factory/docs/factory-guide.md describes the plugin trust model
-  And packages/factory/docs/factory-guide.md describes the host-authority limitation
+  Then a page in packages/factory/docs/handbook/cli-integrations/ lists the supported OpenCode version
+  And a page in packages/factory/docs/handbook/cli-integrations/ describes the plugin trust model
+  And a page in packages/factory/docs/handbook/cli-integrations/ describes the host-authority limitation
   And packages/factory/README.md lists OpenCode as a supported CLI
-  # @packages/factory/docs/factory-guide.md
+  # @packages/factory/docs/handbook/cli-integrations/
   # @packages/factory/README.md
 ```
 

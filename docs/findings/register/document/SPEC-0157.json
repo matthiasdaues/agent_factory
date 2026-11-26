@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0157",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:110",
+  "story": null,
+  "finding": "The owner row states file equality and uses the old scenario title. FH-07-02 also requires equality of the relative path sets. Use the current scenario title and name both path-set and byte equality in the owner row.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "The scenario spells out both assertions (no to fails_purpose). The test author can recover the omitted assertion by following the trace.",
+  "commit": "67863a45b3e3bb9ca043e4253ed9f8d555189829",
+  "status": "resolved"
+}

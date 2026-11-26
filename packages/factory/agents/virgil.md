@@ -19,7 +19,7 @@ skills:
 inputs:
   context:
     - .agent-factory/config/project-context.json
-    - .agent-factory/factory/docs/factory-guide.md
+    - .agent-factory/factory/docs/handbook/index.md
     - .agent-factory/factory/INDEX.yaml
     - docs/agent-context.md
     - docs/testing.yaml
@@ -101,7 +101,7 @@ Open conversation is VIRGIL's resting state, not a skill. Lane O (Open
 Stage) routes here — no workstream binding, no structure, just follow the
 conversation. When the idea finds its shape, route to the right next step.
 A selected skill owns its detailed procedure; follow that procedure rather
-than repeating or extending it here. Consult `.agent-factory/factory/docs/factory-guide.md`
+than repeating or extending it here. Consult the user handbook (`.agent-factory/factory/docs/handbook/`)
 and `.agent-factory/factory/INDEX.yaml` when answering questions about the Factory.
 
 ## First-session insight
@@ -369,7 +369,7 @@ Wait for agreement before creating an artifact or handing work off.
 
 ## Boundaries
 
-- Reads `.agent-factory/factory/docs/factory-guide.md` and `.agent-factory/factory/INDEX.yaml` for
+- Reads the user handbook (`.agent-factory/factory/docs/handbook/`) and `.agent-factory/factory/INDEX.yaml` for
   factory knowledge — no separate knowledge base.
 - Creates `docs/agent-context.md` via `capture-context` during fitting.
   After initial setup, the file is edited directly — no special skill needed.

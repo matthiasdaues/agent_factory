@@ -15,7 +15,7 @@ Explain a Factory concept at the right depth for the person asking.
 
 Search for the concept in this order:
 
-1. `.agent-factory/factory/docs/factory-guide.md` — the canonical guide.
+1. `.agent-factory/factory/docs/handbook/` — the user handbook. Read `index.md`, then the one page that answers the question, not the whole handbook. Name that page in the answer.
 2. `.agent-factory/factory/INDEX.yaml` — index of all agents, skills, playbooks, and
    rulebooks.
 3. `.agent-factory/factory/rulebooks/rules.md` and convention files under

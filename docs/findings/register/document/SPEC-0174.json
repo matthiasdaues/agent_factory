@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0174",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "untraced",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:46",
+  "story": null,
+  "finding": "FH-05-IT-02 names the full live-document run. Link the row to the definition in the proposal's Design Details, as SPEC-0171 requested.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "The proposal and glossary define the tracked set and its exclusions, so the test author can recover the required scope (no to fails_purpose). The missing link adds a lookup.",
+  "commit": "e0d58e6473784752ec069f402266f0d42e269612",
+  "status": "resolved"
+}

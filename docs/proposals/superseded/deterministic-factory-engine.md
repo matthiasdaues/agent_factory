@@ -406,7 +406,7 @@ covering these exact active sources:
   still publishes the deleted `charter-lint` command;
 - [`scope-map.md`](../../spec/scope-map.md) assigns a feature to the deleted
   `.agent-factory/factory/scripts/run-tests` command;
-- [`factory-guide.md`](../../../packages/factory/docs/factory-guide.md) advertises
+- [`factory-guide.md`](../../../packages/factory/docs/handbook/index.md) advertises
   the nonexistent `.agent-factory/factory/scripts/mutation-testing` command; and
 - [`STRUCTURIZR.md`](../../../packages/factory/skills/scaffold-arc42/STRUCTURIZR.md)
   advertises the unsupported `.agent-factory/factory/scripts/structurizr export-png` command.

@@ -303,7 +303,10 @@ SPEC_WRITER_FILES = (
     "rulebooks/templates/qa-strategy.md",
     "rulebooks/templates/proposal.md",
     "rulebooks/templates/finding.md",
-    "docs/factory-guide.md",
+    *sorted(
+        str(page.relative_to(FACTORY))
+        for page in (FACTORY / "docs" / "handbook").rglob("*.md")
+    ),
 )
 
 

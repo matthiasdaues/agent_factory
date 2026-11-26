@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0158",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:132",
+  "story": null,
+  "finding": "FH-11-LN-01 describes all three tests as reading handbook pages. Its summary omits the retained scan of every spec-writer file in FH-11-01. Describe the unchanged scan scope and replacement target separately from the two content assertions. Update the retention summary too.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "The scenario gives the correct division of work (no to fails_purpose). The test author can recover it from the scenario and existing tests.",
+  "commit": "67863a45b3e3bb9ca043e4253ed9f8d555189829",
+  "status": "resolved"
+}

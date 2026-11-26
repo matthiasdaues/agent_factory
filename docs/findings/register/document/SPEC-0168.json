@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0168",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/features/factory-handbooks.feature:419",
+  "story": null,
+  "finding": "The missing-root-index scenario leaves the state of the other indexes implicit. Start with both handbooks valid and current, then remove only the root index so another failure cannot satisfy the test.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "The test author can isolate the deletion from BR-141 and the expected root diagnostic (no to fails_purpose).",
+  "commit": "1e83f92d16ef69b54d01a7ef917ef705818ba202",
+  "status": "resolved"
+}

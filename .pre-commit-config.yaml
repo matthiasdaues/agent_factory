@@ -283,6 +283,17 @@ repos:
         pass_filenames: false
         files: ^docs/spec/.*\.md$
 
+      # Check both handbooks on every commit. Pre-commit leaves deleted
+      # paths out of its file list, so a hook limited to handbook files
+      # would skip a commit that only deletes a page (BR-148). Source
+      # repository only: the template of init-factory carries no handbook hook.
+      - id: handbook-lint
+        name: handbook-lint (factory handbook page rules)
+        entry: packages/factory/scripts/handbook-lint
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: index-lint
         name: index-lint (regenerate INDEX.yaml)
         entry: packages/factory/scripts/index-lint

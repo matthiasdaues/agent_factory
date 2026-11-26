@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0217",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/usage/README.md:25-28",
+  "story": null,
+  "finding": "The README of the usage add-on still tells the reader to run `init-factory --add usage` without a source checkout. A user in a separate project who follows it gets the failure that IMPL-0198 describes: the installed script finds no packages/usage/ and exits 1. The fix of IMPL-0198 added `--source /path/to/agent_factory` to the handbook page install-usage-add-on.md only, and the same commit range edited this README for the total_lines field, so the two pages now disagree. The first layer where the correction was lost is the second page that states the command. Fix: give the README command the same `--source` option and one sentence naming the source clone, as the handbook page does.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The handbook page holds the working command, and the README is the secondary entry point, so the user can recover from the page (no to fails_purpose). The wrong command costs one failed run and a search.",
+  "commit": "01342e30dfaedb67112ca639287887d63c5dcdae",
+  "status": "open"
+}

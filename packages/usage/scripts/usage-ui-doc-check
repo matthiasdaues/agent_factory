@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """usage-ui-doc-check — smoke gate for DuckDB UI documentation.
 
-Parses the documented launch commands from ui-exploration.md, resolves the
+Parses the documented launch commands from the handbook page
+explore-usage-in-the-browser.md, resolves the
 bootstrap SQL path, verifies it registers exactly the six published
 query-model-v1 views, and confirms the explorer module exists. Never starts,
 fetches, or installs the DuckDB UI.
@@ -26,7 +27,12 @@ EXPECTED_VIEWS = frozenset({
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PACKAGE_ROOT = SCRIPT_DIR.parent
-DOC_PATH = PACKAGE_ROOT / "docs" / "ui-exploration.md"
+REPO_ROOT = PACKAGE_ROOT.parents[1]
+DOC_PATH = (
+    REPO_ROOT / "packages" / "factory" / "docs" / "handbook"
+    / "usage-capture" / "explore-usage-in-the-browser.md"
+)
+INSTALLED_PREFIX = ".agent-factory/usage/analysis/"
 EXPLORER_MODULE = PACKAGE_ROOT / "src" / "usage" / "explorer.py"
 
 BOOTSTRAP_REF_PATTERN = re.compile(
@@ -70,8 +76,10 @@ def main() -> int:
         print("FAIL: no bootstrap SQL reference in documentation", file=sys.stderr)
         ok = False
     else:
-        repo_root = PACKAGE_ROOT.parents[1]
-        bootstrap_path = repo_root / bootstrap_ref
+        # The page shows the installed path; the source checkout holds the file.
+        if bootstrap_ref.startswith(INSTALLED_PREFIX):
+            bootstrap_ref = "packages/usage/" + bootstrap_ref[len(INSTALLED_PREFIX):]
+        bootstrap_path = REPO_ROOT / bootstrap_ref
         if not bootstrap_path.is_file():
             print(f"FAIL: bootstrap SQL not found: {bootstrap_path}", file=sys.stderr)
             ok = False

@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0163",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:42",
+  "story": null,
+  "finding": "The integration inventory omits FH-04-IT-10, and the decision inventory at line 8 stops at L-15. Include FH-04-IT-10 and extend the decision range through L-33.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "The owner row and linked decision log supply both missing entries (no to fails_purpose).",
+  "commit": "8ad7ceeeb3d57d358f94d74ad90606ae236eb849",
+  "status": "resolved"
+}

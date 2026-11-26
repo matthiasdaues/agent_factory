@@ -2,7 +2,7 @@
 
 Owned contracts:
   - Stage 1 builds the scope map before the architecture DSL (standard risk)
-  - Overview and factory guide name the same order (standard risk)
+  - Overview and user handbook name the same order (standard risk)
   - index-lint parses and renders an any_of required input (standard risk)
   - INDEX.yaml carries the architecture agent's any_of input (standard risk)
   - The architecture agent archives nothing; playbook Step 2.0 owns the
@@ -20,7 +20,7 @@ from conftest import load_script
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FACTORY = REPO_ROOT / "packages" / "factory"
 PLAYBOOK = FACTORY / "playbooks" / "brownfield-onboarding.md"
-GUIDE = FACTORY / "docs" / "factory-guide.md"
+PLAYBOOK_KINDS = FACTORY / "docs" / "handbook" / "playbooks" / "playbook-kinds.md"
 ARCH_AGENT = FACTORY / "agents" / "architecture-agent.md"
 INDEX_YAML = FACTORY / "INDEX.yaml"
 
@@ -68,8 +68,8 @@ class TestPlaybookStage1Order:
         line = next(ln for ln in text.splitlines() if "Reverse order workflow" in ln)
         assert line.index("Scope map") < line.index("Architecture baseline")
 
-    def test_factory_guide_names_scope_map_before_dsl(self):
-        text = GUIDE.read_text(encoding="utf-8")
+    def test_handbook_names_scope_map_before_dsl(self):
+        text = PLAYBOOK_KINDS.read_text(encoding="utf-8")
         para = next(ln for ln in text.splitlines() if ln.startswith("Brownfield has two stages"))
         assert para.index("scope map") < para.index("architecture DSL")
 

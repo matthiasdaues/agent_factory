@@ -7,7 +7,7 @@ version: 1.1.0
 
 # Git Workflow Under the Guardrail and Hooks
 
-Every CLI working in an Agent Factory project runs under two shared, CLI-agnostic mechanisms: the **git-safety guardrail** (blocks dangerous git before it runs) and the **pre-commit hooks** (deterministic validators that also rewrite files). This convention states how to issue git so both cooperate instead of costing round-trips. See [factory-guide § The git-safety guardrail](../../docs/factory-guide.md) for what the guardrail blocks.
+Every CLI working in an Agent Factory project runs under two shared, CLI-agnostic mechanisms: the **git-safety guardrail** (blocks dangerous git before it runs) and the **pre-commit hooks** (deterministic validators that also rewrite files). This convention states how to issue git so both cooperate instead of costing round-trips. See [CLI safety guardrails](../../docs/handbook/cli-integrations/guardrails.md) in the [user handbook](../../docs/handbook/index.md) for what the guardrail blocks.
 
 ## Issue git as lone commands
 

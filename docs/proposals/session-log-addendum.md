@@ -92,7 +92,7 @@ The exit code and args say what ran; they do not say what changed on disk. Two w
 
 ## 4. The reconciliation step
 
-A new deterministic script, `factory/scripts/session-reconcile`, callable exactly the way [`spec-lint`](../../.agent-factory/factory/docs/factory-guide.md#linting-and-gating) is. It reads two machine facts and compares them: the session log (every run, its exit code, and the tree delta around it), and the phase's real git state — `git diff --name-only` over the invocation's branch-root→branch-head range, per [branching-policy.md § Two SHAs Tracked Per Invocation](../../.agent-factory/factory/rulebooks/conventions/branching-policy.md#two-shas-tracked-per-invocation), plus the current working tree.
+A new deterministic script, `factory/scripts/session-reconcile`, callable exactly the way [`spec-lint`](../../packages/factory/docs/handbook/quality-and-review/gates.md) is. It reads two machine facts and compares them: the session log (every run, its exit code, and the tree delta around it), and the phase's real git state — `git diff --name-only` over the invocation's branch-root→branch-head range, per [branching-policy.md § Two SHAs Tracked Per Invocation](../../.agent-factory/factory/rulebooks/conventions/branching-policy.md#two-shas-tracked-per-invocation), plus the current working tree.
 
 It flags, with no LLM and no prose-parsing:
 
@@ -165,4 +165,4 @@ Deferred, as §5 intends: the other Python gates and the bash-script CLI shim; a
 
 - [playbook-structured-harness-strategy.md § 1. State-transition control via pre-commit](playbook-structured-harness-strategy.md#1-state-transition-control-via-pre-commit)
 - [playbook-structured-harness-strategy.md § 2. Parseable handover artifacts](playbook-structured-harness-strategy.md#2-parseable-handover-artifacts)
-- [factory-guide.md § Session logging](../../.agent-factory/factory/docs/factory-guide.md#session-logging)
+- [factory-guide.md § Session logging](../../packages/factory/docs/handbook/usage-capture/session-log.md)

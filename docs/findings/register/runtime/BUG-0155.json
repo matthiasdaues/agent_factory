@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0155",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "crash",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/handbook-index:403-407",
+  "story": null,
+  "finding": "A page list that cannot be written ends `handbook-index` with a Python traceback and leaves the other lists half written. Reproduction: two scratch handbooks, `chmod a-w docs/handbook/ch/index.md`, then `handbook-index`. The run writes `packages/factory/docs/handbook/ch/index.md`, then stops with `PermissionError: [Errno 13] Permission denied` and prints no path in the Failure format. The read side catches `OSError` and names the path (`_read_page`, `_entries`), so the write side is the one place that does not. The header of the script promises exit 1 for a refusal. Fix: in `run`, catch `OSError` around `write_bytes`, print `<path>: write: the page list cannot be written (<reason>)`, and exit 1. A rerun after the fix of the permission writes the remaining lists, so no rollback is needed.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The failure needs a file that the contributor cannot write, a rare setup. The run still exits non-zero (no to fails_purpose). The contributor sees a traceback and must find the file, and one list is already rewritten.",
+  "commit": "f1c6a265def3184eb7c938631af3783b6a85f14d",
+  "status": "open"
+}

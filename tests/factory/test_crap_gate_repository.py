@@ -1,6 +1,6 @@
 """Checks of the CRAP gate setup of this repository (docs/spec/features/crap-gate-setup.feature).
 
-Rule: Factory maintainer runs the CRAP gate on this repository for Python
+Rule: Contributor runs the CRAP gate on this repository for Python
 and TypeScript (CG-13).
 
 The text checks read `docs/testing.yaml`, the two measuring commands and the

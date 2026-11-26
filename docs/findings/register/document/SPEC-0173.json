@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0173",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/features/factory-handbooks.feature:110",
+  "story": null,
+  "finding": "Adding the implemented duplicate-title page also makes its list stale. Refresh the chapter list after adding that page and before running handbook-lint.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "none"
+  },
+  "why_this_severity": "BR-142, BR-144 and BR-146 let the test author isolate the duplicate by regenerating the list (no to fails_purpose). The author must infer that step.",
+  "commit": "e0d58e6473784752ec069f402266f0d42e269612",
+  "status": "resolved"
+}

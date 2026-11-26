@@ -196,7 +196,7 @@ Agent Factory starts its formal delivery chain at Requirements. Phase 0
 currently provides conversation, project fitting, proposal drafting, and
 knowledge routing, but it has no defined Concept-stage contract or exit gate.
 
-The existing [Factory guide § Agent Context](../../.agent-factory/factory/docs/factory-guide.md#agent-context)
+The existing [Factory guide § Agent Context](../../packages/factory/docs/handbook/agent-context/what-agent-context-does.md)
 defines `docs/agent-context.md` as a routing switchboard rather than a knowledge
 base. This separation is useful, but routing alone cannot show whether the
 project has considered every required knowledge area.

@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0183",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/reference/local-configuration.md:31-51",
+  "story": "ST-0454",
+  "finding": "A maintainer can see setup retarget a symlink to a backup copy of an orientation file. All three handbook rows promise to keep any symlink whose target falls outside the Factory orientation files. In init-factory, _is_factory_orientation_link tests the resolved path with a string prefix, so a sibling such as .agent-factory/factory/config-backup/AGENTS.md also qualifies. In a scratch project, _link_orientation retargeted all four CLI links from that backup to config/AGENTS.md. In the three handbook rows, tie retargeting to the links the installer recognizes and mention that the check uses a path prefix and accepts legacy targets.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The inventory still lists the orientation paths and their ignore rules (no to fails_purpose). A maintainer must consult the installer to explain the retargeted link.",
+  "commit": "ec34b7b8957ff9ffdd3578d7c365621bf3de6e41",
+  "status": "open"
+}

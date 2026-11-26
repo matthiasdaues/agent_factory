@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0204",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_handbook_index.py:205-208",
+  "story": "IMPL-0197",
+  "finding": "The two new default-suite cases invoke the mdformat wrapper, which resolves four plugins through uvx outside uv.lock. The declared test environment includes mdformat-frontmatter only. With the formatter cache missing its extra packages, an offline run fails at the subprocess before the assertion. With the cache populated, both cases pass. Make the formatter and its plugins available through the declared test environment or run the hook regression in a suite that declares the formatter prerequisite.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Both cases verify the whitespace behavior when the formatter is available (no to fails_purpose). Reviewers need an extra tool cache or network access beyond the locked default-suite setup.",
+  "commit": "ebf6e20eab41c67f0d99444b123986a68a6d97f9",
+  "status": "open"
+}

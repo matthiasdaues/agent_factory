@@ -1,0 +1,24 @@
+{
+  "id": "SPEC-0165",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/factory-handbooks-qa-strategy.md:134",
+  "story": null,
+  "finding": "The FH-11 owner row and retention policy omit the distinction between the spec-writer path scan and the two migrated content assertions when they summarize FH-11-LN-01. State that the layout test changes only the retired guide entry in its input list, and have the owner row and the last sentence at line 241 describe the two content tests separately.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true,
+    "in_use_case": [
+      "none"
+    ],
+    "side_text": "omission"
+  },
+  "why_this_severity": "FH-11-01 and the existing parametrized scan give the test author the intended division of work (no to fails_purpose).",
+  "commit": "1e83f92d16ef69b54d01a7ef917ef705818ba202",
+  "status": "resolved"
+}
