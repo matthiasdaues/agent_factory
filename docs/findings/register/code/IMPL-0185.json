@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0185",
+  "source": "lector-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/usage-capture/usage-capture-reference.md:24-42",
+  "story": "ST-0457",
+  "finding": "The test-ownership table at l.24-42 of usage-capture-reference.md lists the test file that owns each capture contract. That is contributor material, and the user handbook lists it on a page of type reference next to the triggers a user looks up. Move the section to the contributor handbook (docs/handbook/). ST-0457 excludes the contributor handbook, so the move needs its own story.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "A user can still read the triggers and accounting rules on the page (no to fails_purpose). The contributor table adds length a user must skip.",
+  "commit": "5140238a782e598fa663585a675bdfa8d49c8271",
+  "status": "open"
+}

@@ -52,7 +52,7 @@ description: Each gate script, when it fires, what it checks, the command that r
 
 The tests run at three points:
 
-1. **Pre-commit.** The tests of the changed files run.
+1. **Pre-commit.** The factory installs no test hook. A test hook of the project runs the tests of the staged files.
 2. **Pre-push.** The full suite runs.
 3. **Phase advance.** The entry condition `tests_pass` checks the suite.
 

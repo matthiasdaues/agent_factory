@@ -8,7 +8,7 @@ description: Install the factory into a repository that already has its own hist
 
 # Use the factory in an existing repository
 
-`init-factory` works the same way in a repository that already has its own history, `.gitignore`, and `.pre-commit-config.yaml`. It does not disturb what the project already owns, and you can remove everything it adds again.
+`init-factory` works the same way in a repository that already has its own history, `.gitignore`, and `.pre-commit-config.yaml`. It does not disturb what the project already owns, and you can remove everything it adds.
 
 1. Run `init-factory` from inside the repository:
 
@@ -25,7 +25,7 @@ description: Install the factory into a repository that already has its own hist
    - **`.pre-commit-config.yaml`:** the one tracked change. Without the file, `init-factory` creates it with only the factory block. With the file, `init-factory` hands over to `.agent-factory/factory/scripts/merge-precommit-config`, which inserts the `- repo: local` block at the top of your `repos:` list and leaves your own hooks untouched. Every hook id of the block starts with `agent_factory_hook-`. A `.pre-commit-config.yml` stays untouched, because pre-commit reads only `.yaml` on its own.
    - **Orientation files:** when you already have `.github/copilot-instructions.md`, `.claude/CLAUDE.md`, or a root `AGENTS.md`, `init-factory` puts an orientation block between markers at the top of the file. For Claude Code the block is a single `@`-include line. For Copilot CLI, Pi, and Codex the block holds the full orientation text. Your own content stays below the block, and `remove-factory` removes the block on uninstall.
 
-   Your `docs/`, your scripts, and your configuration stay as they are. `init-factory` never touches a file or folder it did not create.
+   Your `docs/`, your scripts, and your configuration stay as they are. `init-factory` changes no other file or folder.
 
 3. Run it again whenever you like. The script is idempotent: it skips whatever is already in place. It records what it did in `.agent-factory/install.json`, and a second run reads that manifest, so it never loses track of what it owns.
 

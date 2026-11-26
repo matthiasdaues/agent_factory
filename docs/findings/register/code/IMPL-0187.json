@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0187",
+  "source": "lector-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/concepts/skills.md:18-20",
+  "story": "ST-0457",
+  "finding": "The reverse-map row of the skills table repeats the Specification row of the same table. The structural pass of the lector can merge the two rows or cut the repeat.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "A reader still finds the skill and its purpose (no to fails_purpose). The table carries one redundant row.",
+  "commit": "5140238a782e598fa663585a675bdfa8d49c8271",
+  "status": "open"
+}
