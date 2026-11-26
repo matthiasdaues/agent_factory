@@ -47,7 +47,7 @@ Works the same against an existing repo with its own pre-commit config. Details 
 .agent-factory/factory/scripts/update-factory
 ```
 
-Refreshes the installed `.agent-factory/factory/` to match the current checkout. Before replacing, it compares per-file checksums to detect local changes you made. If changes are found, the update stops (exit 2) unless you pass `--force`, which preserves changed files in `.agent-factory/factory-user-changes/<timestamp>/`. Use `--check` to see the report without touching anything. On failure, the previous `.agent-factory/factory/` is restored automatically.
+Refreshes the installed `.agent-factory/factory/` to match the current checkout. Before replacing, it compares per-file checksums to detect local changes you made. If changes are found, the update stops (exit 2) unless you pass `--force`, which preserves changed files in `.agent-factory/user-changes/<timestamp>/`. Use `--check` to see the report without touching anything. On failure, the previous `.agent-factory/factory/` is restored automatically.
 
 ### Add or remove CLIs
 
@@ -126,12 +126,12 @@ The [factory guide](docs/factory-guide.md) covers the full picture:
 
 **`update-factory`**:
 
-| Flag             | Effect                                                                                                          |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| `--target <dir>` | Project directory (default: cwd)                                                                                |
-| `--source <dir>` | Agent Factory checkout (default: `factory_source` from install manifest)                                        |
-| `--check`        | Report user modifications and exit without updating                                                             |
-| `--force`        | Update despite user modifications; preserve changed files in `.agent-factory/factory-user-changes/<timestamp>/` |
+| Flag             | Effect                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| `--target <dir>` | Project directory (default: cwd)                                                                        |
+| `--source <dir>` | Agent Factory checkout (default: `factory_source` from install manifest)                                |
+| `--check`        | Report user modifications and exit without updating                                                     |
+| `--force`        | Update despite user modifications; preserve changed files in `.agent-factory/user-changes/<timestamp>/` |
 
 ### What init-factory creates
 

@@ -773,7 +773,7 @@ Two promises govern the whole install: it never disturbs what the project alread
 - **Orientation files** — if you already have a `.github/copilot-instructions.md`, `.claude/CLAUDE.md`, or root `AGENTS.md`, a marker-fenced orientation block is prepended to your file. For Claude Code it is a single `@`-include directive; for Copilot CLI, Pi, and Codex the full orientation content is inlined between markers. Your own content is preserved below the block, and `remove-factory` strips it on uninstall.
 - **Everything else** — your `docs/`, your scripts, your configuration — is left alone. `init-factory` never touches a file or directory it didn't create.
 
-The script is idempotent: run it again any time, and anything already correctly in place is skipped. It records what it did in `.agent-factory/install.json`, and a re-run reads that manifest so it never loses track of what it owns. If it finds something it can't safely work around, it stops immediately and names the exact path — it never partially applies a run.
+The script is idempotent: run it again any time, and anything already correctly in place is skipped. It records what it did in `.agent-factory/install.json`, and a re-run reads that manifest so it never loses track of what it owns. If it finds something it can't safely work around, it stops immediately and names the exact path. The factory copy happens before the CLI preflight, so a collision found at the preflight stops the run with the copy already in place.
 
 **Removing it again.** `.agent-factory/factory/scripts/remove-factory` reverses the whole install from the manifest — deleting the git-ignored footprint, stripping the `agent_factory related` `.gitignore` block, stripping orientation blocks from existing orientation files, and removing the `agent_factory_hook-` pre-commit block while leaving your own hooks in place — back to a clean `git status`. A repo that had its own `.gitignore`, pre-commit config, orientation file, or workflows gets them all back byte-for-byte.
 
@@ -792,7 +792,7 @@ The script is idempotent: run it again any time, and anything already correctly 
 .agent-factory/factory/scripts/update-factory --check
 ```
 
-When user changes are found, the update stops by default (exit code 2). Pass `--force` to proceed anyway — changed and added files are preserved in `.agent-factory/factory-user-changes/<timestamp>/` so nothing is lost:
+When user changes are found, the update stops by default (exit code 2). Pass `--force` to proceed anyway — changed and added files are preserved in `.agent-factory/user-changes/<timestamp>/` so nothing is lost:
 
 ```bash
 .agent-factory/factory/scripts/update-factory --force
