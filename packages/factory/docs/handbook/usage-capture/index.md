@@ -22,7 +22,7 @@ The factory records how many tokens each session uses. This chapter explains wha
 - [Configure transcript retention](configure-transcript-retention.md): Choose whether usage capture stores transcript text or only the token totals.
 - [Migrate old usage transcripts](migrate-usage-transcripts.md): Convert the transcript store of version 1.13.0 or earlier, which kept a full copy per capture.
 - [Install the usage add-on](install-usage-add-on.md): Install the optional usage add-on into a project and check that it can read your records.
-- [Query usage views](query-usage-views.md): Query the six usage views from the command line, read per-tool token use, and save the views to a DuckDB file.
+- [Query usage views](query-usage-views.md): Query the six usage views from the command line, read per-tool token use, and save the result to a DuckDB file.
 - [Explore usage in the browser](explore-usage-in-the-browser.md): Open the usage views in the bundled SQL explorer or in the DuckDB UI, and start DuckDB from the command line.
 
 ## Reference

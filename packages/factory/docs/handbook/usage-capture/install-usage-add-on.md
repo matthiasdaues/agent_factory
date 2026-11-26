@@ -13,7 +13,7 @@ You want to query the token use that capture recorded. Install the add-on first.
 ## Before you start
 
 - Python 3.10 or later.
-- uv, the package manager the factory uses. Install it from [docs.astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/) if you do not have it.
+- uv, the package manager the factory uses. If you do not have it, follow the installation guide on the uv documentation site, docs.astral.sh/uv.
 - At least one `.jsonl` file in `.agent-factory/usage/`. Capture writes these files. With an empty or missing folder, there is nothing to analyse.
 
 ## Steps

@@ -23,25 +23,27 @@ description: The six published views, the options and output formats of usage-qu
 
 ## Options of `usage-query`
 
-| Option           | Effect                                                  |
-| ---------------- | ------------------------------------------------------- |
-| `--format json`  | JSON output (default)                                   |
-| `--format table` | Human-readable table                                    |
-| `--diagnostic`   | Informational mode (only with `capture_health`)         |
-| `--dimensions`   | Comma-separated dimension list for `usage_by_dimension` |
-| `--granularity`  | Time bucket: `none`, `hour`, `day`, `week`, `month`     |
-| `--persist PATH` | Write the views into a persistent `.duckdb` file        |
-| `-o PATH`        | Output file (needed for `--format parquet`)             |
+| Option           | Effect                                                    |
+| ---------------- | --------------------------------------------------------- |
+| `--format json`  | JSON output (default)                                     |
+| `--format table` | Human-readable table                                      |
+| `--diagnostic`   | Informational mode (only with `capture_health`)           |
+| `--dimensions`   | Comma-separated dimension list for `usage_by_dimension`   |
+| `--granularity`  | Time bucket: `none`, `hour`, `day`, `week`, `month`       |
+| `--persist PATH` | Write the query's tables into a persistent `.duckdb` file |
+| `-o PATH`        | Output file (needed for `--format parquet`)               |
 
 ## Output formats
 
-| Format     | Description                                          |
-| ---------- | ---------------------------------------------------- |
-| `json`     | JSON object to stdout (default)                      |
-| `table`    | Human-readable aligned table to stdout               |
-| `relation` | DuckDB relation (programmatic use via Python API)    |
-| `arrow`    | Apache Arrow table (programmatic use via Python API) |
-| `parquet`  | Apache Parquet file (needs the `-o` output path)     |
+| Format     | Description                                      |
+| ---------- | ------------------------------------------------ |
+| `json`     | JSON object to stdout (default)                  |
+| `table`    | Human-readable aligned table to stdout           |
+| `relation` | DuckDB relation (Python API only)                |
+| `arrow`    | Apache Arrow table (Python API only)             |
+| `parquet`  | Apache Parquet file (needs the `-o` output path) |
+
+The command line accepts `--format relation` and `--format arrow`, but it cannot return those objects. It prints the JSON result instead. When preflight ran, it also prints a note on stderr that points to the Python API.
 
 The `arrow` and `parquet` formats need the optional `pyarrow` dependency. Install it in `.agent-factory/usage/analysis`:
 
@@ -51,7 +53,7 @@ uv sync --extra arrow
 
 ## Python API
 
-Run your script with the add-on's environment, for example `uv run --directory .agent-factory/usage/analysis python script.py`. The script imports the package:
+Run your script from the project root with the add-on's environment, for example `uv run --project .agent-factory/usage/analysis python script.py`. The option `--project` selects the environment and keeps the project root as the working directory, so the relative path `.agent-factory/usage/` below resolves. The option `--directory` would change the working directory to the add-on's folder. The script imports the package:
 
 ```python
 from pathlib import Path
