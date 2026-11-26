@@ -301,8 +301,13 @@ def _escape(text: str) -> str:
     return _literal(re.sub(r"([\\\[\]])", r"\\\1", text))
 
 
+def _single_spaced(text: str) -> str:
+    """Collapse each run of whitespace to one space, as mdformat does in a list item (IMPL-0197)."""
+    return " ".join(text.split())
+
+
 def _link(label: str, target: str) -> str:
-    return f"[{_escape(label)}]({quote(target, safe='/-._~')})"
+    return f"[{_escape(_single_spaced(label))}]({quote(target, safe='/-._~')})"
 
 
 def chapter_body(folder: Folder) -> str:
@@ -319,7 +324,7 @@ def chapter_body(folder: Folder) -> str:
         lines = [f"## {TYPE_HEADINGS[page_type]}", ""]
         for page in group:
             entry = f"- {_link(page.title, Path(page.path).name)}"
-            lines.append(f"{entry}: {_literal(page.description)}" if page.description else entry)
+            lines.append(f"{entry}: {_literal(_single_spaced(page.description))}" if page.description else entry)
         sections.append("\n".join(lines))
     return "\n\n".join(sections)
 

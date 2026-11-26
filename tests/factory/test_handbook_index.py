@@ -189,6 +189,28 @@ def test_an_image_in_a_chapter_is_listed_by_no_list(model):
     assert "diagram" not in (model / USER / "cli-integrations/index.md").read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize(
+    "title, description",
+    [
+        ("Add a CLI integration", "Add   the files  of one CLI."),
+        ("Add  a CLI integration", "Add the files of one CLI."),
+    ],
+)
+def test_a_run_of_spaces_survives_mdformat(model, title, description):
+    """IMPL-0197: the repository mdformat hook runs before handbook-lint and must not change the index."""
+    write(model, f"{USER}/cli-integrations/add-an-integration.md",
+          page_text(title, "how-to", order=20, description=description))
+    assert run_script("handbook-index", model).returncode == 0
+
+    subprocess.run(
+        [str(SOURCE_SCRIPTS_DIR / "mdformat"), "--number", str(model / USER / "cli-integrations/index.md")],
+        check=True, capture_output=True,
+    )
+
+    result = run_script("handbook-index", model, "--check")
+    assert result.returncode == 0, result.stdout
+
+
 def _page(path, order=100, title="T", type_="concept", description=""):
     return hi.Page(path, title, type_, "implemented", order, description)
 
