@@ -23,11 +23,14 @@ Four semantic gates fire between a developer's commit and the merge of the story
 > Rule summary: **MUST** run `premerge-check` before merging a branch; a non-zero exit blocks the merge until investigated.
 > Source: [rules.md § Branching](../../../rulebooks/rules.md#branching)
 
-Two of the four, `crap-score` and `mutation-testing`, are test guardrails. The planning agent fills each story's `quality-gates` field from the enabled entries of the `gates` section of `docs/testing.yaml`.
+Two of the four, `crap-score` and `mutation-testing`, are test guardrails. Which of them runs for a story is set before the story starts, so the developer never picks a gate.
 
-> Rule summary: A test guardrail runs only when an enabled entry of the `gates` section of `docs/testing.yaml` or the story's `quality-gates` field names it. No default picks a gate, and `docs/charter/house-rules.md` is not a source of gates.
+> Rule summary: The planning agent fills each story's `quality-gates` field from the enabled entries of the `gates` section of `docs/testing.yaml`. A test guardrail runs only when such an entry or the field names it. No default picks a gate, and `docs/charter/house-rules.md` is not a source of gates.
 > Source: [story-frontmatter-fields.md § quality-gates](../../../rulebooks/references/story-frontmatter-fields.md#quality-gates-filled-by-planner)
 
 When neither source names a built-in gate, `premerge-check` runs none. It prints one line that names each built-in gate without an entry and the skill that sets it up: `setup-crap-score` for `crap-score`, and `mutation-testing` for `mutation-testing`.
 
-`dispatch` counts the attempts of the gate-check step, as [Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation) in the implementation agent's definition describes. A story gets `gates.attempts` attempts on its tier, and then `gates.attempts_escalated` attempts on the next tier. Both values come from `docs/testing.yaml` and default to `3`. `gates.attempts_escalated: 0` turns the escalation off.
+A gate that fails does not end the story at once, because the implementation agent retries it. `dispatch` counts these attempts, and not every failure counts. A story that uses up its attempts on its tier can move to the next tier. The limits come from `docs/testing.yaml`.
+
+> Rule summary: A story gets `gates.attempts` counted attempts on its tier and then `gates.attempts_escalated` on the next. Both values come from `docs/testing.yaml`, and `gates.attempts_escalated: 0` turns escalation off.
+> Source: [implementation-agent.md § Attempts and escalation](../../../agents/implementation-agent.md#attempts-and-escalation)
