@@ -33,11 +33,11 @@ pi.standard = openrouter/anthropic/claude-sonnet-4.6
 pi.strong   = openrouter/anthropic/claude-opus-4.8
 ```
 
-| Setting               | Effect                                                                                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cli.tier = model-id` | One line per CLI and tier. Claude Code resolves its model through the platform, so it has no lines here. Add lines for each CLI you use, and leave out tiers you never want to reach. |
-| `on_missing = halt`   | When a dispatch asks for a tier with no model for the active CLI, the dispatch stops instead of guessing. So a strong-tier task never falls back to a weaker model in silence.        |
-| Precedence            | An explicit `--model` flag wins over `model.conf`, which wins over the CLI's own default (FR-K3).                                                                                     |
+| Setting               | Effect                                                                                                                                                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli.tier = model-id` | One line per CLI and tier. The installer writes a `CONFIGURE-ME` line for each tier of each selected CLI, Claude Code included. Replace each one with a model ID. Add lines for each CLI you use, and leave out tiers you never want to reach. |
+| `on_missing = halt`   | When a dispatch asks for a tier with no model for the active CLI, the dispatch stops instead of guessing. So a strong-tier task never falls back to a weaker model in silence.                                                                 |
+| Precedence            | An explicit `--model` flag wins over `model.conf`, which wins over the CLI's own default (FR-K3).                                                                                                                                              |
 
 The file is git-ignored local configuration, so each developer can keep their own mapping. Edit it directly to pin models, swap providers, or add a CLI.
 
