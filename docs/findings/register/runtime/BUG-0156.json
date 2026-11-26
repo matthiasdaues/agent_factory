@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0156",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "usability",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/usage-capture/query-usage-views.md:11-20",
+  "story": null,
+  "finding": "A user who follows the two query how-tos in a fresh install gets `usage-query: usage package not found (no .agent-factory/usage/analysis/ or packages/usage/)`. Reproduction: `init-factory --target /tmp/qa1/proj2 --source <worktree> --project-name qaproj`, then `.agent-factory/factory/scripts/usage-query session_usage --persist usage.duckdb`. The pages `query-usage-views.md` and `explore-usage-in-the-browser.md` open with the task and say the wrapper scripts find the installed add-on. Neither says that the add-on is optional and absent by default, and neither links to `install-usage-add-on.md`. After `init-factory --add usage` the same command works. Fix: add one sentence with a link to `install-usage-add-on.md` at the top of both pages, so the reader learns the prerequisite before the first command.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The chapter index says the add-on is optional and the install page works (no to fails_purpose). A reader who lands on a query page from a search gets an error that names the missing folder, and must find the install page without a link.",
+  "commit": "f1c6a265def3184eb7c938631af3783b6a85f14d",
+  "status": "open"
+}

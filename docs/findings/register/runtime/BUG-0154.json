@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0154",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "wrong-result",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/handbook-index:107-114",
+  "story": null,
+  "finding": "A `description` that is not one line breaks the page list, and `handbook-lint` passes. Reproduction in a scratch handbook under /tmp: a page with `description: |` and two paragraphs plus a two-item list. `handbook-index` writes `- [Para](p1.md): first line`, then a loose paragraph `second paragraph` and a nested list outside the list item. After `mdformat --number` the file is unchanged and `handbook-lint` exits 0. A `description: [a, b]` is dropped without a message, so the page appears with no description. The page format reference says a description holds one sentence, but BR-140 lists no failure for a longer one. Violated rule: BR-140 and BR-144 (FH-01-01). Fix: in `parse_page`, report `field description: a single line of text when present` when the value is not a string or holds a blank line or a line break after trimming; the layer is the frontmatter check that both scripts share.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The description is documented as one sentence, and every one-line description renders correctly (no to fails_purpose). A contributor who writes a block scalar with a blank line gets a damaged list and no message, and must find the cause by reading the generated Markdown.",
+  "commit": "f1c6a265def3184eb7c938631af3783b6a85f14d",
+  "status": "open"
+}

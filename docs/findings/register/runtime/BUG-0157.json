@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0157",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "usability",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/handbook-index:260-273",
+  "story": null,
+  "finding": "`handbook-index` and `handbook-index --check` exit 0 and print nothing when run outside the repository root. Reproduction: in an empty directory, run both; each exits 0. `handbook-lint` in the same directory reports `handbook root does not exist` for both roots. A contributor who runs `handbook-index --check` from `docs/` reads exit 0 as a current page list. `read_handbook` returns `exists=False` and `run` treats a missing root as nothing to do. BR-146 says `--check` exits 0 when every page list equals what the script would write, and with no handbook found that statement is empty. Fix: in `run`, print `<root>/: handbook root does not exist` and exit 1 when a root is missing, the same text as `layout_failures` of handbook-lint.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The commit hook runs from the repository root and `handbook-lint` catches the same case (no to fails_purpose). A contributor in a subfolder gets a false all-clear from the script that the how-to names for checking page lists.",
+  "commit": "f1c6a265def3184eb7c938631af3783b6a85f14d",
+  "status": "open"
+}
