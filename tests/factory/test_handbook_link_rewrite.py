@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 from _link_rewrite import (
+    AmbiguousLink,
     UnmappedAnchor,
     read_section_map,
     rewrite_section_links,
@@ -109,7 +110,7 @@ def test_st_0454_reference_definition_is_rewritten() -> None:
 
 @pytest.mark.spec("FH-CT-68")
 def test_st_0454_contributor_page_and_other_links_stay_relative() -> None:
-    assert rewrite(f"[t](arc42/concepts.md#project-directory-tree) [o](arc42/05.md)", src="docs/README.md") == (
+    assert rewrite("[t](arc42/concepts.md#project-directory-tree) [o](arc42/05.md)", src="docs/README.md") == (
         "[t](handbook/architecture/repository-layout.md) [o](arc42/05.md)"
     )
 
@@ -137,3 +138,53 @@ def test_st_0454_installed_guide_link_gets_the_source_page_in_this_repository() 
     text = f"[g]({INSTALLED}#agents) [h]({INSTALLED})"
     new = rewrite_section_links(text, "docs/adr/0001-x.md", SECTIONS, ANCHORS, installed_links=False)[0]
     assert new == f"[g](../../{HANDBOOK}concepts/agents.md#agents) [h](../../{HANDBOOK}index.md)"
+
+
+PHASE_PAGE = f"{HANDBOOK}concepts/how-the-factory-works.md"
+
+
+@pytest.mark.spec("FH-CT-73")
+def test_st_0454_query_stays_and_the_path_moves() -> None:
+    text = f"[x]({CONCEPTS}?plain=1#the-phase-chain)"
+    assert rewrite(text, src="README.md") == f"[x]({PHASE_PAGE}?plain=1#the-phase-chain)"
+
+
+@pytest.mark.spec("FH-CT-74")
+def test_st_0454_encoded_fragment_is_decoded_for_the_map_and_kept() -> None:
+    text = f"[x]({CONCEPTS}#the%2Dphase%2Dchain)"
+    assert rewrite(text, src="README.md") == f"[x]({PHASE_PAGE}#the%2Dphase%2Dchain)"
+
+
+@pytest.mark.spec("FH-CT-75")
+def test_st_0454_link_in_a_span_with_inner_backticks_stays() -> None:
+    text = f"`` a ` [x]({CONCEPTS}) ``\n"
+    assert rewrite(text, src="README.md") == text
+
+
+@pytest.mark.spec("FH-CT-76")
+@pytest.mark.parametrize(
+    ("text", "line"),
+    [
+        (f"Intro\n`example\n[x]({CONCEPTS})`\n", 2),
+        (f"Intro\n\n[a [b]]({CONCEPTS})\n", 3),
+        (f"[x]:\n    {CONCEPTS}\n", 1),
+        (f"Intro\n[x]({CONCEPTS}\n", 2),
+    ],
+    ids=["multiline-code-span", "nested-label", "split-reference-definition", "unclosed-link"],
+)
+def test_st_0454_doubtful_link_is_refused_with_file_and_line(text: str, line: int) -> None:
+    with pytest.raises(AmbiguousLink, match=f"^README.md:{line}: "):
+        rewrite(text, src="README.md")
+
+
+@pytest.mark.spec("FH-CT-77")
+def test_st_0454_refusal_edits_nothing_in_the_file() -> None:
+    text = f"[ok]({GUIDE})\n\n[x]({CONCEPTS}\n"
+    with pytest.raises(AmbiguousLink, match="^README.md:3: "):
+        rewrite_section_links(text, "README.md", SECTIONS, ANCHORS)
+
+
+@pytest.mark.spec("FH-CT-78")
+def test_st_0454_doubtful_construct_without_a_mapped_link_is_left_alone() -> None:
+    text = "`a\n[x](other.md)`\n\n[a [b]](other.md)\n\n[r]:\n    other.md\n\n[u](other.md\n"
+    assert rewrite(text, src="README.md") == text

@@ -47,16 +47,27 @@ description: Each gate script, when it fires, what it checks, the command that r
 
 ## Test execution
 
-Tests run through gates, not through agents. They run at three points:
+> Rule summary: Tests run through the factory's test gates, not as bare agent commands.
+> Source: [foundational-principles.md § Agentic Creation, Deterministic Validation](../../../rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
 
-1. **Pre-commit.** The tests of the changed files run. The commit option `--no-verify` skips them.
-2. **Pre-push.** The full suite runs. The push option `--no-verify` skips it.
+The tests run at three points:
+
+1. **Pre-commit.** The tests of the changed files run.
+2. **Pre-push.** The full suite runs.
 3. **Phase advance.** The entry condition `tests_pass` checks the suite.
+
+Git's option `--no-verify` skips the hooks of the first two points. You fix a failing hook instead of skipping it. [Commit through the pre-commit hooks](../../../rulebooks/conventions/git-workflow.md#commit-through-the-pre-commit-hooks--the-two-pass-rule) shows how.
+
+> Rule summary: **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook.
+> Source: [rules.md § Git workflow](../../../rulebooks/rules.md#git-workflow)
 
 A project declares its test commands in `docs/testing.yaml`:
 
-| Key                    | Runs                                                                                                               | Agents may run it       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------- |
-| `test_command`         | The full suite, in the gates and at the feature merge                                                              | No                      |
-| `test_staged_command`  | The tests of the staged files                                                                                      | No                      |
-| `test_changed_command` | The tests of the changed files. A story merge appends the changed paths, and the key falls back to `test_command`. | Yes, with changed paths |
+| Key                    | Runs                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `test_command`         | The full suite, in the gates and at the feature merge                                                              |
+| `test_staged_command`  | The tests of the staged files                                                                                      |
+| `test_changed_command` | The tests of the changed files. A story merge appends the changed paths, and the key falls back to `test_command`. |
+
+> Rule summary: An agent may run `test_changed_command`, as declared or followed by changed paths. The agent guard does not allow `test_staged_command`, so agents cannot run it.
+> Source: [charter-testing.yaml](../../../rulebooks/templates/charter-testing.yaml)

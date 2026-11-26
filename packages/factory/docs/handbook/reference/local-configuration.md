@@ -20,26 +20,33 @@ The files under `.agent-factory/config/` are local configuration, not project so
 
 ## Everything init-factory installs
 
-Git tracks only two of these entries: the hook block in `.pre-commit-config.yaml` and the block in `.gitignore`. The `.gitignore` block lists everything else, so git ignores it.
+`init-factory` writes an `agent_factory related` block into `.gitignore`, and git ignores only what that block lists:
 
-| What                 | Where                                                                                                                                                                 | Tracked? |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Toolset copy         | `.agent-factory/factory/`                                                                                                                                             | No       |
-| CLI symlinks         | `.claude/`, `.github/`, `.pi/`, `.codex/`, `.agents/` — pointing into `.agent-factory/factory/`                                                                       | No       |
-| Git safety guardrail | `.claude/hooks/block-dangerous-git.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/`                                                                          | No       |
-| Step guard hooks     | `.claude/hooks/step-guard.sh`, `.github/hooks/step-guard.*`, `.pi/extensions/step-guard.ts`, `.codex/hooks/step-guard.sh`                                             | No       |
-| Freshness check      | `.claude/hooks/check-factory-freshness.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/` — auto-runs `update-factory` when `.agent-factory/factory/` is stale | No       |
-| Usage capture hooks  | `.claude/hooks/capture-usage.sh` (Stop/SubagentStop), `.github/hooks/capture-*.sh`, `.pi/extensions/capture-usage.ts`, `.codex/hooks/capture-codex-usage.sh`          | No       |
-| Orientation file     | `.claude/CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — prepends a marker block if the file exists                                                      | No       |
-| Generated agents     | `.github/agents/*.md` (Copilot, with tools: frontmatter), `.codex/agents/*.toml` (Codex, native format)                                                               | No       |
-| Hook config          | `.claude/settings.json` (hook entries), `.codex/hooks.json` (hook entries)                                                                                            | No       |
-| Pre-commit hooks     | `.pre-commit-config.yaml` — `agent_factory_hook-*` block                                                                                                              | Yes      |
-| Gitignore block      | `.gitignore` — `agent_factory related` section                                                                                                                        | Yes      |
-| Project config       | `.agent-factory/config/project.json` (name + UUID), `.agent-factory/config/project-context.json` (scan results)                                                       | No       |
-| Test regime          | `docs/testing.yaml` — `test_command` if a single unambiguous entrypoint is detected                                                                                   | No       |
-| Usage runtime        | `.agent-factory/usage/runtime/` — hash-verified tokenizer venv                                                                                                        | No       |
-| Usage lifecycle      | `.agent-factory/usage/control/` — registration fence and capture state                                                                                                | No       |
-| Install manifest     | `.agent-factory/install.json`                                                                                                                                         | No       |
-| Install checksums    | `.agent-factory/checksums.json` — per-file SHA-256 for modification detection by `update-factory`                                                                     | No       |
+- `/.agent-factory/`, `/.current-work/`, and `/session-scratchpad.md`, always.
+- `/.claude/` and `/.pi/` as whole folders, when you install for Claude Code or Pi.
+- Under `.github/`, `.codex/`, `.opencode/`, and `.agents/`, each file and folder that `init-factory` created, never the whole folder. Your own files there stay tracked.
+- `/AGENTS.md`, when `init-factory` links the root `AGENTS.md` for Pi or Codex.
+
+The block lists no file that existed before the installation. When `init-factory` adds a marker block to such a file, the file stays tracked. Everything outside the block is yours to commit: `.gitignore` itself, `.pre-commit-config.yaml` with its hook block, and `docs/testing.yaml`, the test declaration of the project.
+
+| What                 | Where                                                                                                                                                                 | Tracked?                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Toolset copy         | `.agent-factory/factory/`                                                                                                                                             | No                                                                                |
+| CLI symlinks         | `.claude/`, `.github/`, `.pi/`, `.codex/`, `.agents/` — pointing into `.agent-factory/factory/`                                                                       | No                                                                                |
+| Git safety guardrail | `.claude/hooks/block-dangerous-git.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/`                                                                          | No                                                                                |
+| Step guard hooks     | `.claude/hooks/step-guard.sh`, `.github/hooks/step-guard.*`, `.pi/extensions/step-guard.ts`, `.codex/hooks/step-guard.sh`                                             | No                                                                                |
+| Freshness check      | `.claude/hooks/check-factory-freshness.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/` — auto-runs `update-factory` when `.agent-factory/factory/` is stale | No                                                                                |
+| Usage capture hooks  | `.claude/hooks/capture-usage.sh` (Stop/SubagentStop), `.github/hooks/capture-*.sh`, `.pi/extensions/capture-usage.ts`, `.codex/hooks/capture-codex-usage.sh`          | No                                                                                |
+| Orientation file     | `.claude/CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — prepends a marker block if the file exists                                                      | No, except a `.github/copilot-instructions.md` or `AGENTS.md` that existed before |
+| Generated agents     | `.github/agents/*.md` (Copilot, with tools: frontmatter), `.codex/agents/*.toml` (Codex, native format)                                                               | No                                                                                |
+| Hook config          | `.claude/settings.json` (hook entries), `.codex/hooks.json` (hook entries)                                                                                            | No, except a `.codex/hooks.json` that existed before                              |
+| Pre-commit hooks     | `.pre-commit-config.yaml` — `agent_factory_hook-*` block                                                                                                              | Yes                                                                               |
+| Gitignore block      | `.gitignore` — `agent_factory related` section                                                                                                                        | Yes                                                                               |
+| Project config       | `.agent-factory/config/project.json` (name + UUID), `.agent-factory/config/project-context.json` (scan results)                                                       | No                                                                                |
+| Test regime          | `docs/testing.yaml` — `test_command` if a single unambiguous entrypoint is detected                                                                                   | Yes                                                                               |
+| Usage runtime        | `.agent-factory/usage/runtime/` — hash-verified tokenizer venv                                                                                                        | No                                                                                |
+| Usage lifecycle      | `.agent-factory/usage/control/` — registration fence and capture state                                                                                                | No                                                                                |
+| Install manifest     | `.agent-factory/install.json`                                                                                                                                         | No                                                                                |
+| Install checksums    | `.agent-factory/checksums.json` — per-file SHA-256 for modification detection by `update-factory`                                                                     | No                                                                                |
 
 You can run `init-factory` again safely. When `.agent-factory/factory/` exists, it stays as it is. Run `.agent-factory/factory/scripts/update-factory` instead.

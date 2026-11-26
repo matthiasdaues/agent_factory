@@ -30,14 +30,17 @@ FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 INLINE_CODE = re.compile(r"`+[^`\n]*`+")
 
 
-
-
 def _blank(text: str) -> str:
     return re.sub(r"[^\r\n]", " ", text)
 
 
 def mask_code(text: str) -> str:
     """Blank front matter, fenced blocks, and code spans; keep every offset."""
+    return INLINE_CODE.sub(lambda span: " " * len(span.group()), _mask_blocks(text))
+
+
+def _mask_blocks(text: str) -> str:
+    """Blank front matter and fenced blocks; keep every offset."""
     lines = text.splitlines(keepends=True)
     out: list[str] = []
     index = 0
@@ -64,7 +67,7 @@ def mask_code(text: str) -> str:
             if closing.match(body):
                 closing = None
             out.append(_blank(line))
-    return INLINE_CODE.sub(lambda span: " " * len(span.group()), "".join(out))
+    return "".join(out)
 
 
 def _destination_span(text: str, start: int) -> tuple[int, int, int] | None:
@@ -230,6 +233,10 @@ class UnmappedAnchor(ValueError):
     """A link names a section that the section map does not assign."""
 
 
+class AmbiguousLink(ValueError):
+    """The scanner cannot tell a link to a mapped file safely: "file:line: why"."""
+
+
 def read_section_map(table: str, sources: set[str]) -> dict[str, dict[str, str]]:
     """Read the rows of ``sources`` from the migration map's Markdown table.
 
@@ -283,19 +290,138 @@ def section_target(
     return page + (f"#{anchor}" if keep else "")
 
 
-def _link_spans(masked: str) -> list[tuple[int, int]]:
-    """Every destination span of an inline link and a reference definition."""
-    spans: list[tuple[int, int]] = []
+BACKTICKS = re.compile(r"`+")
+BLANK_LINE = re.compile(r"\n[ \t]*\n")
+LABEL_END = re.compile(r"\]\(")
+SPLIT_DEFINITION = re.compile(
+    r"^ {0,3}\[[^\]^][^\]]*\]:[ \t]*\n[ \t]*(<[^>\n]*>|\S+)", re.MULTILINE
+)
+
+Span = tuple[int, int]
+Doubt = tuple[int, int, int, str]  # (offset, begin, end, reason)
+
+
+def _code_spans(masked: str) -> tuple[list[Span], list[Span]]:
+    """Return the one-line and the multiline code spans of ``masked``.
+
+    A span opens with a backtick run and closes with the next run of the
+    same length inside the same paragraph; a run without one stays text.
+    """
+    single: list[Span] = []
+    multi: list[Span] = []
+    run = BACKTICKS.search(masked)
+    while run is not None:
+        closer = re.compile(rf"(?<!`)`{{{len(run.group())}}}(?!`)")
+        close = closer.search(masked, run.end())
+        if close is None or BLANK_LINE.search(masked, run.end(), close.start()):
+            run = BACKTICKS.search(masked, run.end())
+            continue
+        span = (run.start(), close.end())
+        (multi if "\n" in masked[span[0] : span[1]] else single).append(span)
+        run = BACKTICKS.search(masked, close.end())
+    return single, multi
+
+
+def _mask_section_code(text: str) -> tuple[str, list[Span]]:
+    """Blank front matter, fences, and one-line code spans; return the multiline spans."""
+    masked = _mask_blocks(text)
+    single, multi = _code_spans(masked)
+    for begin, end in single:
+        masked = masked[:begin] + _blank(masked[begin:end]) + masked[end:]
+    return masked, multi
+
+
+def _region_start(regions: list[Span], offset: int) -> int | None:
+    return next((begin for begin, end in regions if begin <= offset < end), None)
+
+
+def _inline_links(
+    masked: str, regions: list[Span]
+) -> tuple[list[Span], list[Doubt], set[int]]:
+    """Return the sure destinations, the doubtful links, and each label's end."""
+    spans: list[Span] = []
+    doubts: list[Doubt] = []
+    label_ends: set[int] = set()
     for match in LINK_START.finditer(masked):
+        label_ends.add(match.end())
         span = _destination_span(masked, match.end())
+        if span is None:
+            continue
+        begin, end, after = span
+        region = _region_start(regions, begin)
+        if region is not None:
+            doubts.append((region, begin, end, "a link inside a multiline code span"))
+        elif _link_close(masked, after) is None:
+            doubts.append((match.start(), begin, end, "an unclosed link"))
+        else:
+            spans.append((begin, end))
+    return spans, doubts, label_ends
+
+
+def _nested_labels(masked: str, label_ends: set[int]) -> list[Doubt]:
+    """Every "](" that no simple label ends, as with a bracket in a label."""
+    doubts: list[Doubt] = []
+    for match in LABEL_END.finditer(masked):
+        span = (
+            None
+            if match.end() in label_ends
+            else _destination_span(masked, match.end())
+        )
         if span is not None:
-            spans.append(span[:2])
-    for match in REFERENCE_DEFINITION.finditer(masked):
-        begin, end = match.span(2)
-        if masked[begin] == "<":
-            begin, end = begin + 1, end - 1
-        spans.append((begin, end))
-    return sorted(spans)
+            doubts.append(
+                (match.start(), span[0], span[1], "a nested bracket in a link label")
+            )
+    return doubts
+
+
+def _unangled(masked: str, match: re.Match[str], group: int) -> Span:
+    begin, end = match.span(group)
+    return (begin + 1, end - 1) if masked[begin] == "<" else (begin, end)
+
+
+def _definitions(masked: str) -> tuple[list[Span], list[Doubt]]:
+    """Return the destinations of the reference definitions and the split ones."""
+    spans = [_unangled(masked, m, 2) for m in REFERENCE_DEFINITION.finditer(masked)]
+    doubts = [
+        (
+            m.start(),
+            *_unangled(masked, m, 1),
+            "a reference definition split over two lines",
+        )
+        for m in SPLIT_DEFINITION.finditer(masked)
+    ]
+    return spans, doubts
+
+
+def _link_scan(text: str) -> tuple[list[Span], list[Doubt]]:
+    """Every sure destination span of ``text`` and every doubtful link."""
+    masked, regions = _mask_section_code(text)
+    spans, doubts, label_ends = _inline_links(masked, regions)
+    definitions, split = _definitions(masked)
+    return sorted(spans + definitions), doubts + _nested_labels(
+        masked, label_ends
+    ) + split
+
+
+def _target(dest: str, src: str) -> tuple[str, str, str] | None:
+    """Return the root-relative target, query, and fragment of a link, or None."""
+    if not dest or SCHEME.match(dest) or dest.startswith(("/", "#")):
+        return None
+    rest, mark, fragment = dest.partition("#")
+    path, question, query = rest.partition("?")
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(src), unquote(path)))
+    return target, question + query, mark + fragment
+
+
+def _refuse_doubts(
+    text: str, src: str, doubts: list[Doubt], sections: dict[str, dict[str, str]]
+) -> None:
+    """Raise AmbiguousLink for the first doubtful link to a mapped file."""
+    for offset, begin, end, reason in sorted(doubts):
+        found = _target(text[begin:end], src)
+        if found is not None and _installed_split(found[0])[0] in sections:
+            line = text.count("\n", 0, offset) + 1
+            raise AmbiguousLink(f"{src}:{line}: {reason}: {text[begin:end]}")
 
 
 def _section_destination(
@@ -305,17 +431,23 @@ def _section_destination(
     anchors: dict[str, set[str]],
     installed_links: bool,
 ) -> str | None:
-    """Return the new destination of one link of ``src``, or None."""
-    if not dest or SCHEME.match(dest) or dest.startswith(("/", "#")):
+    """Return the new destination of one link of ``src``, or None.
+
+    The query stays. The fragment is decoded for the lookup and keeps its
+    spelling when the new page has the heading.
+    """
+    found = _target(dest, src)
+    if found is None:
         return None
-    path, _, anchor = dest.partition("#")
-    folder = posixpath.dirname(src)
-    target = posixpath.normpath(posixpath.join(folder, unquote(path)))
-    new = section_target(target, anchor, sections, anchors, installed_links)
+    target, query, fragment = found
+    new = section_target(
+        target, unquote(fragment[1:]), sections, anchors, installed_links
+    )
     if new is None:
         return None
-    page, mark, kept = new.partition("#")
-    return posixpath.relpath(page, folder or ".") + mark + kept
+    page, mark, _ = new.partition("#")
+    folder = posixpath.dirname(src) or "."
+    return posixpath.relpath(page, folder) + query + (fragment if mark else "")
 
 
 def rewrite_section_links(
@@ -332,10 +464,16 @@ def rewrite_section_links(
     Only link destinations change; links in code stay. The result is the
     new text and each (old destination, new destination) in document order.
     ``installed_links`` is passed on to ``section_target``. Raises
-    UnmappedAnchor for a link to a section that the map lacks.
+    UnmappedAnchor for a link to a section that the map lacks, and
+    AmbiguousLink, before any edit, for a link to a mapped file that the
+    scanner cannot tell safely: one in a multiline code span, behind a
+    nested bracket in its label, in a reference definition split over two
+    lines, or without its closing parenthesis.
     """
+    spans, doubts = _link_scan(text)
+    _refuse_doubts(text, src, doubts, sections)
     edits: list[tuple[int, int, str, str]] = []
-    for begin, end in _link_spans(mask_code(text)):
+    for begin, end in spans:
         raw = text[begin:end]
         new = _section_destination(raw, src, sections, anchors, installed_links)
         if new is not None and new != raw:
