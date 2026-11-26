@@ -309,6 +309,17 @@ def test_a_linked_handbook_root_fails_lint(model):
     assert f"{CONTRIBUTOR}: symlink" in result.stdout
 
 
+def test_a_root_without_index_and_with_an_invalid_page_reports_both(model):
+    (model / CONTRIBUTOR / "index.md").unlink()
+    write(model, f"{CONTRIBUTOR}/draft.md", "# Draft\n")
+
+    result = run_script("handbook-lint", model)
+
+    assert result.returncode == 1
+    assert f"{CONTRIBUTOR}/draft.md: field frontmatter" in result.stdout
+    assert f"{CONTRIBUTOR}/: handbook root has no index.md" in result.stdout
+
+
 @pytest.mark.spec("FH-CT-55")
 def test_the_cli_writes_no_bytecode_beside_the_scripts(model, tmp_path_factory):
     import os
