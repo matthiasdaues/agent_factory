@@ -20,10 +20,10 @@ Show newcomers around the factory, and keep the tour short.
 
 02. If yes, offer to skip ahead or start fresh. If no, begin the tour.
 
-03. Read the tutorial page of `.agent-factory/factory/docs/handbook/getting-started/`.
+03. Read the tutorial page `.agent-factory/factory/docs/handbook/getting-started/first-session.md`.
 
-04. Walk its steps in order, one checkpoint at a time. Combine adjacent
-    steps when one explanation is enough.
+04. Walk its steps in order, one checkpoint at a time. Pause at every
+    checkpoint of the tutorial.
 
 05. For each step:
 

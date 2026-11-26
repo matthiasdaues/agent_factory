@@ -687,7 +687,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 4499
-    total_tokens: 19581
+    total_tokens: 19582
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -1005,7 +1005,7 @@ skills:
     category: onboarding
     description: Give first-time Agent Factory users a short, interactive orientation when they choose option H or ask to be shown around
     path: skills/newcomer-tour/SKILL.md
-    tokens: 757
+    tokens: 758
   - name: quiz
     category: onboarding
     description: Quiz me about the current codebase, one open question at a time, graded against the actual code.

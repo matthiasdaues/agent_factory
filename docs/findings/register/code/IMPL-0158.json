@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The assertion still detects references in the entry points (no to fails_purpose). The literal adds a false match for the retirement search to handle.",
   "commit": "3f135d0682ff8b7f575703887136791161222660",
-  "status": "open"
+  "status": "resolved"
 }

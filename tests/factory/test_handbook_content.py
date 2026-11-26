@@ -73,6 +73,25 @@ def linked_tutorials(body: str, repo: Path) -> list[Path]:
     return found
 
 
+def runnable_commands(text: str) -> set[str]:
+    """The factory commands that start a line of a fenced code block."""
+    found = set()
+    for block in re.findall(r"^```\w*\n(.*?)^```", text, re.DOTALL | re.MULTILINE):
+        for line in block.splitlines():
+            found.update(re.findall(r"^(?:\./|\.agent-factory/factory/scripts/)?(init-factory|update-factory|remove-factory)\b", line.strip()))
+    return found
+
+
+def tutorial_pages(body: str) -> list[Path]:
+    """The implemented tutorial pages of the user handbook that the body names by path."""
+    pages = []
+    for name in re.findall(re.escape(USER_TUTORIAL) + r"([\w-]+\.md)", body):
+        page = FACTORY / "docs" / "handbook" / "getting-started" / name
+        if page.is_file() and frontmatter(page)["type"] == "tutorial":
+            pages.append(page)
+    return pages
+
+
 def virgil_inputs(index_text: str) -> list[str]:
     """The inputs listed for the virgil agent in INDEX.yaml."""
     block = re.search(r"^\s*- name: virgil\n(.*?)(?=^\s*- name: |\Z)", index_text, re.DOTALL | re.MULTILINE)
@@ -97,7 +116,10 @@ class TestFH06LN01UserEntryPoints:
 
     def test_st_0455_fh_06_01_tour_reads_the_tutorial_page(self) -> None:
         body = section(read(FACTORY / "skills" / "newcomer-tour" / "SKILL.md"), "Procedure")
-        assert USER_TUTORIAL in body
+        assert tutorial_pages(body), "the procedure names no tutorial page under " + USER_TUTORIAL
+
+    def test_st_0455_fh_06_01_tour_pointed_at_the_chapter_index_fails(self) -> None:
+        assert not tutorial_pages(f"Read `{USER_TUTORIAL}index.md`.")
 
     def test_st_0455_fh_06_01_guided_tour_names_the_tutorial_in_option_h(self) -> None:
         lines = [x for x in read(FACTORY / "skills" / "guided-tour" / "SKILL.md").splitlines() if x.startswith("- **H")]
@@ -119,16 +141,19 @@ class TestFH06LN01UserEntryPoints:
 
     def test_st_0455_fh_06_01_readme_keeps_the_commands_and_links_to_the_handbook(self) -> None:
         text = read(FACTORY / "README.md")
-        for command in ("init-factory", "update-factory", "remove-factory"):
-            assert command in text
+        assert runnable_commands(text) == {"init-factory", "update-factory", "remove-factory"}
         assert "docs/handbook/" in text
         targets = [t for t in LINK.findall(text) if t.startswith("docs/handbook/")]
         assert targets
         assert all((FACTORY / t).is_file() for t in targets), targets
 
+    def test_st_0455_fh_06_01_readme_with_commands_only_in_prose_fails(self) -> None:
+        text = "Run init-factory, update-factory and remove-factory. See [handbook](docs/handbook/index.md).\n"
+        assert runnable_commands(text) == set()
+
     @pytest.mark.parametrize("path", ENTRY_POINTS, ids=lambda p: p.name)
     def test_st_0455_fh_06_01_no_entry_point_names_the_guide(self, path: Path) -> None:
-        assert "factory-guide" not in read(path)
+        assert "factory-" + "guide" not in read(path)
 
 
 @pytest.mark.spec("FH-07-LN-01")
