@@ -72,7 +72,6 @@ Show newcomers around the factory, and keep the tour short.
 - Do not announce, preview, and repeat the same point.
 - Do not praise every acknowledgement.
 - Do not assume agent context or a charter exists.
-- Do not reference `docs/arc42/beginner-intro.md`.
 - Do not launch a playbook directly -- offer it and let the session menu handle the transition.
 
 ## References

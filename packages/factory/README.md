@@ -109,42 +109,8 @@ The [user handbook](docs/handbook/index.md) covers every other topic. It lives a
 
 ### What init-factory creates
 
-| What                 | Where                                                                                                                                                                 | Tracked? |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Toolset copy         | `.agent-factory/factory/`                                                                                                                                             | No       |
-| CLI symlinks         | `.claude/`, `.github/`, `.pi/`, `.codex/`, `.agents/` — pointing into `.agent-factory/factory/`                                                                       | No       |
-| Git safety guardrail | `.claude/hooks/block-dangerous-git.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/`                                                                          | No       |
-| Step guard hooks     | `.claude/hooks/step-guard.sh`, `.github/hooks/step-guard.*`, `.pi/extensions/step-guard.ts`, `.codex/hooks/step-guard.sh`                                             | No       |
-| Freshness check      | `.claude/hooks/check-factory-freshness.sh`, `.github/hooks/`, `.pi/extensions/`, `.codex/hooks/` — auto-runs `update-factory` when `.agent-factory/factory/` is stale | No       |
-| Usage capture hooks  | `.claude/hooks/capture-usage.sh` (Stop/SubagentStop), `.github/hooks/capture-*.sh`, `.pi/extensions/capture-usage.ts`, `.codex/hooks/capture-codex-usage.sh`          | No       |
-| Orientation file     | `.claude/CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — prepends a marker block if the file exists                                                      | No       |
-| Generated agents     | `.github/agents/*.md` (Copilot, with tools: frontmatter), `.codex/agents/*.toml` (Codex, native format)                                                               | No       |
-| Hook config          | `.claude/settings.json` (hook entries), `.codex/hooks.json` (hook entries)                                                                                            | No       |
-| Pre-commit hooks     | `.pre-commit-config.yaml` — `agent_factory_hook-*` block                                                                                                              | Yes      |
-| Gitignore block      | `.gitignore` — `agent_factory related` section                                                                                                                        | Yes      |
-| Project config       | `.agent-factory/config/project.json` (name + UUID), `.agent-factory/config/project-context.json` (scan results)                                                       | No       |
-| Test regime          | `docs/testing.yaml` — `test_command` if a single unambiguous entrypoint is detected                                                                                   | No       |
-| Usage runtime        | `.agent-factory/usage/runtime/` — hash-verified tokenizer venv                                                                                                        | No       |
-| Usage lifecycle      | `.agent-factory/usage/control/` — registration fence and capture state                                                                                                | No       |
-| Install manifest     | `.agent-factory/install.json`                                                                                                                                         | No       |
-| Install checksums    | `.agent-factory/checksums.json` — per-file SHA-256 for modification detection by `update-factory`                                                                     | No       |
-
-Re-running is safe. If `.agent-factory/factory/` exists, it is left alone — use `.agent-factory/factory/scripts/update-factory` instead.
+[Files that init-factory creates](docs/handbook/reference/local-configuration.md) lists every file and folder the setup writes, with the install manifest, the checksums, and the usage control paths.
 
 ### Test execution
 
-Tests run through gates, not agents:
-
-1. **Pre-commit** — changed files only (`--no-verify` to bypass)
-2. **Pre-push** — full suite (`git push --no-verify` to bypass)
-3. **Phase advance** — entry conditions check `tests_pass`
-
-Projects declare test commands in `docs/testing.yaml`:
-
-- `test_command` — full suite (gates, feature merge); agents cannot run it
-- `test_staged_command` — staged files; agents cannot run it
-- `test_changed_command` — the tests of the changed files; a story merge
-  appends the changed paths (falls back to `test_command`); agents may run
-  it with their changed paths
-
-See [ADR-0003](../../docs/adr/0003-test-execution-via-hooks.md).
+[Gate scripts](docs/handbook/quality-and-review/gate-scripts.md#test-execution) describes when tests run and the test commands of `docs/testing.yaml`.

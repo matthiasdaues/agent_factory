@@ -2507,3 +2507,59 @@ def test_st_0402_update_adds_the_pi_guard_extension_to_an_earlier_install(tmp_pa
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert (target / ".pi" / "extensions" / "guard-human-fields.ts").is_symlink()
+
+
+# ---------------------------------------------------------------------------
+# FH-04-IT-01: the installed handbook equals the user handbook of the source
+# ---------------------------------------------------------------------------
+
+
+def _files(root: Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def _install_previous_release(tmp_path: Path, target: Path) -> None:
+    """Install a previous release: the guide, and no user handbook."""
+    from test_init_factory import run_init, stage_source
+
+    previous = stage_source(tmp_path / "previous", "1.16.1")
+    docs = previous / "packages" / "factory" / "docs"
+    shutil.rmtree(docs / "handbook")
+    (docs / ("factory" + "-guide.md")).write_text("# Factory Guide\n", encoding="utf-8")
+    first = run_init(previous, target, "--cli", "claude", "--project-name", "demo")
+    assert first.returncode == 0, first.stderr
+    assert (target / ".agent-factory" / "factory" / "docs" / ("factory" + "-guide.md")).is_file()
+
+
+@pytest.mark.spec("FH-04-IT-01")
+@pytest.mark.parametrize("command", ["init-factory", "update-factory"])
+def test_st_0454_fh_04_01_installed_handbook_equals_the_source(tmp_path, command):
+    from test_init_factory import run_init, stage_source
+
+    target = tmp_path / "project"
+    target.mkdir()
+    subprocess.run(["git", "init", "-q", str(target)], check=True)
+    source = stage_source(tmp_path / "source", "1.17.0")
+    if command == "init-factory":
+        result = run_init(source, target, "--cli", "claude", "--project-name", "demo")
+    else:
+        _install_previous_release(tmp_path, target)
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+                "--target", str(target), "--source", str(source),
+            ],
+            input="yes\n", capture_output=True, text=True, env=env, check=False,
+        )
+
+    assert result.returncode == 0, result.stderr
+    installed = target / ".agent-factory" / "factory" / "docs"
+    user = _files(REPO_ROOT / "packages" / "factory" / "docs" / "handbook")
+    assert _files(installed / "handbook") == user
+    assert not (installed / ("factory" + "-guide.md")).exists()
+    contributor_only = set(_files(REPO_ROOT / "docs" / "handbook")) - set(user)
+    assert contributor_only
+    assert not contributor_only & set(_files(installed / "handbook"))
+    assert not (target / "docs" / "handbook").exists()

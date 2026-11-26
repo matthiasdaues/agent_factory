@@ -22,11 +22,16 @@ This documentation derives from the specification in [`spec/`](spec/work/prd.md)
 - [`assets/images/`](assets/images/) — exported diagrams (derived artifacts).
 - [`adr/`](adr/) — Architecture Decision Records (Nygard format + Pugh Matrix where genuine alternatives existed).
 
+## Handbook pages
+
+- [How the factory works](../packages/factory/docs/handbook/concepts/how-the-factory-works.md) — the phase chain and the key ideas, in the user handbook.
+- [Repository layout](handbook/architecture/repository-layout.md) — the directory tree of this repository, in the contributor handbook.
+
 ## Referenced from
 
 - [Agent Factory README](../README.md) (repo root)
 - [docs/spec/prd.md § Referenced from](spec/work/prd.md#referenced-from)
-- [docs/arc42/concepts.md § The phase chain](arc42/concepts.md#the-phase-chain)
+- [How the factory works § The phase chain](../packages/factory/docs/handbook/concepts/how-the-factory-works.md#the-phase-chain)
 
 ## See also
 

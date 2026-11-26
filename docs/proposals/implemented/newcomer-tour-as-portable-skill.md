@@ -254,7 +254,7 @@ VIRGIL.
 a redirect stub pointing to the new canonical location:
 
 > This content has moved to
-> [`factory/docs/factory-guide.md` § Getting Started](../../../.agent-factory/factory/docs/factory-guide.md).
+> [`factory/docs/factory-guide.md` § Getting Started](../../../packages/factory/docs/handbook/index.md).
 
 This preserves existing links from `README.md` (root),
 `docs/arc42/concepts.md`, proposals, and backlog items without

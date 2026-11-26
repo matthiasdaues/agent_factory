@@ -176,9 +176,10 @@ def compose_prompt(agent_path: Path) -> str:
 #   - test runner: `uv run pytest`, per orchestrator/pyproject.toml's
 #     [tool.pytest.ini_options] and this session's own established
 #     invocation. No pytest/npm/go/cargo default beyond that — the factory
-#     itself is test-runner-agnostic (factory-guide.md § Linting and
-#     gating), so a target project's own test command isn't something
-#     this factory-level default can honestly hardcode.
+#     itself is test-runner-agnostic (user handbook,
+#     quality-and-review/gates.md), so a target project's own test
+#     command isn't something this factory-level default can honestly
+#     hardcode.
 #
 # The DENY list mirrors .agent-factory/factory/config/hooks/block-dangerous-git.sh's own
 # DANGEROUS_PATTERNS exactly — a second, independent layer on top of that

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changes that need action
+
+- **The factory guide moved into the user handbook.** `update-factory`
+  deletes `.agent-factory/factory/docs/factory-guide.md`. Its sections now
+  sit on the pages of `.agent-factory/factory/docs/handbook/`, and
+  `.agent-factory/factory/docs/handbook/index.md` lists the chapters. A
+  link from your own documents to the old guide breaks after the update.
+  Point it to the handbook page that now holds its section.
+
 ## 1.16.0 — 2026-11-25
 
 This release adds the `quiz` skill and aligns the playbooks with the current
