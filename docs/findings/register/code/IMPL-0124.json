@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0124",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_handbook_index.py:198-337",
+  "story": "ST-0452",
+  "finding": "The three changed test files omit the FH-CT-NN spec markers required by the handbook QA strategy. Integration tests carry their own IDs. Add the contract case IDs to the index, lint, and pre-commit tests so reviewers can map each case to the QA strategy.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The assertions still run (no to fails_purpose). Reviewers must match the contract cases to the assertions by hand.",
+  "commit": "b3636e992233482d9ddc787ee53d1348f8398ed7",
+  "status": "open"
+}
