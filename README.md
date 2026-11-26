@@ -56,12 +56,15 @@ For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full invento
 To work on Agent Factory itself, clone the repo and run init-factory against it:
 
 ```bash
-git clone <agent-factory-repo-url> agent_factory
+REPO_URL='paste the clone URL here'
+git clone "$REPO_URL" agent_factory
 cd agent_factory
 ./init-factory .
 ```
 
 This installs a local `.agent-factory/factory/` copy (gitignored) so the repo uses its own tooling. Product source lives under `packages/` — the installed `.agent-factory/factory/` is the tool, `packages/factory/` is the code you edit. Run `.agent-factory/factory/scripts/update-factory` after changes to refresh the installed copy.
+
+The [contributor tutorial](docs/handbook/getting-started/from-clone-to-a-passing-test-run.md) walks through these steps to a passing test run. The [contributor handbook](docs/handbook/index.md) holds the other chapters.
 
 ## Products
 
