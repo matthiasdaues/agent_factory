@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0180",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/docs/handbook/reference/local-configuration.md:31-34",
+  "story": "ST-0454",
+  "finding": "The two orientation rows promise that setup leaves an existing symlink untouched. In packages/factory/scripts/init-factory:1355, setup can retarget a recognized Factory orientation link to the current destination. A scratch Codex run retargeted AGENTS.md from config/AGENTS.codex.md to config/AGENTS.md. Limit the promise to external symlinks and mention that setup can retarget a Factory orientation link.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Both rows give the correct Git visibility for existing orientation symlinks (no to fails_purpose). A maintainer tracing a changed link target must consult the installer to explain it.",
+  "commit": "864a1bd70c1e1681ab088953b3a4c3b30c7e1df5",
+  "status": "open"
+}
