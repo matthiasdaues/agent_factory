@@ -22,7 +22,9 @@ rf = load_script("remove-factory")
 
 TEMPLATE = REPO_ROOT / "packages" / "factory" / "config" / "pre-commit-config.yaml"
 REPO_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
-GUIDE = REPO_ROOT / "packages" / "factory" / "docs" / "factory-guide.md"
+HOOKS_PAGE = (
+    REPO_ROOT / "packages" / "factory" / "docs" / "handbook" / "quality-and-review" / "pre-commit-hooks.md"
+)
 
 def _factory_entries(path: Path) -> list[tuple[str, str]]:
     """(hook id, entry) for every agent_factory_hook-* hook in `path`,
@@ -101,8 +103,8 @@ def test_repo_config_factory_block_matches_template():
     assert _factory_entries(REPO_CONFIG) == TEMPLATE_ENTRIES
 
 
-def test_guide_documents_the_key():
-    text = GUIDE.read_text(encoding="utf-8")
+def test_handbook_documents_the_key():
+    text = HOOKS_PAGE.read_text(encoding="utf-8")
     assert "agent-factory.installed" in text
     assert "[ -d \"$AF\" ] || exit 0" not in text
 
