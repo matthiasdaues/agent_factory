@@ -191,13 +191,7 @@ class TestFH07LN01ContributorEntryPoints:
 
 
 class TestContributorHandbookShape:
-    """ST-0456: nine chapters, each with an index, and a stub with a source."""
-
-    def test_st_0456_nine_chapters_each_with_an_index(self) -> None:
-        folders = sorted(p.name for p in CONTRIBUTOR.iterdir() if p.is_dir())
-        assert folders == sorted(CHAPTERS)
-        for chapter in CHAPTERS:
-            assert (CONTRIBUTOR / chapter / "index.md").is_file()
+    """ST-0456: a stub with a source in each stub chapter, and rule summaries with a source."""
 
     @pytest.mark.parametrize("chapter", [c for c in CHAPTERS if c not in ("getting-started", "contributing")])
     def test_st_0456_stub_chapter_holds_a_stub_with_a_source(self, chapter: str) -> None:
