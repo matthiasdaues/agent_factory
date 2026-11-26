@@ -125,7 +125,8 @@ rulebooks (DEC-02). Each audience gets its own handbook (DEC-04).
   that does not exist yet stays a stub.
 - Each binding rule has one home: `rules.md` and the rulebooks. A handbook page
   links to the rule and repeats it only in a `Rule summary:` callout (DEC-02).
-- Rationale lives in ADRs. A handbook page links to the ADR.
+- Rationale lives in ADRs. A contributor handbook page links to the ADR, and a
+  user handbook page names it without a link (PROP-07).
 - Every page reads correctly as plain Markdown, in a terminal and in an agent's
   context. No page depends on a renderer (DEC-01).
 - A page earns its place when a person joining tomorrow would be confused
